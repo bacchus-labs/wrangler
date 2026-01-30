@@ -35,7 +35,11 @@
     "unitTestCommand": {
       "type": "string",
       "description": "Command to run unit tests only (used in pre-commit, faster than full suite)",
-      "examples": ["npm run test:unit", "pytest tests/unit", "go test -short ./..."]
+      "examples": [
+        "npm run test:unit",
+        "pytest tests/unit",
+        "go test -short ./..."
+      ]
     },
     "formatCommand": {
       "type": "string",
@@ -66,7 +70,15 @@
       "items": {
         "type": "string"
       },
-      "default": ["*.md", "*.txt", "*.rst", "docs/*", "README*", "LICENSE*", "CHANGELOG*"],
+      "default": [
+        "*.md",
+        "*.txt",
+        "*.rst",
+        "docs/*",
+        "README*",
+        "LICENSE*",
+        "CHANGELOG*"
+      ],
       "description": "File patterns considered as documentation (for docs-only detection)"
     },
     "enableCommitMsgValidation": {
@@ -94,11 +106,19 @@
     "bypassEnvVar": {
       "type": "string",
       "default": "WRANGLER_SKIP_HOOKS",
-      "description": "Environment variable name to bypass hooks (value must be '1' or 'true')"
+      "description": "Environment variable name to bypass hooks (value must be '1' or 'true').  ONLY HUMANS MAY USE THIS!!!!"
     },
     "projectType": {
       "type": "string",
-      "enum": ["javascript", "typescript", "python", "go", "rust", "java", "other"],
+      "enum": [
+        "javascript",
+        "typescript",
+        "python",
+        "go",
+        "rust",
+        "java",
+        "other"
+      ],
       "description": "Project language/framework type (used for smart defaults)"
     },
     "pattern": {

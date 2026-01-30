@@ -37,6 +37,8 @@ log_warn() {
 
 # =============================================================================
 # Bypass mechanism - allows users to skip hooks when needed
+# THIS IS ONLY FOR HUMANS!!!!  AGENTS WHO GET CAUGHT USING IT WITHOUT EXPLICIT
+# PERMISSION WILL BE SUBJECT TO CORPOREAL PUNISHMENT!!!!
 # =============================================================================
 if [ -n "$BYPASS_ENV_VAR" ]; then
     log_warn "WRANGLER_SKIP_HOOKS is set - bypassing commit-msg validation"
@@ -156,8 +158,6 @@ if ! echo "$FIRST_LINE_CLEAN" | grep -qE "$COMMIT_MSG_PATTERN"; then
     log_error "  docs: update installation instructions"
     log_error "  test(utils): add unit tests for date formatter"
     log_error ""
-    log_error "To bypass (use sparingly):"
-    log_error "  WRANGLER_SKIP_HOOKS=1 git commit -m 'message'"
     exit 1
 fi
 

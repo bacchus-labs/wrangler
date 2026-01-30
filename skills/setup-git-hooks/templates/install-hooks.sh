@@ -173,7 +173,4 @@ fi
 
 log_success "Git hooks are now active"
 echo ""
-echo "To bypass hooks temporarily (e.g., TDD RED phase):"
-echo "  WRANGLER_SKIP_HOOKS=1 git commit -m 'message'"
-echo ""
 echo "To update hooks, edit files in $HOOKS_SOURCE_DIR/ and re-run this script."
