@@ -1,20 +1,22 @@
 ---
-id: "000027"
-title: "Task 1: Create implement skill foundation with scope parser"
-type: "issue"
-status: "open"
-priority: "high"
-labels: ["implementation", "plan-step", "documentation"]
-assignee: "claude-code"
-project: "implement-skill-unification"
-createdAt: "2025-11-21T00:00:00.000Z"
-updatedAt: "2025-11-21T00:00:00.000Z"
+id: '000027'
+title: 'Task 1: Create implement skill foundation with scope parser'
+type: issue
+status: closed
+priority: high
+labels:
+  - implementation
+  - plan-step
+  - documentation
+createdAt: '2025-11-21T00:00:00.000Z'
+updatedAt: '2026-02-02T21:54:14.634Z'
+assignee: claude-code
+project: implement-skill-unification
 wranglerContext:
-  agentId: "implementation-agent"
-  parentTaskId: ""
-  estimatedEffort: "20 minutes"
+  agentId: implementation-agent
+  parentTaskId: ''
+  estimatedEffort: 20 minutes
 ---
-
 ## Description
 
 Create the core skill file `skills/implement/SKILL.md` with frontmatter, overview, and scope parsing documentation.

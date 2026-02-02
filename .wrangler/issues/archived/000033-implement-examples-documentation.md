@@ -1,20 +1,22 @@
 ---
-id: "000033"
-title: "Task 7: Add examples and documentation to implement skill"
-type: "issue"
-status: "open"
-priority: "medium"
-labels: ["implementation", "plan-step", "documentation"]
-assignee: "claude-code"
-project: "implement-skill-unification"
-createdAt: "2025-11-21T00:00:00.000Z"
-updatedAt: "2025-11-21T00:00:00.000Z"
+id: '000033'
+title: 'Task 7: Add examples and documentation to implement skill'
+type: issue
+status: closed
+priority: medium
+labels:
+  - implementation
+  - plan-step
+  - documentation
+createdAt: '2025-11-21T00:00:00.000Z'
+updatedAt: '2026-02-02T21:54:17.485Z'
+assignee: claude-code
+project: implement-skill-unification
 wranglerContext:
-  agentId: "implementation-agent"
-  parentTaskId: "000032"
-  estimatedEffort: "30 minutes"
+  agentId: implementation-agent
+  parentTaskId: '000032'
+  estimatedEffort: 30 minutes
 ---
-
 ## Description
 
 Add comprehensive examples, red flags, and integration notes to the implement skill. This makes the skill easier to understand and follow by providing concrete scenarios and anti-patterns to avoid.

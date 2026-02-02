@@ -1,20 +1,22 @@
 ---
-id: "000032"
-title: "Task 6: Create /wrangler:implement slash command"
-type: "issue"
-status: "open"
-priority: "high"
-labels: ["implementation", "plan-step", "slash-command"]
-assignee: "claude-code"
-project: "implement-skill-unification"
-createdAt: "2025-11-21T00:00:00.000Z"
-updatedAt: "2025-11-21T00:00:00.000Z"
+id: '000032'
+title: 'Task 6: Create /wrangler:implement slash command'
+type: issue
+status: closed
+priority: high
+labels:
+  - implementation
+  - plan-step
+  - slash-command
+createdAt: '2025-11-21T00:00:00.000Z'
+updatedAt: '2026-02-02T21:54:16.961Z'
+assignee: claude-code
+project: implement-skill-unification
 wranglerContext:
-  agentId: "implementation-agent"
-  parentTaskId: "000031"
-  estimatedEffort: "15 minutes"
+  agentId: implementation-agent
+  parentTaskId: '000031'
+  estimatedEffort: 15 minutes
 ---
-
 ## Description
 
 Create the `/wrangler:implement` slash command that serves as the entry point for the implement skill. This command parses the user's input, extracts scope, and loads the implement skill.

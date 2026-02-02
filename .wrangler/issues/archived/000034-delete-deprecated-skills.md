@@ -1,20 +1,24 @@
 ---
-id: "000034"
-title: "Task 8: Delete deprecated executing-plans and subagent-driven-development skills"
-type: "issue"
-status: "open"
-priority: "high"
-labels: ["implementation", "plan-step", "cleanup"]
-assignee: "claude-code"
-project: "implement-skill-unification"
-createdAt: "2025-11-21T00:00:00.000Z"
-updatedAt: "2025-11-21T00:00:00.000Z"
+id: '000034'
+title: >-
+  Task 8: Delete deprecated executing-plans and subagent-driven-development
+  skills
+type: issue
+status: closed
+priority: high
+labels:
+  - implementation
+  - plan-step
+  - cleanup
+createdAt: '2025-11-21T00:00:00.000Z'
+updatedAt: '2026-02-02T21:54:17.811Z'
+assignee: claude-code
+project: implement-skill-unification
 wranglerContext:
-  agentId: "implementation-agent"
-  parentTaskId: "000033"
-  estimatedEffort: "10 minutes"
+  agentId: implementation-agent
+  parentTaskId: '000033'
+  estimatedEffort: 10 minutes
 ---
-
 ## Description
 
 Delete the now-deprecated `executing-plans` and `subagent-driven-development` skills that are replaced by the unified `implement` skill.
