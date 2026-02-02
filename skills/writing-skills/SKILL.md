@@ -17,7 +17,7 @@ You write test cases (pressure scenarios with subagents), watch them fail (basel
 
 **REQUIRED BACKGROUND:** You MUST understand wrangler:test-driven-development before using this skill. That skill defines the fundamental RED-GREEN-REFACTOR cycle. This skill adapts TDD to documentation.
 
-**Official guidance:** For Anthropic's official skill authoring best practices, see references/anthropic-best-practices.md.
+**Official guidance:** For Anthropic's official skill authoring resources, see references/anthropic-resources.md for links to live documentation maintained by Anthropic.
 
 ## What is a Skill?
 
@@ -55,11 +55,18 @@ The entire skill creation process follows RED-GREEN-REFACTOR.
 
 ```
 skills/skill-name/
-  SKILL.md              # Required
-  supporting-file.*     # Only for heavy reference (100+ lines) or reusable tools
+├── SKILL.md              # Required: Main skill content
+├── templates/            # Optional: Template files for the skill
+├── scripts/              # Optional: Executable scripts
+├── references/           # Optional: Heavy reference material (100+ lines)
+└── assets/               # Optional: Diagrams, config files, images
 ```
 
-Flat namespace. Keep principles and small code patterns (<50 lines) inline.
+**Key principles:**
+- Flat namespace (no nested skill directories)
+- Keep principles and small code patterns (<50 lines) inline in SKILL.md
+- Use subdirectories only when content is too large for inline inclusion
+- Reference files should be loaded progressively, not automatically
 
 ## SKILL.md Structure
 
@@ -134,9 +141,44 @@ One excellent example beats many mediocre ones. Choose relevant language (testin
 
 ## File Organization
 
-- **Self-contained:** Everything in SKILL.md
-- **With tool:** SKILL.md + example.ts (reusable code)
-- **Heavy reference:** SKILL.md + separate docs for large references (600+ lines)
+Choose your organization strategy based on skill complexity and token efficiency:
+
+### Self-Contained (Recommended Default)
+**When to use**: Simple skills, <200 lines, no heavy reference material
+**Structure**: Everything in SKILL.md
+**Benefits**: Single file to load, fastest discovery, no progressive disclosure overhead
+
+### Progressive Disclosure
+**When to use**: Skills >300 lines, complex workflows, heavy reference docs
+**Structure**: SKILL.md + references/ or templates/ subdirectories
+**Benefits**: Keep frequently-needed content in SKILL.md, defer rarely-needed details
+
+### With Executable Tools
+**When to use**: Skill provides reusable code/scripts
+**Structure**: SKILL.md + scripts/ or templates/ for executable content
+**Benefits**: Code can be directly used, not just read
+
+### Decision Criteria
+
+**Stay self-contained when**:
+- Total content <200 lines
+- All content is frequently needed
+- No distinct "reference" vs "guidance" split
+
+**Use progressive disclosure when**:
+- SKILL.md would exceed 300 lines
+- Skill has multiple distinct aspects (e.g., overview + API reference + examples)
+- Reference material is heavy but rarely needed (API docs, lookup tables)
+- Some content is "getting started" vs "advanced usage"
+
+**Token efficiency considerations**:
+- Only frequently-loaded content "costs" tokens in practice
+- SKILL.md loads when skill is invoked
+- Additional files load only when explicitly referenced
+- Heavy reference material (>100 lines) should be in references/
+- Templates should be in templates/, not inline
+
+**See**: https://code.claude.com/docs/en/skills for comprehensive guidance on progressive disclosure patterns
 
 ## The Iron Law (Same as TDD)
 
