@@ -28,17 +28,20 @@
 
 ### Prerequisites
 
-- Node.js 16+ and npm
+- Bash 4.0+
 - Git
 - GitHub CLI (`gh`) installed and authenticated
-- TypeScript compiler
+- `jq` command-line JSON processor
 
 ### Setup
 
+All scripts are self-contained Bash scripts. No build step required.
+
 ```bash
 cd skills/implement-spec-v2
-npm install
-npm run build
+
+# Make scripts executable (already done in repo)
+chmod +x scripts/*.sh scripts/utils/*.sh
 ```
 
 ### Verify Installation
@@ -47,8 +50,11 @@ npm run build
 # Check gh CLI is authenticated
 gh auth status
 
+# Check jq is installed
+jq --version
+
 # Test script execution
-ts-node scripts/analyze-spec.ts --help
+./scripts/analyze-spec.sh --help
 ```
 
 ## Quick Start
@@ -80,7 +86,7 @@ All progress is visible in the GitHub PR description, which updates through each
 
 **Actions:**
 ```bash
-ts-node scripts/analyze-spec.ts .wrangler/specifications/SPEC-000042.md session-123 > analysis.json
+./scripts/analyze-spec.sh .wrangler/specifications/SPEC-000042.md session-123 > analysis.json
 ```
 
 **Outputs:**
@@ -100,7 +106,7 @@ ts-node scripts/analyze-spec.ts .wrangler/specifications/SPEC-000042.md session-
 ```bash
 git checkout -b feature/spec-000042-implementation
 
-ts-node scripts/generate-pr-description.ts planning templates/ analysis.json > planning.md
+./scripts/generate-pr-description.sh planning templates/ analysis.json > planning.md
 
 gh pr create \
   --title "feat: implement SPEC-000042" \
@@ -130,9 +136,9 @@ gh pr create \
 
 ```bash
 # After milestone completion
-ts-node scripts/generate-pr-description.ts execution templates/ analysis.json tasks.json > execution.md
+./scripts/generate-pr-description.sh execution templates/ analysis.json tasks.json > execution.md
 
-ts-node scripts/update-pr-description.ts 123 execution.md update-sections
+./scripts/update-pr-description.sh 123 execution.md update-sections
 ```
 
 **Outputs:**
@@ -153,15 +159,15 @@ ts-node scripts/update-pr-description.ts 123 execution.md update-sections
 **Actions:**
 ```bash
 # Audit compliance
-ts-node scripts/audit-spec-compliance.ts analysis.json tasks.json > compliance.json
+./scripts/audit-spec-compliance.sh analysis.json tasks.json > compliance.json
 
 # Verify compliance = 100%
 # If < 100%, return to EXECUTE phase
 
 # Update PR with verification status
-ts-node scripts/generate-pr-description.ts verification templates/ analysis.json > verification.md
+./scripts/generate-pr-description.sh verification templates/ analysis.json > verification.md
 
-ts-node scripts/update-pr-description.ts 123 verification.md update-sections
+./scripts/update-pr-description.sh 123 verification.md update-sections
 ```
 
 **Quality Gates:**
@@ -181,9 +187,9 @@ ts-node scripts/update-pr-description.ts 123 verification.md update-sections
 **Actions:**
 ```bash
 # Generate completion summary
-ts-node scripts/generate-pr-description.ts complete templates/ analysis.json > complete.md
+./scripts/generate-pr-description.sh complete templates/ analysis.json > complete.md
 
-ts-node scripts/update-pr-description.ts 123 complete.md update-sections
+./scripts/update-pr-description.sh 123 complete.md update-sections
 
 # Mark PR as ready
 gh pr ready 123
@@ -203,18 +209,18 @@ gh pr edit 123 --add-reviewer reviewer-username
 
 ## Scripts
 
-### analyze-spec.ts
+### analyze-spec.sh
 
 **Purpose:** Extract acceptance criteria from specification file.
 
 **Usage:**
 ```bash
-ts-node scripts/analyze-spec.ts <specFile> <sessionId> [--output analysis.json]
+./scripts/analyze-spec.sh <specFile> <sessionId> [--output analysis.json]
 ```
 
 **Example:**
 ```bash
-ts-node scripts/analyze-spec.ts .wrangler/specifications/SPEC-000042.md session-123 > analysis.json
+./scripts/analyze-spec.sh .wrangler/specifications/SPEC-000042.md session-123 > analysis.json
 ```
 
 **Output Format:**
@@ -242,13 +248,13 @@ ts-node scripts/analyze-spec.ts .wrangler/specifications/SPEC-000042.md session-
 
 ---
 
-### generate-pr-description.ts
+### generate-pr-description.sh
 
 **Purpose:** Generate PR description from template and analysis data.
 
 **Usage:**
 ```bash
-ts-node scripts/generate-pr-description.ts <phase> <templatesDir> <analysisPath> [--tasks tasksPath] [--compliance compliancePath]
+./scripts/generate-pr-description.sh <phase> <templatesDir> <analysisPath> [--tasks tasksPath] [--compliance compliancePath]
 ```
 
 **Phases:**
@@ -259,23 +265,23 @@ ts-node scripts/generate-pr-description.ts <phase> <templatesDir> <analysisPath>
 
 **Example:**
 ```bash
-ts-node scripts/generate-pr-description.ts planning templates/ analysis.json > planning.md
+./scripts/generate-pr-description.sh planning templates/ analysis.json > planning.md
 ```
 
 ---
 
-### audit-spec-compliance.ts
+### audit-spec-compliance.sh
 
 **Purpose:** Calculate spec compliance percentage and generate recommendations.
 
 **Usage:**
 ```bash
-ts-node scripts/audit-spec-compliance.ts <analysisPath> <tasksPath> [--output compliance.json]
+./scripts/audit-spec-compliance.sh <analysisPath> <tasksPath> [--output compliance.json]
 ```
 
 **Example:**
 ```bash
-ts-node scripts/audit-spec-compliance.ts analysis.json tasks.json > compliance.json
+./scripts/audit-spec-compliance.sh analysis.json tasks.json > compliance.json
 ```
 
 **Output Format:**
@@ -293,13 +299,13 @@ ts-node scripts/audit-spec-compliance.ts analysis.json tasks.json > compliance.j
 
 ---
 
-### update-pr-description.ts
+### update-pr-description.sh
 
 **Purpose:** Update GitHub PR description via gh CLI.
 
 **Usage:**
 ```bash
-ts-node scripts/update-pr-description.ts <prNumber> <newDescriptionPath> [strategy] [--dry-run]
+./scripts/update-pr-description.sh <prNumber> <newDescriptionPath> [strategy] [--dry-run]
 ```
 
 **Merge Strategies:**
@@ -309,19 +315,19 @@ ts-node scripts/update-pr-description.ts <prNumber> <newDescriptionPath> [strate
 
 **Example:**
 ```bash
-ts-node scripts/update-pr-description.ts 123 execution.md update-sections
+./scripts/update-pr-description.sh 123 execution.md update-sections
 
 # Dry run (preview without updating)
-ts-node scripts/update-pr-description.ts 123 execution.md update-sections --dry-run
+./scripts/update-pr-description.sh 123 execution.md update-sections --dry-run
 ```
 
 ---
 
 ## Templates
 
-All templates use Handlebars syntax and are located in `templates/` directory.
+All templates use simple `{{VARIABLE}}` placeholder syntax and are located in `templates/` directory.
 
-### planning.hbs
+### planning.md
 
 **Purpose:** Initial planning phase description.
 
@@ -341,7 +347,7 @@ All templates use Handlebars syntax and are located in `templates/` directory.
 
 ---
 
-### execution.hbs
+### execution.md
 
 **Purpose:** Progress tracking during implementation.
 
@@ -358,7 +364,7 @@ All templates use Handlebars syntax and are located in `templates/` directory.
 
 ---
 
-### verification.hbs
+### verification.md
 
 **Purpose:** Quality gates and verification status.
 
@@ -374,7 +380,7 @@ All templates use Handlebars syntax and are located in `templates/` directory.
 
 ---
 
-### complete.hbs
+### complete.md
 
 **Purpose:** Final summary when implementation complete.
 
@@ -428,16 +434,16 @@ npm test
 
 ```bash
 # Unit tests
-npm test -- analyze-spec.test.ts
-npm test -- audit-spec-compliance.test.ts
-npm test -- generate-pr-description.test.ts
-npm test -- update-pr-description.test.ts
+npm test -- analyze-spec.test.sh
+npm test -- audit-spec-compliance.test.sh
+npm test -- generate-pr-description.test.sh
+npm test -- update-pr-description.test.sh
 
 # Integration tests
-npm test -- integration.test.ts
+npm test -- integration.test.sh
 
 # E2E tests
-npm test -- e2e.test.ts
+npm test -- e2e.test.sh
 ```
 
 ### Test Coverage
@@ -474,14 +480,14 @@ npm test -- --coverage
    gh pr create --title "feat: ..." --body "..." --draft
 
    # Generate analysis
-   ts-node scripts/analyze-spec.ts .wrangler/specifications/SPEC-XXX.md session-id > analysis.json
+   ./scripts/analyze-spec.sh .wrangler/specifications/SPEC-XXX.md session-id > analysis.json
 
    # Audit current state
-   ts-node scripts/audit-spec-compliance.ts analysis.json tasks.json > compliance.json
+   ./scripts/audit-spec-compliance.sh analysis.json tasks.json > compliance.json
 
    # Update PR with current status
-   ts-node scripts/generate-pr-description.ts execution templates/ analysis.json tasks.json > execution.md
-   ts-node scripts/update-pr-description.ts <prNumber> execution.md
+   ./scripts/generate-pr-description.sh execution templates/ analysis.json tasks.json > execution.md
+   ./scripts/update-pr-description.sh <prNumber> execution.md
    ```
 
 2. **Resume at appropriate phase:**
@@ -524,7 +530,7 @@ npm test -- --coverage
 
 ### Template Not Found
 
-**Error:** `Template file not found: templates/phase.hbs`
+**Error:** `Template file not found: templates/phase.md`
 
 **Solution:**
 - Verify templates directory path
@@ -533,12 +539,12 @@ npm test -- --coverage
 
 ### Script Execution Errors
 
-**Error:** `Cannot find module` or `SyntaxError`
+**Error:** Script execution fails
 
 **Solution:**
-- Install dependencies: `npm install`
-- Build TypeScript: `npm run build`
-- Use ts-node for direct execution: `ts-node scripts/script-name.ts`
+- Ensure scripts are executable: `chmod +x scripts/*.sh`
+- Check Bash version: `bash --version` (requires 4.0+)
+- Verify jq is installed: `jq --version`
 
 ---
 
@@ -548,28 +554,28 @@ npm test -- --coverage
 
 ```bash
 # ANALYZE
-ts-node scripts/analyze-spec.ts .wrangler/specifications/SPEC-000042.md session-123 > analysis.json
+./scripts/analyze-spec.sh .wrangler/specifications/SPEC-000042.md session-123 > analysis.json
 
 # PLAN
 git checkout -b feature/spec-000042-api
-ts-node scripts/generate-pr-description.ts planning templates/ analysis.json > planning.md
+./scripts/generate-pr-description.sh planning templates/ analysis.json > planning.md
 gh pr create --title "feat: implement API endpoints" --body "$(cat planning.md)" --draft
 
 # EXECUTE
 # ... implement features with TDD ...
 echo '[{"id":"ISS-001","title":"Add API route","status":"closed"}]' > tasks.json
-ts-node scripts/generate-pr-description.ts execution templates/ analysis.json tasks.json > execution.md
-ts-node scripts/update-pr-description.ts 123 execution.md
+./scripts/generate-pr-description.sh execution templates/ analysis.json tasks.json > execution.md
+./scripts/update-pr-description.sh 123 execution.md
 
 # VERIFY
-ts-node scripts/audit-spec-compliance.ts analysis.json tasks.json > compliance.json
+./scripts/audit-spec-compliance.sh analysis.json tasks.json > compliance.json
 # Verify compliance.json shows 100%
-ts-node scripts/generate-pr-description.ts verification templates/ analysis.json > verification.md
-ts-node scripts/update-pr-description.ts 123 verification.md
+./scripts/generate-pr-description.sh verification templates/ analysis.json > verification.md
+./scripts/update-pr-description.sh 123 verification.md
 
 # PUBLISH
-ts-node scripts/generate-pr-description.ts complete templates/ analysis.json > complete.md
-ts-node scripts/update-pr-description.ts 123 complete.md
+./scripts/generate-pr-description.sh complete templates/ analysis.json > complete.md
+./scripts/update-pr-description.sh 123 complete.md
 gh pr ready 123
 ```
 
@@ -595,7 +601,7 @@ Same as Example 1, but VERIFY phase includes:
 ### Adding New Templates
 
 1. Create template in `templates/` directory
-2. Use Handlebars syntax
+2. Use simple {{VARIABLE}} placeholders
 3. Follow existing template structure
 4. Test with generate-pr-description script
 5. Document template variables
@@ -608,7 +614,7 @@ Same as Example 1, but VERIFY phase includes:
 
 **Documentation:** See `SKILL.md` for detailed workflow documentation
 
-**Examples:** See `__tests__/e2e.test.ts` for complete workflow examples
+**Examples:** See `__tests__/e2e.test.sh` for complete workflow examples
 
 ---
 

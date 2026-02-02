@@ -16,7 +16,8 @@ Implements specifications using a five-phase GitHub-centric workflow with mandat
 - Specification file exists in `.wrangler/specifications/`
 - `gh` CLI installed and authenticated
 - Git worktree configured (if using worktree pattern)
-- Node.js and npm installed (for scripts)
+- Bash 4.0+ (for scripts)
+- `jq` command-line JSON processor
 
 ## Workflow
 
@@ -27,7 +28,7 @@ Implements specifications using a five-phase GitHub-centric workflow with mandat
 **Actions:**
 1. Run analyze-spec script:
    ```bash
-   ts-node scripts/analyze-spec.ts <specFile> <sessionId>
+   ./scripts/analyze-spec.sh <specFile>
    ```
 2. Review extracted acceptance criteria
 3. Verify E2E test requirements identified
@@ -53,13 +54,17 @@ Implements specifications using a five-phase GitHub-centric workflow with mandat
    git checkout -b feature/<spec-id>-<slug>
    ```
 
-2. Generate planning PR description:
+2. Use orchestrator to handle planning and PR creation:
    ```bash
-   ts-node scripts/generate-pr-description.ts planning templates/ analysis.json > planning.md
+   ./scripts/orchestrator.sh <specFile>
    ```
 
-3. Create GitHub PR:
+   Or manually:
    ```bash
+   # Generate planning PR description
+   ./scripts/generate-pr-description.sh planning <specFile> <data-json> > planning.md
+
+   # Create GitHub PR
    gh pr create \
      --title "feat: <spec-title>" \
      --body "$(cat planning.md)" \
@@ -67,7 +72,7 @@ Implements specifications using a five-phase GitHub-centric workflow with mandat
      --draft
    ```
 
-4. Record PR number in session
+3. Record PR number in session
 
 **Outputs:**
 - GitHub PR created (draft mode)
@@ -91,12 +96,11 @@ Implements specifications using a five-phase GitHub-centric workflow with mandat
 
 2. Update PR description with progress (after each major milestone):
    ```bash
-   # Get task status from wrangler
-   # Generate execution description
-   ts-node scripts/generate-pr-description.ts execution templates/ analysis.json tasks.json > execution.md
+   # Generate execution description with updated data
+   ./scripts/generate-pr-description.sh execution <specFile> <data-json> > execution.md
 
    # Update PR
-   ts-node scripts/update-pr-description.ts <prNumber> execution.md update-sections
+   ./scripts/update-pr-description.sh <prNumber> "$(cat execution.md)"
    ```
 
 3. Commit regularly with clear messages
@@ -120,7 +124,7 @@ Implements specifications using a five-phase GitHub-centric workflow with mandat
 **Actions:**
 1. Run compliance audit:
    ```bash
-   ts-node scripts/audit-spec-compliance.ts analysis.json tasks.json > compliance.json
+   ./scripts/audit-spec-compliance.sh analysis.json tasks.json > compliance.json
    ```
 
 2. Review compliance report:
@@ -136,9 +140,9 @@ Implements specifications using a five-phase GitHub-centric workflow with mandat
 
 4. Update PR description with verification results:
    ```bash
-   ts-node scripts/generate-pr-description.ts verification templates/ analysis.json > verification.md
+   ./scripts/generate-pr-description.sh verification templates/ analysis.json > verification.md
 
-   ts-node scripts/update-pr-description.ts <prNumber> verification.md update-sections
+   ./scripts/update-pr-description.sh <prNumber> verification.md update-sections
    ```
 
 **Outputs:**
@@ -159,9 +163,9 @@ Implements specifications using a five-phase GitHub-centric workflow with mandat
 **Actions:**
 1. Update PR description with completion summary:
    ```bash
-   ts-node scripts/generate-pr-description.ts complete templates/ analysis.json > complete.md
+   ./scripts/generate-pr-description.sh complete templates/ analysis.json > complete.md
 
-   ts-node scripts/update-pr-description.ts <prNumber> complete.md update-sections
+   ./scripts/update-pr-description.sh <prNumber> complete.md update-sections
    ```
 
 2. Mark PR as ready for review:
@@ -203,38 +207,42 @@ Implements specifications using a five-phase GitHub-centric workflow with mandat
 
 ## Scripts Reference
 
-### analyze-spec.ts
+### analyze-spec.sh
 **Purpose:** Extract acceptance criteria from specification file.
-**Usage:** `ts-node analyze-spec.ts <specFile> <sessionId>`
+**Usage:** `./scripts/analyze-spec.sh <specFile>`
 **Output:** JSON with acceptance criteria, E2E requirements, manual checklist
 
-### generate-pr-description.ts
+### generate-pr-description.sh
 **Purpose:** Generate PR description from template and analysis.
-**Usage:** `ts-node generate-pr-description.ts <phase> <templatesDir> <analysisPath>`
+**Usage:** `./scripts/generate-pr-description.sh <phase> <specFile> <data-json>`
 **Phases:** planning, execution, verification, complete
 **Output:** Markdown PR description
 
-### audit-spec-compliance.ts
+### audit-spec-compliance.sh
 **Purpose:** Calculate spec compliance percentage.
-**Usage:** `ts-node audit-spec-compliance.ts <analysisPath> <tasksPath>`
-**Output:** JSON with compliance report (percentage, recommendations)
+**Usage:** `./scripts/audit-spec-compliance.sh <analysis-json>`
+**Output:** JSON with compliance report (percentage, status)
 
-### update-pr-description.ts
-**Purpose:** Update GitHub PR description via gh CLI.
-**Usage:** `ts-node update-pr-description.ts <prNumber> <newDescriptionPath> [strategy] [--dry-run]`
-**Strategies:** replace, append, update-sections (default)
+### update-pr-description.sh
+**Purpose:** Update GitHub PR description via gh CLI with sensitive data sanitization.
+**Usage:** `./scripts/update-pr-description.sh <prNumber> <newDescription>`
 **Output:** Updated PR on GitHub
+
+### orchestrator.sh
+**Purpose:** Main workflow orchestrator implementing five-phase workflow with session resumability.
+**Usage:** `./scripts/orchestrator.sh <specFile> [sessionId]`
+**Output:** Guides through PLAN → EXECUTE → VERIFY → PUBLISH → COMPLETE phases
 
 ---
 
 ## Templates Reference
 
-All templates are in `templates/` directory and use Handlebars syntax.
+All templates are in `templates/` directory and use simple `{{VARIABLE}}` placeholder syntax.
 
-**planning.hbs:** Initial planning phase description (criteria, checklist, next steps)
-**execution.hbs:** Progress tracking (task completion, compliance percentage)
-**verification.hbs:** Quality gates and verification status (tests, manual testing, blockers)
-**complete.hbs:** Final summary (all criteria met, ready for review)
+**planning.md:** Initial planning phase description (criteria, checklist, next steps)
+**execution.md:** Progress tracking (task completion, compliance percentage)
+**verification.md:** Quality gates and verification status (tests, manual testing, blockers)
+**complete.md:** Final summary (all criteria met, ready for review)
 
 ---
 
@@ -267,27 +275,27 @@ All templates are in `templates/` directory and use Handlebars syntax.
 
 ```bash
 # ANALYZE
-ts-node scripts/analyze-spec.ts .wrangler/specifications/SPEC-000042.md session-123 > analysis.json
+./scripts/analyze-spec.sh .wrangler/specifications/SPEC-000042.md session-123 > analysis.json
 
 # PLAN
 git checkout -b feature/spec-000042-auth
-ts-node scripts/generate-pr-description.ts planning templates/ analysis.json > planning.md
+./scripts/generate-pr-description.sh planning templates/ analysis.json > planning.md
 gh pr create --title "feat: authentication system" --body "$(cat planning.md)" --draft
 
 # EXECUTE
 # ... implement features, run tests ...
-ts-node scripts/generate-pr-description.ts execution templates/ analysis.json tasks.json > execution.md
-ts-node scripts/update-pr-description.ts 123 execution.md
+./scripts/generate-pr-description.sh execution templates/ analysis.json tasks.json > execution.md
+./scripts/update-pr-description.sh 123 execution.md
 
 # VERIFY
-ts-node scripts/audit-spec-compliance.ts analysis.json tasks.json > compliance.json
+./scripts/audit-spec-compliance.sh analysis.json tasks.json > compliance.json
 # Check compliance.json shows 100%
-ts-node scripts/generate-pr-description.ts verification templates/ analysis.json > verification.md
-ts-node scripts/update-pr-description.ts 123 verification.md
+./scripts/generate-pr-description.sh verification templates/ analysis.json > verification.md
+./scripts/update-pr-description.sh 123 verification.md
 
 # PUBLISH
-ts-node scripts/generate-pr-description.ts complete templates/ analysis.json > complete.md
-ts-node scripts/update-pr-description.ts 123 complete.md
+./scripts/generate-pr-description.sh complete templates/ analysis.json > complete.md
+./scripts/update-pr-description.sh 123 complete.md
 gh pr ready 123
 ```
 
