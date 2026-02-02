@@ -1,0 +1,51 @@
+# {{specTitle}}
+
+**Spec:** {{specId}}
+**Status:** {{status}}
+**Priority:** {{priority}}
+
+---
+
+## Execution Phase
+
+**Implementation Progress:**
+
+{{#each tasks}}
+- [{{#if (eq this.status "closed")}}x{{else}} {{/if}}] **{{this.id}}**: {{this.title}}
+{{/each}}
+
+**Progress:** {{percentage complianceMet complianceTotal}}% complete ({{complianceMet}}/{{complianceTotal}} tasks)
+
+---
+
+## Acceptance Criteria
+
+{{#each acceptanceCriteria}}
+- [{{checkbox met}}] **{{this.id}}** ({{this.priority}}): {{this.description}}
+{{/each}}
+
+**Total:** {{complianceTotal}} criteria
+**Met:** {{complianceMet}} criteria
+**Progress:** {{compliancePercentage}}% complete
+
+---
+
+## Manual Testing Checklist
+
+{{#each manualTestingChecklist}}
+- [ ] **{{this.id}}**: {{this.description}}
+{{/each}}
+
+---
+
+## Next Steps
+
+1. Complete remaining implementation tasks
+2. Ensure all tests passing
+3. Verify acceptance criteria met
+4. Move to VERIFY phase
+
+---
+
+**Phase:** EXECUTE → VERIFY
+**Last Updated:** {{analyzedAt}}
