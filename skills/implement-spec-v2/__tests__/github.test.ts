@@ -1,74 +1,42 @@
 import { GitHubClient, CreatePRParams, UpdatePRParams } from '../scripts/utils/github';
+import { execSync } from 'child_process';
 
-// Create mock functions
-const mockCreate = jest.fn();
-const mockUpdate = jest.fn();
-const mockGet = jest.fn();
-const mockCreateComment = jest.fn();
+// Mock child_process.execSync
+jest.mock('child_process', () => ({
+  execSync: jest.fn(),
+}));
 
-// Mock Octokit constructor
-jest.mock('@octokit/rest', () => {
-  return {
-    Octokit: jest.fn().mockImplementation(() => ({
-      pulls: {
-        create: mockCreate,
-        update: mockUpdate,
-        get: mockGet,
-      },
-      issues: {
-        createComment: mockCreateComment,
-      },
-    })),
-  };
-});
+const mockExecSync = execSync as jest.MockedFunction<typeof execSync>;
 
 describe('GitHubClient', () => {
   let client: GitHubClient;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    client = new GitHubClient('fake-token', 'test-owner', 'test-repo');
+    client = new GitHubClient();
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  describe('constructor', () => {
-    it('should create client with valid token and repo info', () => {
-      expect(client).toBeInstanceOf(GitHubClient);
-    });
-
-    it('should throw error if token is empty', () => {
-      expect(() => new GitHubClient('', 'owner', 'repo')).toThrow('GitHub token is required');
-    });
-
-    it('should throw error if owner is empty', () => {
-      expect(() => new GitHubClient('token', '', 'repo')).toThrow('Repository owner is required');
-    });
-
-    it('should throw error if repo is empty', () => {
-      expect(() => new GitHubClient('token', 'owner', '')).toThrow('Repository name is required');
-    });
-  });
-
   describe('createPR', () => {
     it('should create a pull request successfully', async () => {
-      const mockPR = {
-        data: {
+      // Mock gh pr create response (returns URL)
+      mockExecSync.mockReturnValueOnce('https://github.com/test-owner/test-repo/pull/123\n' as any);
+
+      // Mock gh pr view response (returns PR details)
+      mockExecSync.mockReturnValueOnce(
+        JSON.stringify({
           number: 123,
-          html_url: 'https://github.com/test-owner/test-repo/pull/123',
+          url: 'https://github.com/test-owner/test-repo/pull/123',
           title: 'Test PR',
           body: 'Test description',
-          head: { ref: 'feature-branch' },
-          base: { ref: 'main' },
-          state: 'open',
-          created_at: '2026-02-01T12:00:00Z',
-          updated_at: '2026-02-01T12:00:00Z',
-        },
-      };
-
-      mockCreate.mockResolvedValue(mockPR);
+          headRefName: 'feature-branch',
+          baseRefName: 'main',
+          state: 'OPEN',
+        }) as any
+      );
 
       const params: CreatePRParams = {
         title: 'Test PR',
@@ -79,15 +47,17 @@ describe('GitHubClient', () => {
 
       const result = await client.createPR(params);
 
-      expect(mockCreate).toHaveBeenCalledWith({
-        owner: 'test-owner',
-        repo: 'test-repo',
-        title: 'Test PR',
-        body: 'Test description',
-        head: 'feature-branch',
-        base: 'main',
-        draft: undefined,
-      });
+      expect(mockExecSync).toHaveBeenNthCalledWith(
+        1,
+        'gh pr create --title "Test PR" --body "Test description" --base main --head feature-branch',
+        { encoding: 'utf-8' }
+      );
+
+      expect(mockExecSync).toHaveBeenNthCalledWith(
+        2,
+        'gh pr view 123 --json number,url,title,body,headRefName,baseRefName,state',
+        { encoding: 'utf-8' }
+      );
 
       expect(result).toEqual({
         number: 123,
@@ -96,72 +66,75 @@ describe('GitHubClient', () => {
         body: 'Test description',
         head: 'feature-branch',
         base: 'main',
-        state: 'open',
-        createdAt: '2026-02-01T12:00:00Z',
-        updatedAt: '2026-02-01T12:00:00Z',
+        state: 'OPEN',
       });
     });
 
-    it('should retry on rate limit error', async () => {
-      const rateLimitError: any = new Error('Rate limit exceeded');
-      rateLimitError.status = 429;
-      rateLimitError.response = {
-        headers: {
-          'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 1),
-        },
-      };
-
-      const mockPR = {
-        data: {
+    it('should create a draft pull request', async () => {
+      mockExecSync.mockReturnValueOnce('https://github.com/test-owner/test-repo/pull/123\n' as any);
+      mockExecSync.mockReturnValueOnce(
+        JSON.stringify({
           number: 123,
-          html_url: 'https://github.com/test-owner/test-repo/pull/123',
-          title: 'Test PR',
-          body: 'Test description',
-          head: { ref: 'feature-branch' },
-          base: { ref: 'main' },
-          state: 'open',
-          created_at: '2026-02-01T12:00:00Z',
-          updated_at: '2026-02-01T12:00:00Z',
-        },
-      };
-
-      mockCreate
-        .mockRejectedValueOnce(rateLimitError)
-        .mockResolvedValueOnce(mockPR);
+          url: 'https://github.com/test-owner/test-repo/pull/123',
+          title: 'Draft PR',
+          body: 'Draft description',
+          headRefName: 'feature-branch',
+          baseRefName: 'main',
+          state: 'OPEN',
+        }) as any
+      );
 
       const params: CreatePRParams = {
-        title: 'Test PR',
-        body: 'Test description',
+        title: 'Draft PR',
+        body: 'Draft description',
         head: 'feature-branch',
         base: 'main',
+        draft: true,
       };
 
-      const result = await client.createPR(params);
+      await client.createPR(params);
 
-      expect(mockCreate).toHaveBeenCalledTimes(2);
-      expect(result.number).toBe(123);
-    }, 10000);
+      expect(mockExecSync).toHaveBeenNthCalledWith(
+        1,
+        'gh pr create --title "Draft PR" --body "Draft description" --base main --head feature-branch --draft',
+        { encoding: 'utf-8' }
+      );
+    });
 
-    it('should retry on network error with exponential backoff', async () => {
-      const networkError = new Error('Network timeout');
-      const mockPR = {
-        data: {
+    it('should handle quotes in title and body', async () => {
+      mockExecSync.mockReturnValueOnce('https://github.com/test-owner/test-repo/pull/123\n' as any);
+      mockExecSync.mockReturnValueOnce(
+        JSON.stringify({
           number: 123,
-          html_url: 'https://github.com/test-owner/test-repo/pull/123',
-          title: 'Test PR',
-          body: 'Test description',
-          head: { ref: 'feature-branch' },
-          base: { ref: 'main' },
-          state: 'open',
-          created_at: '2026-02-01T12:00:00Z',
-          updated_at: '2026-02-01T12:00:00Z',
-        },
+          url: 'https://github.com/test-owner/test-repo/pull/123',
+          title: 'Test "PR"',
+          body: 'Test "description"',
+          headRefName: 'feature-branch',
+          baseRefName: 'main',
+          state: 'OPEN',
+        }) as any
+      );
+
+      const params: CreatePRParams = {
+        title: 'Test "PR"',
+        body: 'Test "description"',
+        head: 'feature-branch',
+        base: 'main',
       };
 
-      mockCreate
-        .mockRejectedValueOnce(networkError)
-        .mockRejectedValueOnce(networkError)
-        .mockResolvedValueOnce(mockPR);
+      await client.createPR(params);
+
+      expect(mockExecSync).toHaveBeenNthCalledWith(
+        1,
+        'gh pr create --title "Test \\"PR\\"" --body "Test \\"description\\"" --base main --head feature-branch',
+        { encoding: 'utf-8' }
+      );
+    });
+
+    it('should throw error if gh pr create fails', async () => {
+      mockExecSync.mockImplementationOnce(() => {
+        throw new Error('gh: command not found');
+      });
 
       const params: CreatePRParams = {
         title: 'Test PR',
@@ -170,47 +143,24 @@ describe('GitHubClient', () => {
         base: 'main',
       };
 
-      const result = await client.createPR(params);
-
-      expect(mockCreate).toHaveBeenCalledTimes(3);
-      expect(result.number).toBe(123);
-    }, 10000);
-
-    it('should fail after max retries', async () => {
-      const networkError = new Error('Network timeout');
-
-      mockCreate.mockRejectedValue(networkError);
-
-      const params: CreatePRParams = {
-        title: 'Test PR',
-        body: 'Test description',
-        head: 'feature-branch',
-        base: 'main',
-      };
-
-      await expect(client.createPR(params)).rejects.toThrow('Failed after 3 attempts: Network timeout');
-
-      expect(mockCreate).toHaveBeenCalledTimes(3);
-    }, 10000);
+      await expect(client.createPR(params)).rejects.toThrow('gh: command not found');
+    });
   });
 
   describe('updatePR', () => {
     it('should update a pull request successfully', async () => {
-      const mockPR = {
-        data: {
+      mockExecSync.mockReturnValueOnce('' as any); // gh pr edit returns nothing on success
+      mockExecSync.mockReturnValueOnce(
+        JSON.stringify({
           number: 123,
-          html_url: 'https://github.com/test-owner/test-repo/pull/123',
+          url: 'https://github.com/test-owner/test-repo/pull/123',
           title: 'Updated PR',
           body: 'Updated description',
-          head: { ref: 'feature-branch' },
-          base: { ref: 'main' },
-          state: 'open',
-          created_at: '2026-02-01T12:00:00Z',
-          updated_at: '2026-02-01T12:30:00Z',
-        },
-      };
-
-      mockUpdate.mockResolvedValue(mockPR);
+          headRefName: 'feature-branch',
+          baseRefName: 'main',
+          state: 'OPEN',
+        }) as any
+      );
 
       const params: UpdatePRParams = {
         title: 'Updated PR',
@@ -219,120 +169,161 @@ describe('GitHubClient', () => {
 
       const result = await client.updatePR(123, params);
 
-      expect(mockUpdate).toHaveBeenCalledWith({
-        owner: 'test-owner',
-        repo: 'test-repo',
-        pull_number: 123,
-        title: 'Updated PR',
-        body: 'Updated description',
-      });
+      expect(mockExecSync).toHaveBeenNthCalledWith(
+        1,
+        'gh pr edit 123 --title "Updated PR" --body "Updated description"',
+        { encoding: 'utf-8' }
+      );
 
       expect(result.title).toBe('Updated PR');
       expect(result.body).toBe('Updated description');
     });
 
-    it('should update only specified fields', async () => {
-      const mockPR = {
-        data: {
+    it('should update only title', async () => {
+      mockExecSync.mockReturnValueOnce('' as any);
+      mockExecSync.mockReturnValueOnce(
+        JSON.stringify({
           number: 123,
-          html_url: 'https://github.com/test-owner/test-repo/pull/123',
-          title: 'Original Title',
-          body: 'Updated description',
-          head: { ref: 'feature-branch' },
-          base: { ref: 'main' },
-          state: 'open',
-          created_at: '2026-02-01T12:00:00Z',
-          updated_at: '2026-02-01T12:30:00Z',
-        },
-      };
-
-      mockUpdate.mockResolvedValue(mockPR);
+          url: 'https://github.com/test-owner/test-repo/pull/123',
+          title: 'New Title',
+          body: 'Original description',
+          headRefName: 'feature-branch',
+          baseRefName: 'main',
+          state: 'OPEN',
+        }) as any
+      );
 
       const params: UpdatePRParams = {
-        body: 'Updated description',
+        title: 'New Title',
       };
 
-      const result = await client.updatePR(123, params);
+      await client.updatePR(123, params);
 
-      expect(mockUpdate).toHaveBeenCalledWith({
-        owner: 'test-owner',
-        repo: 'test-repo',
-        pull_number: 123,
-        body: 'Updated description',
-      });
+      expect(mockExecSync).toHaveBeenNthCalledWith(
+        1,
+        'gh pr edit 123 --title "New Title"',
+        { encoding: 'utf-8' }
+      );
+    });
 
-      expect(result.body).toBe('Updated description');
+    it('should update only body', async () => {
+      mockExecSync.mockReturnValueOnce('' as any);
+      mockExecSync.mockReturnValueOnce(
+        JSON.stringify({
+          number: 123,
+          url: 'https://github.com/test-owner/test-repo/pull/123',
+          title: 'Original Title',
+          body: 'New description',
+          headRefName: 'feature-branch',
+          baseRefName: 'main',
+          state: 'OPEN',
+        }) as any
+      );
+
+      const params: UpdatePRParams = {
+        body: 'New description',
+      };
+
+      await client.updatePR(123, params);
+
+      expect(mockExecSync).toHaveBeenNthCalledWith(
+        1,
+        'gh pr edit 123 --body "New description"',
+        { encoding: 'utf-8' }
+      );
     });
   });
 
   describe('getPR', () => {
     it('should get a pull request successfully', async () => {
-      const mockPR = {
-        data: {
+      mockExecSync.mockReturnValueOnce(
+        JSON.stringify({
           number: 123,
-          html_url: 'https://github.com/test-owner/test-repo/pull/123',
+          url: 'https://github.com/test-owner/test-repo/pull/123',
           title: 'Test PR',
           body: 'Test description',
-          head: { ref: 'feature-branch' },
-          base: { ref: 'main' },
-          state: 'open',
-          created_at: '2026-02-01T12:00:00Z',
-          updated_at: '2026-02-01T12:00:00Z',
-        },
-      };
-
-      mockGet.mockResolvedValue(mockPR);
+          headRefName: 'feature-branch',
+          baseRefName: 'main',
+          state: 'OPEN',
+        }) as any
+      );
 
       const result = await client.getPR(123);
 
-      expect(mockGet).toHaveBeenCalledWith({
-        owner: 'test-owner',
-        repo: 'test-repo',
-        pull_number: 123,
-      });
+      expect(mockExecSync).toHaveBeenCalledWith(
+        'gh pr view 123 --json number,url,title,body,headRefName,baseRefName,state',
+        { encoding: 'utf-8' }
+      );
 
-      expect(result.number).toBe(123);
-      expect(result.title).toBe('Test PR');
+      expect(result).toEqual({
+        number: 123,
+        url: 'https://github.com/test-owner/test-repo/pull/123',
+        title: 'Test PR',
+        body: 'Test description',
+        head: 'feature-branch',
+        base: 'main',
+        state: 'OPEN',
+      });
     });
 
-    it('should throw error if PR not found', async () => {
-      const notFoundError: any = new Error('Not Found');
-      notFoundError.status = 404;
+    it('should handle PR with null body', async () => {
+      mockExecSync.mockReturnValueOnce(
+        JSON.stringify({
+          number: 123,
+          url: 'https://github.com/test-owner/test-repo/pull/123',
+          title: 'Test PR',
+          body: null,
+          headRefName: 'feature-branch',
+          baseRefName: 'main',
+          state: 'OPEN',
+        }) as any
+      );
 
-      mockGet.mockRejectedValue(notFoundError);
+      const result = await client.getPR(123);
 
-      await expect(client.getPR(999)).rejects.toThrow('Pull request #999 not found');
+      expect(result.body).toBeNull();
+    });
+
+    it('should throw error if gh pr view fails', async () => {
+      mockExecSync.mockImplementationOnce(() => {
+        throw new Error('pull request not found');
+      });
+
+      await expect(client.getPR(999)).rejects.toThrow('pull request not found');
     });
   });
 
   describe('addPRComment', () => {
     it('should add a comment to a pull request successfully', async () => {
-      const mockComment = {
-        data: {
-          id: 456,
-          html_url: 'https://github.com/test-owner/test-repo/pull/123#issuecomment-456',
-          body: 'Test comment',
-          created_at: '2026-02-01T12:00:00Z',
-        },
-      };
+      mockExecSync.mockReturnValueOnce('' as any); // gh pr comment returns nothing on success
 
-      mockCreateComment.mockResolvedValue(mockComment);
+      await client.addPRComment(123, 'Test comment');
 
-      const result = await client.addPRComment(123, 'Test comment');
+      expect(mockExecSync).toHaveBeenCalledWith(
+        'gh pr comment 123 --body "Test comment"',
+        { encoding: 'utf-8' }
+      );
+    });
 
-      expect(mockCreateComment).toHaveBeenCalledWith({
-        owner: 'test-owner',
-        repo: 'test-repo',
-        issue_number: 123,
-        body: 'Test comment',
+    it('should escape quotes in comment body', async () => {
+      mockExecSync.mockReturnValueOnce('' as any);
+
+      await client.addPRComment(123, 'Test "quoted" comment');
+
+      expect(mockExecSync).toHaveBeenCalledWith(
+        'gh pr comment 123 --body "Test \\"quoted\\" comment"',
+        { encoding: 'utf-8' }
+      );
+    });
+
+    it('should throw error if gh pr comment fails', async () => {
+      mockExecSync.mockImplementationOnce(() => {
+        throw new Error('pull request not found');
       });
 
-      expect(result).toEqual({
-        id: 456,
-        url: 'https://github.com/test-owner/test-repo/pull/123#issuecomment-456',
-        body: 'Test comment',
-        createdAt: '2026-02-01T12:00:00Z',
-      });
+      await expect(client.addPRComment(999, 'Test comment')).rejects.toThrow(
+        'pull request not found'
+      );
     });
   });
 });
