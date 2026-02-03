@@ -61,7 +61,7 @@ Skip plan file when:
 ```markdown
 # [Feature Name] Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use /wrangler:implementing-issues to implementing-issues this plan task-by-task.
+> **For Claude:** REQUIRED SUB-SKILL: Use /wrangler:implementing-issues to implement this plan task-by-task.
 
 **Goal:** [One sentence describing what this builds]
 
@@ -70,6 +70,31 @@ Skip plan file when:
 **Tech Stack:** [Key technologies/libraries]
 
 **Implementation tracking:** See MCP issues (project: [specification filename])
+
+---
+
+## Acceptance Criteria Coverage (Auto-generated)
+
+### Spec Acceptance Criteria
+- AC-001: [description]
+- AC-002: [description]
+...
+
+### Task-to-AC Mapping
+| Task ID | Satisfies AC | Estimated Compliance Contribution |
+|---------|-------------|----------------------------------|
+| ISS-001 | AC-001, AC-003 | 15% |
+| ISS-002 | AC-002 | 10% |
+...
+
+### Coverage Summary
+- Total AC: 15
+- AC covered by tasks: 14 (93%)
+- AC with no implementing tasks: AC-012 ⚠️
+- Estimated post-execution compliance: 93%
+
+### Risk Areas
+- [List any AC with no tasks or partial coverage]
 
 ---
 ```
@@ -109,6 +134,19 @@ Skip plan file when:
 3. Think deeply about best implementation approach
 4. Consider architecture, design patterns, maintainability
 
+5. **Extract acceptance criteria from specification**
+
+   Use LLM to identify all acceptance criteria:
+   - AC explicitly labeled (AC-001, AC-002, etc.)
+   - Requirements from "Acceptance Criteria" sections
+   - Test requirements from "Testing" sections
+   - Manual verification steps
+   - E2E test requirements
+
+   Store as structured list for task mapping in Phase 2.
+
+   **Note:** If spec has no explicit acceptance criteria, note this for later phases.
+
 ### Phase 2: Plan Task Breakdown
 
 1. Break specification into logical tasks
@@ -126,7 +164,21 @@ Skip plan file when:
 
 3. Review and refine task breakdown
 4. Ensure tasks are right-sized and ordered correctly
-5. Optionally draft plan file for architecture overview (if needed)
+
+5. **Map tasks to acceptance criteria**
+
+   For each task, determine which acceptance criteria it satisfies:
+   - Analyze task description and implementation scope
+   - Identify which AC are fully/partially addressed
+   - Calculate estimated compliance contribution per task
+   - Flag any AC with no implementing tasks
+
+   This mapping will be used to:
+   - Add `satisfiesAcceptanceCriteria` metadata to each MCP issue
+   - Generate coverage report in plan file (if created)
+   - Enable REVIEW phase validation in implementing-specs-v2 workflow
+
+6. Optionally draft plan file for architecture overview (if needed)
 
 ### Phase 3: Create MCP Issues (Source of Truth)
 
@@ -204,7 +256,8 @@ git commit -m "feat: add specific feature"
   wranglerContext: {
     agentId: "plan-executor",
     parentTaskId: "", // if breaking down larger issue
-    estimatedEffort: "[time estimate if known]"
+    estimatedEffort: "[time estimate if known]",
+    satisfiesAcceptanceCriteria: ["AC-001", "AC-003"] // Which AC this task implements
   }
 }
 ```
@@ -230,7 +283,8 @@ After creating issues, offer execution choice:
 
 **"Plan complete:**
 - **Issues created**: [N] tasks in issue tracker (project: [spec])
-- **Plan file** (if created): `.wrangler/plans/YYYY-MM-DD-PLAN_<spec>.md` (architecture reference)
+- **Plan file** (if created): `.wrangler/plans/YYYY-MM-DD-PLAN_<spec>.md` (includes AC coverage analysis)
+- **Estimated compliance**: [X]% (based on task-to-AC mapping)
 
 **Execution options:**
 

@@ -50,6 +50,45 @@ gh pr create \
 # Output: https://github.com/org/repo/pull/123
 ```
 
+### REVIEW Phase
+
+```bash
+# Read plan file coverage analysis
+# .wrangler/plans/2025-02-02-PLAN_SPEC-000042.md contains:
+#
+# ## Acceptance Criteria Coverage
+# Total AC: 5
+# AC covered by tasks: 5 (100%)
+# Estimated post-execution compliance: 100%
+
+# Coverage validation: 100% >= 95% → ✅ PASS
+# Proceed to EXECUTE automatically (no user input required)
+```
+
+**Example: Coverage Gap Detected**
+
+```bash
+# If plan only created 4 tasks but spec has 5 AC:
+#
+# REVIEW Phase: Planning Coverage Gap Detected
+#
+# Coverage: 80% (4/5 acceptance criteria covered)
+#
+# Missing AC:
+# - AC-005: Middleware protects endpoints
+#
+# Options:
+# a) Auto-create missing tasks (Recommended)
+# b) Proceed anyway (risks VERIFY failure)
+# c) Abort and replan from scratch
+#
+# > User chooses (a)
+#
+# Creating ISS-000047: Add authentication middleware
+# Updated coverage: 100%
+# Proceeding to EXECUTE...
+```
+
 ### EXECUTE Phase
 
 ```bash
@@ -92,7 +131,64 @@ cd /Users/user/project/.worktrees/spec-000042-auth && npm test
 cd /Users/user/project/.worktrees/spec-000042-auth && git status --short
 # Output: (empty - clean)
 
-# VERIFIED ✓
+# Quality gate: 100% >= 95% → ✅ PASS
+# Proceed to PUBLISH
+```
+
+**Example: Self-Healing Workflow**
+
+```bash
+# If initial compliance was 92% (missing edge case test):
+#
+# Initial audit: 92% (4.6/5 AC met)
+# Gap: AC-003 missing edge case test for rate limit threshold
+#
+# Gap categorization: AUTO_FIX_TEST
+#
+# Self-healing iteration 1:
+# Creating ISS-000047: Add edge case test for rate limit threshold
+# Executing...
+# Committed: xyz789
+#
+# Re-audit: 96% (4.8/5 AC met)
+# Quality gate: 96% >= 95% → ✅ PASS
+#
+# PR updated with self-healing note:
+# "During verification, auto-fixed:
+# - Created ISS-000047: Added edge case test for rate limit threshold
+# Final compliance: 96%"
+#
+# Proceed to PUBLISH
+```
+
+**Example: Escalation for Fundamental Gap**
+
+```bash
+# If compliance was 85% due to missing core feature:
+#
+# Initial audit: 85% (4.25/5 AC met)
+# Gap: AC-002 token refresh endpoint not implemented
+#
+# Gap categorization: FUNDAMENTAL_GAP
+#
+# VERIFY Phase: Compliance Below Threshold
+#
+# Current compliance: 85%
+# Quality gate: 90% required
+#
+# Self-healing attempted:
+# - No auto-fixable gaps found
+# - Remaining gaps: 1 FUNDAMENTAL_GAP
+#
+# Gap Analysis:
+# - FUNDAMENTAL_GAP: Token refresh endpoint not implemented (AC-002)
+#
+# Options:
+# 1. Review and approve current implementation (partial delivery)
+# 2. Let me create additional tasks for remaining gaps
+# 3. Abort session and revisit planning
+#
+# Your decision?
 ```
 
 ### PUBLISH Phase

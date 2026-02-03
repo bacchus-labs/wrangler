@@ -43,7 +43,7 @@ This skill orchestrates existing wrangler skills rather than reimplementing thei
 ## Workflow Phases
 
 ```
-INIT → PLAN → EXECUTE → VERIFY → PUBLISH → COMPLETE
+INIT → PLAN → REVIEW → EXECUTE → VERIFY → PUBLISH → COMPLETE
 ```
 
 ---
@@ -227,7 +227,112 @@ Planning succeeds and issues are created. If planning fails or returns blockers,
 
 ---
 
-## Phase 3: EXECUTE
+## Phase 3: REVIEW
+
+Validate planning completeness BEFORE execution starts.
+
+### Objective
+
+Catch planning gaps early before wasting time on execution.
+
+### Actions
+
+1. **Log phase start**
+   ```
+   session_phase(sessionId: SESSION_ID, phase: "review", status: "started")
+   ```
+
+2. **Read plan file coverage analysis** (if plan file was created)
+
+   Read `.wrangler/plans/YYYY-MM-DD-PLAN_<spec>.md` and extract:
+   - "Acceptance Criteria Coverage" section
+   - Coverage summary (% covered)
+   - List of AC with no implementing tasks
+
+3. **Validate coverage**
+
+   | Coverage | Status |
+   |----------|--------|
+   | >= 95% | ✅ PASS (automatic approval) |
+   | < 95% | ⚠️ NEEDS ATTENTION (user decision) |
+
+4. **If coverage < 95%:**
+
+   Present coverage report to user:
+
+   ```markdown
+   REVIEW Phase: Planning Coverage Gap Detected
+
+   Coverage: X% (Y/Z acceptance criteria covered)
+
+   Missing AC:
+   - AC-XXX: [description]
+   - AC-YYY: [description]
+   ...
+
+   Options:
+   a) Auto-create missing tasks (Recommended)
+   b) Proceed anyway (risks VERIFY failure)
+   c) Abort and replan from scratch
+
+   Your decision?
+   ```
+
+5. **If auto-create chosen:**
+
+   For each uncovered AC:
+   - Create MCP issue with implementation details
+   - Add `satisfiesAcceptanceCriteria: ["AC-XXX"]` metadata
+   - Add to ISSUE_IDS list
+
+   Update plan file with new tasks and re-calculate coverage.
+
+6. **Update session checkpoint**
+   ```
+   session_checkpoint(
+     sessionId: SESSION_ID,
+     tasksCompleted: [],
+     tasksPending: ISSUE_IDS, // updated list
+     lastAction: "REVIEW phase complete, coverage: X%",
+     resumeInstructions: "Continue with execute phase"
+   )
+   ```
+
+7. **Log phase complete**
+   ```
+   session_phase(
+     sessionId: SESSION_ID,
+     phase: "review",
+     status: "complete",
+     metadata: {
+       coverage_percentage: X,
+       supplemental_tasks_created: N
+     }
+   )
+   ```
+
+### Outputs
+
+- Validated plan with >= 95% AC coverage (or user approval to proceed)
+- Updated ISSUE_IDS list (if supplemental tasks created)
+- Session checkpoint with review results
+
+### Quality Gate
+
+**Advisory gate** - offers to fix gaps, doesn't block arbitrarily:
+- Coverage >= 95%: Automatic PASS → EXECUTE
+- Coverage < 95%: User decision required → EXECUTE or ABORT
+
+### Skip Condition
+
+If spec has no explicit acceptance criteria section:
+- Skip REVIEW phase
+- Proceed directly to EXECUTE
+- Log warning: "Skipping REVIEW (no AC in spec)"
+
+---
+
+## Phase 4: EXECUTE
 
 Implement all tasks using implementing-issues skill.
 
@@ -327,7 +432,7 @@ We simply invoke it with our session context and let it do its job.
 
 ---
 
-## Phase 4: VERIFY
+## Phase 5: VERIFY
 
 Run compliance audit using LLM-based verification.
 
@@ -411,23 +516,110 @@ Verify all acceptance criteria met using intelligent extraction (not brittle scr
 - Test results (all passing or failures documented)
 - Git status (clean or uncommitted changes documented)
 
-### Quality Gate
+### Quality Gate & Self-Healing
 
-**CRITICAL:** 100% compliance required to proceed.
+**Goal**: Achieve >= 95% compliance through autonomous remediation.
 
-**Blockers:** If compliance < 100%:
-1. Log unmet criteria and evidence gaps
-2. Inform user of verification failure
-3. Session remains in "paused" state
-4. User must address gaps or approve exceptions
+**Self-Healing Workflow**:
+
+1. **Initial Compliance Audit**
+   - Run compliance check
+   - Calculate compliance percentage
+   - Categorize gaps
+
+2. **Gap Categorization**
+
+   For each unmet acceptance criterion, classify:
+
+   - **AUTO_FIX_TEST**: Missing test coverage
+   - **AUTO_FIX_DOC**: Missing documentation
+   - **AUTO_FIX_EDGE**: Missing edge case handling
+   - **SEARCH_RETRY**: Evidence likely exists but not found
+   - **FUNDAMENTAL_GAP**: Core requirement not implemented (planning failure)
+
+3. **Autonomous Remediation** (max 3 iterations)
+
+   For AUTO_FIX_* gaps:
+   - Create supplemental MCP issue with specific requirement
+   - Execute using implementing-issues skill
+   - Commit changes
+   - Re-run compliance audit
+   - Loop until compliance >= 95% OR 3 iterations reached OR no more auto-fixable gaps
+
+   Log each remediation iteration:
+   ```
+   session_phase(
+     sessionId: SESSION_ID,
+     phase: "verify-remediation",
+     status: "started",
+     metadata: {
+       iteration: N,
+       gaps_to_fix: GAP_COUNT,
+       gap_types: ["AUTO_FIX_TEST", ...]
+     }
+   )
+   ```
+
+4. **Quality Gate Decision**
+
+   | Compliance | Behavior |
+   |-----------|----------|
+   | **>= 95%** | ✅ PASS → Document any gaps-fixed in PR, proceed to PUBLISH |
+   | **90-94%** | ⚠️ PASS WITH WARNINGS → Document minor gaps in PR, proceed to PUBLISH |
+   | **< 90%** | ❌ FAIL → Escalate to user with detailed gap analysis |
+
+5. **Escalation Format** (if < 90%)
+
+   ```markdown
+   VERIFY Phase: Compliance Below Threshold
+
+   Current compliance: X%
+   Quality gate: 90% required
+
+   Self-healing attempted:
+   - Created and executed Y supplemental tasks
+   - Fixed Z auto-fixable gaps
+   - Remaining gaps: W
+
+   Gap Analysis:
+   - FUNDAMENTAL_GAP: [list core requirements not implemented]
+   - SEARCH_RETRY failures: [list evidence not found after retries]
+
+   Options:
+   1. Review and approve current implementation (partial delivery)
+   2. Let me create additional tasks for remaining gaps
+   3. Abort session and revisit planning
+
+   Your decision?
+   ```
+
+6. **Document self-healing in PR** (if any remediation occurred)
+
+   Append to PR body:
+
+   ```markdown
+   ### Compliance Self-Healing
+
+   During verification, the following gaps were auto-fixed:
+   - Created ISS-XXXXX: Added missing test for feature X
+   - Created ISS-XXXXX: Added documentation for API Y
+   - Created ISS-XXXXX: Added edge case handling for Z
+
+   Final compliance: 96%
+   ```
+
+**Critical Rules**:
+- NEVER escalate for missing tests/docs/edge cases - auto-fix them
+- ONLY escalate for fundamental requirement gaps or after self-healing exhaustion
+- Document all self-healing activity in PR description
 
 **Also block if:**
-- `TEST_EXIT_CODE != 0` - tests failing
-- `GIT_CLEAN == false` - uncommitted changes
+- `TEST_EXIT_CODE != 0` - tests failing (cannot proceed)
+- `GIT_CLEAN == false` - uncommitted changes (cannot proceed)
 
 ---
 
-## Phase 5: PUBLISH
+## Phase 6: PUBLISH
 
 Finalize PR and mark ready for review.
 
