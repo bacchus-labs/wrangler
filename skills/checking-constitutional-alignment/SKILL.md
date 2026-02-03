@@ -1,6 +1,6 @@
 ---
 name: checking-constitutional-alignment
-description: Verify feature requests align with project constitutional principles - applies decision framework systematically and provides clear align/reject/revise recommendation with detailed reasoning
+description: Verifies features and decisions align with project constitution. Use when evaluating new features, resolving design conflicts, or ensuring constitutional compliance.
 ---
 
 # Check Constitutional Alignment

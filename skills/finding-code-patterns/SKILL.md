@@ -1,6 +1,6 @@
 ---
 name: finding-code-patterns
-description: Finds similar implementations, usage examples, and existing patterns in the codebase - shows concrete code examples for modeling new work. Pattern librarian documenting what exists without judgment.
+description: Locates code patterns, anti-patterns, or specific implementations across codebase. Use when searching for usage examples, identifying inconsistencies, or finding instances requiring updates.
 ---
 
 # Finding Code Patterns

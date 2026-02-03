@@ -1,6 +1,6 @@
 ---
 name: locating-code
-description: Finds WHERE code lives in a codebase - locates files by topic/feature, categorizes by purpose, organizes findings. Super grep/glob/ls tool for navigating unfamiliar codebases.
+description: Finds specific code elements (functions, classes, patterns) using multiple search strategies. Use when searching for implementations, dependencies, or code requiring modification.
 ---
 
 # Locating Code

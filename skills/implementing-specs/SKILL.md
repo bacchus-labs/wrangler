@@ -1,6 +1,6 @@
 ---
 name: implementing-specs
-description: Orchestrate spec-to-PR workflow with session tracking, worktree isolation, and audit trail
+description: Orchestrates spec-to-PR workflow with session tracking, worktree isolation, and audit trail. Use when implementing specifications that require full lifecycle management from planning through PR creation.
 ---
 
 # Implement-Spec Orchestrator

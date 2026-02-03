@@ -1,6 +1,6 @@
 ---
 name: verifying-governance
-description: Verify integrity and completeness of governance framework using workspace-schema.json as single source of truth - checks directories, files, and .gitignore against schema
+description: Validates governance file completeness, format compliance, and metric accuracy. Use when auditing governance health, after bulk changes, or ensuring documentation integrity.
 ---
 
 # Verify Governance Framework

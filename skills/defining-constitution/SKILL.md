@@ -1,6 +1,6 @@
 ---
 name: defining-defining-constitution
-description: Develop, refine, and maintain project constitutional principles - uses Socratic questioning to eliminate ambiguity and ensure perfect clarity on design values and non-negotiables
+description: Develops project constitutional principles through Socratic questioning. Use when establishing design values, creating project governance, or resolving ambiguous design decisions.
 ---
 
 # Project Constitution Development

@@ -1,6 +1,6 @@
 ---
 name: cleanup-dangling-worktrees
-description: Clean up git worktrees whose associated feature PRs have been merged. Only removes worktrees where the PR is confirmed merged - never removes active development worktrees.
+description: Removes git worktrees for merged PRs while preserving active development. Use when cleaning up after feature merges or when worktree directory accumulates stale branches.
 ---
 
 # Cleanup Dangling Worktrees

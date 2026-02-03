@@ -1,6 +1,6 @@
 ---
 name: capturing-ideas
-description: Capture user ideas verbatim in .wrangler/ideas/ directory using the MCP issues_create tool with type='idea'. Preserves exact user wording without interpretation or enhancement.
+description: Captures user ideas verbatim using MCP issues system with type='idea'. Use when user shares initial thoughts, feature requests, or proposals that need preservation without interpretation.
 ---
 
 # Capture New Idea

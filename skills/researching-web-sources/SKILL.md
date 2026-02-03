@@ -1,6 +1,6 @@
 ---
 name: researching-web-sources
-description: Strategic web research using WebSearch and WebFetch - finds accurate, relevant information with multiple search angles, prioritizes authoritative sources, synthesizes findings with proper attribution.
+description: Systematically researches topics using web search with source verification. Use when investigating unfamiliar technologies, gathering current information, or verifying technical claims.
 ---
 
 # Researching Web Sources

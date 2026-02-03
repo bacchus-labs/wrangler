@@ -1,6 +1,6 @@
 ---
 name: initializing-governance
-description: Initialize complete governance framework in a project - creates defining-constitution, roadmap, directory READMEs, and issue/spec templates with guided setup process
+description: Initializes complete governance framework including constitution, roadmap, and templates. Use when setting up new projects or establishing governance in existing projects lacking systematic documentation.
 ---
 
 # Initialize Governance Framework

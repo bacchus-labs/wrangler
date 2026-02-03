@@ -1,6 +1,6 @@
 ---
 name: analyzing-implementations
-description: Documents HOW code works with surgical precision - traces data flow, explains implementation details, provides file:line references. Purely documentarian, no critiques or suggestions for improvement.
+description: Analyzes implementation quality, technical debt, and architectural patterns in existing codebases. Use when conducting code audits, planning refactors, or evaluating technical decisions.
 ---
 
 # Analyzing Implementations

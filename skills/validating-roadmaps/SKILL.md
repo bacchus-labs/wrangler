@@ -1,6 +1,6 @@
 ---
 name: validating-roadmaps
-description: Validates specification consistency, identifies implementation gaps, reviews roadmap coherence. Ensures documentation aligns, tasks are realistic, and dependencies are clear.
+description: Validates roadmap completeness, phase coherence, and alignment with constitution. Use when creating roadmaps, reviewing planning documents, or ensuring strategic consistency.
 ---
 
 # Validating Roadmap

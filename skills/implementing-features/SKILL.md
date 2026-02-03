@@ -1,6 +1,6 @@
 ---
 name: implementing-features
-description: Autonomously implementing-features tasks from specs, plans, or issues using subagents with TDD and code review
+description: Autonomously implements features from specs/plans/issues using subagents with TDD and code review. Use when executing implementation tasks that require systematic orchestration of development workflows.
 ---
 
 # Implement

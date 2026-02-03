@@ -1,6 +1,6 @@
 ---
 name: analyzing-research-documents
-description: Extracts high-value insights from research documents, RCAs, design docs, and memos - filters aggressively to return only actionable information. Research equivalent of analyzing-implementations skill.
+description: Extracts key insights, patterns, and actionable findings from research documents and papers. Use when reviewing documentation, research, or technical materials requiring systematic analysis.
 ---
 
 # Analyzing Research Documents

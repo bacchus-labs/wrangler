@@ -1,6 +1,6 @@
 ---
 name: updating-git-hooks
-description: Update existing Git hooks configuration without full re-setup. Reads current config, allows modifications, regenerates hooks.
+description: Updates existing git hook configurations for new requirements or tool changes. Use when hook requirements change, adding new quality checks, or modifying test commands.
 ---
 
 # Update Git Hooks

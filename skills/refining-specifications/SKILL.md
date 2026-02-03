@@ -1,6 +1,6 @@
 ---
 name: refining-specifications
-description: Reviews existing specifications for ambiguity and missing decision points - uses structured taxonomy to detect gaps, generates prioritized clarification questions, reduces specification uncertainty.
+description: Improves specification quality through completeness checks, clarity verification, and structured feedback. Use when specifications lack detail, have ambiguities, or need quality improvement.
 ---
 
 # Refining Specifications

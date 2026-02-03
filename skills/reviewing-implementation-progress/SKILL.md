@@ -1,6 +1,6 @@
 ---
 name: reviewing-implementation-progress
-description: Reviews in-progress implementation against feature specification and plan - provides structured compliance report with categorized issues for fixing. Mid-implementation checkpoint for quality.
+description: Tracks implementation progress against specs or plans with completion percentages. Use when monitoring multi-step implementations, reporting status, or identifying blockers.
 ---
 
 # Reviewing Implementation Progress

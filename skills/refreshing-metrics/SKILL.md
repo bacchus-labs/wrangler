@@ -1,6 +1,6 @@
 ---
 name: refreshing-metrics
-description: Auto-update status metrics across governance documents - scans MCP issues/specs to calculate current counts and percentages, updates README files and NEXT_STEPS with accurate data
+description: Auto-updates status metrics across governance documents from MCP issue counts. Use when governance metrics are stale or after significant issue status changes requiring documentation refresh.
 ---
 
 # Refresh Governance Metrics

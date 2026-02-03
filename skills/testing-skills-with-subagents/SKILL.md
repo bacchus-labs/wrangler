@@ -1,6 +1,6 @@
 ---
 name: testing-skills-with-subagents
-description: DEPRECATED - Use writing-skills instead. This skill has been consolidated into writing-skills which now contains both skill creation and testing methodology.
+description: DEPRECATED - Use writing-skills instead. This functionality has been consolidated into writing-skills which now contains both skill creation and testing methodology.
 ---
 
 # Testing Skills With Subagents

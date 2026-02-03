@@ -1,6 +1,6 @@
 ---
 name: setting-up-git-hooks
-description: Set up Git hooks for automated testing and code quality enforcement. Interactive configuration with smart project detection.
+description: Configures git hooks for automated testing, linting, and quality enforcement. Use when initializing projects, establishing quality gates, or preventing commit/push errors.
 ---
 
 # Setup Git Hooks

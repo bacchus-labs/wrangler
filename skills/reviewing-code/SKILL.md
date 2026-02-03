@@ -1,6 +1,6 @@
 ---
 name: reviewing-code
-description: Comprehensive code review framework for evaluating implementations against plans, requirements, and quality standards. Provides structured analysis with prioritized, actionable feedback.
+description: Conducts systematic code review with quality checks, architectural verification, and actionable feedback. Use when reviewing pull requests, code changes, or ensuring code quality standards.
 ---
 
 # Code Review Framework

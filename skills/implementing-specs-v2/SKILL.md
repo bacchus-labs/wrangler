@@ -1,6 +1,6 @@
 ---
 name: implementing-specs-v2
-description: GitHub-centric specification implementation orchestrating writing-plans and implementing-features skills
+description: Orchestrates specification implementation through planning, execution, verification, and PR publication phases with session recovery. Use when implementing complex specifications requiring phased workflow and resumable progress tracking.
 ---
 
 # implementing-features-spec-v2: Modular Specification Implementation
