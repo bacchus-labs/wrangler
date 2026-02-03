@@ -813,6 +813,25 @@ skills/{category}/{skill-name}/
 
 **Creating new skills**: Follow the `skills/meta/writing-skills/SKILL.md` guide
 
+### Skill Naming Conventions
+
+**Standard**: All skills use gerund form (verb + -ing)
+
+**Rationale**: Anthropic 2026 standard for consistency and discoverability
+
+**Examples**:
+- ✅ `writing-skills` (gerund)
+- ✅ `practicing-tdd` (gerund)
+- ✅ `reviewing-code` (gerund)
+- ❌ `test-driven-development` (noun phrase)
+- ❌ `code-review` (noun)
+- ❌ `create-issue` (imperative verb)
+
+**Requirements**:
+- Directory name matches frontmatter `name` field
+- Use lowercase-with-dashes format
+- Present continuous tense (verb + -ing)
+
 ### Token Efficiency Guidelines
 
 **Principle**: "The context window is a public good"
