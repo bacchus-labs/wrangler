@@ -286,7 +286,7 @@ Proceeding without complete Step 1 verification violates verifying-before-comple
 ## Integration
 
 **Called by:**
-- **implementing-features** - After all tasks complete and final verification passes
+- **implementing-issues** - After all tasks complete and final verification passes
 
 **Pairs with:**
 - **using-git-worktrees** - Cleans up worktree if one was created (optional)

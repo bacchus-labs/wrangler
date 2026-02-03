@@ -1,6 +1,6 @@
 ---
-name: implementing-features
-description: Autonomously implements features from specs/plans/issues using subagents with TDD and code review. Use when executing implementation tasks that require systematic orchestration of development workflows.
+name: implementing-issues
+description: Autonomously implements issues (bugs, features, enhancements) from specs/plans/issues using subagents with TDD and code review. Use when executing implementation tasks that require systematic orchestration of development workflows.
 ---
 
 # Implement
@@ -11,7 +11,7 @@ Autonomous implementation workflow that handles specifications, plans, issue ran
 
 **Core principle:** Dispatch subagent per task, automatic code review and fixes, only stop for genuine blockers
 
-**Entry point:** `/wrangler:implementing-features [scope]`
+**Entry point:** `/wrangler:implementing-issues [scope]`
 
 **Works in main branch OR worktree (no preference)**
 
@@ -38,7 +38,7 @@ The skill automatically determines what to implement based on your input.
 
 **1. Specification files**
 ```bash
-/wrangler:implementing-features spec-auth-system.md
+/wrangler:implementing-issues spec-auth-system.md
 ```
 → Loads spec from `.wrangler/specifications/`
 → Extracts linked MCP issues OR parses inline tasks
@@ -46,7 +46,7 @@ The skill automatically determines what to implement based on your input.
 
 **2. Plan files**
 ```bash
-/wrangler:implementing-features plan-refactor.md
+/wrangler:implementing-issues plan-refactor.md
 ```
 → Loads plan from `.wrangler/plans/`
 → Extracts task list from plan
@@ -54,21 +54,21 @@ The skill automatically determines what to implement based on your input.
 
 **3. Single issue**
 ```bash
-/wrangler:implementing-features issue #42
+/wrangler:implementing-issues issue #42
 ```
 → Loads issue from MCP using issues_get
 → Treats entire issue as single task
 
 **4. Issue range**
 ```bash
-/wrangler:implementing-features issues 5-7
+/wrangler:implementing-issues issues 5-7
 ```
 → Loads multiple issues from MCP
 → Executes sequentially
 
 **5. Context inference (no parameter)**
 ```bash
-/wrangler:implementing-features
+/wrangler:implementing-issues
 ```
 → Scans last 5 user messages for file or issue references
 

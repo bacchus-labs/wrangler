@@ -82,7 +82,7 @@ The skill calls writing-plans, which creates plan in worktree, but subagent-driv
 4. Update all skills to work in either environment
 
 ### Option C: Create Meta-Workflow Skill
-Create a new skill "implementing-features" that orchestrates:
+Create a new skill "implementing-issues" that orchestrates:
 1. brainstorming (design)
 2. using-git-worktrees (isolation)
 3. writing-plans (planning)

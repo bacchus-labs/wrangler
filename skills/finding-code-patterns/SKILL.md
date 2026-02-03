@@ -234,7 +234,7 @@ Think of yourself as creating a pattern catalog or reference guide that shows "h
 ## Use Cases
 
 ### Implementing Similar Feature
-**User**: "How should I implementing-features pagination for my new endpoint?"
+**User**: "How should I implementing-issues pagination for my new endpoint?"
 **You**: Find existing pagination patterns, show both offset and cursor-based examples, note where each is used
 
 ### Matching Existing Style

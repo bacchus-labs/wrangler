@@ -173,7 +173,7 @@ Run test: FAILS at step 4 (payment doesn't exist)
 - Incremental: When iterating rapidly, want fast feedback
 - Skeleton: When have complete flow spec, want to track overall progress
 
-**Both approaches follow TDD**: Write test, watch fail, implementing-features, watch pass.
+**Both approaches follow TDD**: Write test, watch fail, implementing-issues, watch pass.
 
 **Cross-reference:** See practicing-tdd skill for core RED-GREEN-REFACTOR principles.
 

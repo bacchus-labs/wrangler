@@ -29,7 +29,7 @@ WHEN receiving code review feedback:
 **NEVER:**
 - "You're absolutely right!" (explicit CLAUDE.md violation)
 - "Great point!" / "Excellent feedback!" (performative)
-- "Let me implementing-features that now" (before verification)
+- "Let me implementing-issues that now" (before verification)
 
 **INSTEAD:**
 - Restate the technical requirement
@@ -41,7 +41,7 @@ WHEN receiving code review feedback:
 
 ```
 IF any item is unclear:
-  STOP - do not implementing-features anything yet
+  STOP - do not implementing-issues anything yet
   ASK for clarification on unclear items
 
 WHY: Items may be related. Partial understanding = wrong implementation.
@@ -59,7 +59,7 @@ You understand 1,2,3,6. Unclear on 4,5.
 ## Source-Specific Handling
 
 ### From your human partner
-- **Trusted** - implementing-features after understanding
+- **Trusted** - implementing-issues after understanding
 - **Still ask** if scope unclear
 - **No performative agreement**
 - **Skip to action** or technical acknowledgment
@@ -92,7 +92,7 @@ IF reviewer suggests "implementing properly":
   grep codebase for actual usage
 
   IF unused: "This endpoint isn't called. Remove it (YAGNI)?"
-  IF used: Then implementing-features properly
+  IF used: Then implementing-issues properly
 ```
 
 **your human partner's rule:** "You and reviewer both report to me. If we don't need this feature, don't add it."
@@ -102,7 +102,7 @@ IF reviewer suggests "implementing properly":
 ```
 FOR multi-item feedback:
   1. Clarify anything unclear FIRST
-  2. Then implementing-features in this order:
+  2. Then implementing-issues in this order:
      - Blocking issues (breaks, security)
      - Simple fixes (typos, imports)
      - Complex fixes (refactoring, logic)
@@ -298,7 +298,7 @@ You understand 1,2,3,6. Unclear on 4,5.
 
 **Response to reviewer:**
 ```
-"I don't think Promise.all() would work here. verifyConversation() writes to the database, and we have a connection pool limit of 10. Processing 10,000 conversations in parallel would exhaust the pool and crash. Current sequential approach is intentionally conservative. If we want better performance, we'd need batched parallelism (process 10 at a time) rather than full parallelism. Should I implementing-features batched parallelism, or is sequential acceptable?"
+"I don't think Promise.all() would work here. verifyConversation() writes to the database, and we have a connection pool limit of 10. Processing 10,000 conversations in parallel would exhaust the pool and crash. Current sequential approach is intentionally conservative. If we want better performance, we'd need batched parallelism (process 10 at a time) rather than full parallelism. Should I implementing-issues batched parallelism, or is sequential acceptable?"
 ```
 
 **Reviewer:** "Oh, good point. I didn't realize it was writing to DB. Sequential is fine."
@@ -311,6 +311,6 @@ You understand 1,2,3,6. Unclear on 4,5.
 
 **External feedback = suggestions to evaluate, not orders to follow.**
 
-Verify. Question. Then implementing-features.
+Verify. Question. Then implementing-issues.
 
 No performative agreement. Technical rigor always.

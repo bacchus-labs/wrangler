@@ -80,4 +80,4 @@ This command is a focused version of `/wrangler:write-plan`:
 
 - `/wrangler:write-plan` — Interactive planning workflow
 - `/wrangler:issues` — View issue status
-- `/wrangler:implementing-features` — Execute the generated plan
+- `/wrangler:implementing-issues` — Execute the generated plan

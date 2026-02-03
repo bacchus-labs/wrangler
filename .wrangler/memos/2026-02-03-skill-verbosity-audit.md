@@ -75,7 +75,7 @@
 
 **housekeeping** (587 lines) - Significant reduction needed (587 lines, target <300)
 
-**implementing-features** (1263 lines) - Significant reduction needed (1263 lines, target <300)
+**implementing-issues** (1263 lines) - Significant reduction needed (1263 lines, target <300)
 
 **implementing-specs** (662 lines) - Significant reduction needed (662 lines, target <300)
 

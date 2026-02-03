@@ -11,7 +11,7 @@
 
 | Skill | Lines | Status |
 |-------|-------|--------|
-| implementing-features | 1263 | ⚠️ Needs split |
+| implementing-issues | 1263 | ⚠️ Needs split |
 | avoiding-testing-anti-patterns | 829 | ⚠️ Needs split |
 | running-tests | 732 | ⚠️ Needs split |
 | frontend/e2e-user-journeys | 721 | ⚠️ Needs split |

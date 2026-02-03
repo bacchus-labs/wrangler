@@ -252,9 +252,9 @@ git -C /absolute/worktree/path add src/file.ts
 
 **Solution:** Include verification commands and expected output in prompt
 
-## Integration with implementing-features Skill
+## Integration with implementing-issues Skill
 
-When using the `implementing-features` skill with worktrees:
+When using the `implementing-issues` skill with worktrees:
 
 ### Setup Phase Addition
 

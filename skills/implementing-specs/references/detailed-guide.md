@@ -84,7 +84,7 @@ Each phase has verification gates:
 |-------|----------|
 | Worktree creation fails | Check disk space, permissions |
 | Planning unclear | Escalate to user for clarification |
-| Task blocked | Escalate via implementing-features skill |
+| Task blocked | Escalate via implementing-issues skill |
 | Tests fail | Do not publish, inform user |
 | Push fails | Check git remote, auth |
 | PR creation fails | Check gh auth, permissions |
@@ -101,9 +101,9 @@ Each phase has verification gates:
 ## Example Execution
 
 ```
-User: /wrangler:implementing-features spec-auth-system.md
+User: /wrangler:implementing-issues spec-auth-system.md
 
-Using Skill: implementing-features-spec | Implementing spec-auth-system.md with full audit trail
+Using Skill: implementing-issues-spec | Implementing spec-auth-system.md with full audit trail
 
 PHASE 1: INIT
 -> session_start(specFile: "spec-auth-system.md")
@@ -118,7 +118,7 @@ PHASE 2: PLAN
 -> session_checkpoint saved
 
 PHASE 3: EXECUTE
--> Invoking implementing-features skill with worktree context
+-> Invoking implementing-issues skill with worktree context
 -> Task ISS-000042: Complete (TDD certified, code reviewed)
 -> session_checkpoint saved
 -> Task ISS-000043: Complete
@@ -160,7 +160,7 @@ Audit trail: .wrangler/sessions/2025-12-07-abc123-f8d2/
 ## Integration with Other Skills
 
 **Required skills:**
-- `implementing-features` - Task execution with TDD and code review
+- `implementing-issues` - Task execution with TDD and code review
 - `writing-plans` - Breaking spec into MCP issues
 - `practicing-tdd` - TDD compliance in subagents
 - `requesting-reviewing-code` - Code review for each task

@@ -3,11 +3,11 @@ name: implementing-specs-v2
 description: Orchestrates specification implementation through planning, execution, verification, and PR publication phases with session recovery. Use when implementing complex specifications requiring phased workflow and resumable progress tracking.
 ---
 
-# implementing-features-spec-v2: Modular Specification Implementation
+# implementing-issues-spec-v2: Modular Specification Implementation
 
 ## Purpose
 
-Orchestrates specification implementation by invoking existing wrangler skills (writing-plans, implementing-features) rather than reimplementing their logic. Focuses on workflow coordination and compliance verification.
+Orchestrates specification implementation by invoking existing wrangler skills (writing-plans, implementing-issues) rather than reimplementing their logic. Focuses on workflow coordination and compliance verification.
 
 ## When to Use
 
@@ -28,15 +28,15 @@ Orchestrates specification implementation by invoking existing wrangler skills (
 
 This skill orchestrates existing wrangler skills rather than reimplementing their logic:
 
-**Phase 1 (INIT)**: Uses `session_start` MCP tool (from implementing-features-spec skill)
+**Phase 1 (INIT)**: Uses `session_start` MCP tool (from implementing-issues-spec skill)
 **Phase 2 (PLAN)**: Invokes `writing-plans` skill to create MCP issues
-**Phase 3 (EXECUTE)**: Invokes `implementing-features` skill for each issue
+**Phase 3 (EXECUTE)**: Invokes `implementing-issues` skill for each issue
 **Phase 4 (VERIFY)**: LLM-based compliance audit
 **Phase 5 (PUBLISH)**: GitHub PR finalization
 
 **Benefits of this approach:**
 - No duplicated planning logic (writing-plans is source of truth)
-- No duplicated implementation logic (implementing-features is source of truth)
+- No duplicated implementation logic (implementing-issues is source of truth)
 - Modular and maintainable (changes to planning flow in one place)
 - Testable (each skill can be tested independently)
 
@@ -102,7 +102,7 @@ Worktree must exist and be on correct branch.
 
 ### Reference Implementation
 
-See `implementing-features-spec` skill for detailed session_start usage patterns.
+See `implementing-issues-spec` skill for detailed session_start usage patterns.
 
 ---
 
@@ -202,7 +202,7 @@ Break specification into implementable tasks tracked as MCP issues.
      tasksCompleted: [],
      tasksPending: ISSUE_IDS,
      lastAction: "Created implementation plan with {TASK_COUNT} tasks",
-     resumeInstructions: "Continue with execute phase, implementing-features issues: {ISSUE_IDS}"
+     resumeInstructions: "Continue with execute phase, implementing-issues issues: {ISSUE_IDS}"
    )
    ```
 
@@ -229,7 +229,7 @@ Planning succeeds and issues are created. If planning fails or returns blockers,
 
 ## Phase 3: EXECUTE
 
-Implement all tasks using implementing-features skill.
+Implement all tasks using implementing-issues skill.
 
 ### Objective
 
@@ -242,12 +242,12 @@ Execute all implementation tasks with TDD and code review.
    session_phase(sessionId: SESSION_ID, phase: "execute", status: "started")
    ```
 
-2. **Invoke implementing-features skill for each issue**
+2. **Invoke implementing-issues skill for each issue**
 
-   Use the `implementing-features` skill with worktree context:
+   Use the `implementing-issues` skill with worktree context:
 
    ```markdown
-   I'm using the implementing-features skill to execute all tasks.
+   I'm using the implementing-issues skill to execute all tasks.
 
    ## Context for Implement Skill
 
@@ -306,17 +306,17 @@ Execute all implementation tasks with TDD and code review.
 ### Outputs
 
 - All issues implemented
-- Tests passing (verified by implementing-features skill)
-- Code reviewed (handled by implementing-features skill)
+- Tests passing (verified by implementing-issues skill)
+- Code reviewed (handled by implementing-issues skill)
 - PR description shows progress
 
 ### Quality Gate
 
-All tasks complete (implementing-features skill handles escalation for blockers). If any task cannot be completed, session pauses.
+All tasks complete (implementing-issues skill handles escalation for blockers). If any task cannot be completed, session pauses.
 
 ### Why This Works
 
-The implementing-features skill already handles:
+The implementing-issues skill already handles:
 - Subagent dispatch with worktree context
 - TDD enforcement
 - Code review automation

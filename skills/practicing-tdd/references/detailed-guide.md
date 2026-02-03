@@ -120,7 +120,7 @@ WRANGLER_SKIP_HOOKS=1 git commit -m "WIP: failing test for feature X"
 # ...write implementation...
 
 # Now tests pass, normal commit works
-git commit -m "feat: implementing-features feature X"
+git commit -m "feat: implementing-issues feature X"
 # [pre-commit] OK: All checks passed
 ```
 

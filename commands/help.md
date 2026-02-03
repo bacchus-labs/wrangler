@@ -115,16 +115,16 @@ Break a specification directly into MCP issues (no prompts).
 
 ---
 
-### /wrangler:implementing-features
+### /wrangler:implementing-issues
 
 Autonomously implement tasks from specs, plans, or issues.
 
 #### Usage
 
 ```bash
-/wrangler:implementing-features
-/wrangler:implementing-features issues 42-48
-/wrangler:implementing-features .wrangler/specifications/SPEC-000001-feature.md
+/wrangler:implementing-issues
+/wrangler:implementing-issues issues 42-48
+/wrangler:implementing-issues .wrangler/specifications/SPEC-000001-feature.md
 ```
 
 #### What It Does
@@ -309,7 +309,7 @@ Optional but recommended for larger projects:
 | Create a plan | `/wrangler:write-plan` |
 | Generate issues from spec | `/wrangler:generate-plan-for-spec <spec>` |
 | View status | `/wrangler:issues` |
-| Implement tasks | `/wrangler:implementing-features` |
+| Implement tasks | `/wrangler:implementing-issues` |
 | Get help | `/wrangler:help [command]` |
 
 ---

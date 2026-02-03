@@ -66,7 +66,7 @@
 
 **defining-constitution**: Develop, refine, and maintain project constitutional principles - uses Socratic questioning to eliminate ambiguity and ensure perfect clarity on design values and non-negotiables
 
-**implementing-features**: Autonomously implementing-features tasks from specs, plans, or issues using subagents with TDD and code review
+**implementing-issues**: Autonomously implementing-issues tasks from specs, plans, or issues using subagents with TDD and code review
 
 **implementing-specs**: Orchestrate spec-to-PR workflow with session tracking, worktree isolation, and audit trail
 
@@ -91,7 +91,7 @@
 
 **finding-code-patterns**: Finds similar implementations, usage examples, and existing patterns in the codebase - shows concrete code examples for modeling new work. Pattern librarian documenting what exists without judgment.
 
-**implementing-specs-v2**: GitHub-centric specification implementation orchestrating writing-plans and implementing-features skills
+**implementing-specs-v2**: GitHub-centric specification implementation orchestrating writing-plans and implementing-issues skills
 
 **locating-code**: Finds WHERE code lives in a codebase - locates files by topic/feature, categorizes by purpose, organizes findings. Super grep/glob/ls tool for navigating unfamiliar codebases.
 

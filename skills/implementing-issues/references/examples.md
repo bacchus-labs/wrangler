@@ -2,7 +2,7 @@
 
 ## Example 1: Implementing a Specification
 
-User: /wrangler:implementing-features spec-auth-system.md
+User: /wrangler:implementing-issues spec-auth-system.md
 
 → Parse scope: spec-auth-system.md
 → Load 5 tasks from linked issues
@@ -12,7 +12,7 @@ User: /wrangler:implementing-features spec-auth-system.md
 
 ## Example 2: Implementing an Issue Range
 
-User: /wrangler:implementing-features issues 10-12
+User: /wrangler:implementing-issues issues 10-12
 
 → Load 3 issues via MCP
 → Execute sequentially
@@ -21,7 +21,7 @@ User: /wrangler:implementing-features issues 10-12
 ## Example 3: Context Inference
 
 User: Here's the plan file (attached plan-db-refactor.md)
-User: /wrangler:implementing-features
+User: /wrangler:implementing-issues
 
 → Scans last messages
 → Finds plan-db-refactor.md

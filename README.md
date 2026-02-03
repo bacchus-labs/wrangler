@@ -17,7 +17,7 @@ Issue and specification tracking using markdown files with YAML frontmatter. Sto
 12 commands that activate skills:
 - `/wrangler:brainstorm` - Design refinement
 - `/wrangler:write-plan` - Implementation planning
-- `/wrangler:implementing-features` - Autonomous execution
+- `/wrangler:implementing-issues` - Autonomous execution
 - `/wrangler:run-tests` - Test execution
 - `/wrangler:updating-wrangler` - Version migration
 - `/wrangler:setting-up-git-hooks` - Git hooks configuration

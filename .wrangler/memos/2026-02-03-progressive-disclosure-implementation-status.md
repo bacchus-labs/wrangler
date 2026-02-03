@@ -16,7 +16,7 @@
 **Phase 3, Task 3 (ISS-000092)**: Apply progressive disclosure to 17 remaining oversized skills
 
 Skills requiring work (≥500 lines):
-1. implementing-features (1263 lines)
+1. implementing-issues (1263 lines)
 2. avoiding-testing-anti-patterns (829 lines)
 3. running-tests (732 lines)
 4. frontend/e2e-user-journeys (721 lines)

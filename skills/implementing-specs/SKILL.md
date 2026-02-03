@@ -11,7 +11,7 @@ End-to-end orchestration that takes a specification file and produces a GitHub P
 
 **Core principle:** Single command produces PR with verified implementation, full observability, and recovery capability.
 
-**Entry point:** `/wrangler:implementing-features [spec-file]`
+**Entry point:** `/wrangler:implementing-issues [spec-file]`
 
 **Produces:**
 - GitHub Pull Request with comprehensive summary
@@ -21,15 +21,15 @@ End-to-end orchestration that takes a specification file and produces a GitHub P
 ## When to Use
 
 **Use this skill when:**
-- User says "implementing-features this spec" and wants a PR
+- User says "implementing-issues this spec" and wants a PR
 - You want full audit trail and observability
 - You need session recovery capability
 - You want isolated worktree for implementation
 
 **Do NOT use this skill when:**
-- Implementing a single issue (use `implementing-features` skill directly)
+- Implementing a single issue (use `implementing-issues` skill directly)
 - User wants manual control over each step
-- Working on existing PR or branch (use `implementing-features` skill)
+- Working on existing PR or branch (use `implementing-issues` skill)
 
 ## Workflow Phases
 
@@ -169,7 +169,7 @@ Create implementation plan with MCP issues.
      tasksCompleted: [],
      tasksPending: ISSUE_IDS,
      lastAction: "Created implementation plan with {TASK_COUNT} tasks",
-     resumeInstructions: "Continue with execute phase, implementing-features issues: {ISSUE_IDS}"
+     resumeInstructions: "Continue with execute phase, implementing-issues issues: {ISSUE_IDS}"
    )
    ```
 
@@ -189,12 +189,12 @@ Implement all tasks using subagents.
    session_phase(sessionId: SESSION_ID, phase: "execute", status: "started")
    ```
 
-2. **Invoke implementing-features skill**
+2. **Invoke implementing-issues skill**
 
-   Use the `implementing-features` skill with worktree context:
+   Use the `implementing-issues` skill with worktree context:
 
    ```markdown
-   I'm using the implementing-features skill to execute all tasks.
+   I'm using the implementing-issues skill to execute all tasks.
 
    ## Context for Implement Skill
 
@@ -369,7 +369,7 @@ Push branch and create PR.
 
    ```bash
    cd "{WORKTREE_ABSOLUTE}" && gh pr create \
-     --title "feat({SPEC_NAME}): implementing-features specification" \
+     --title "feat({SPEC_NAME}): implementing-issues specification" \
      --body "{PR_BODY}" \
      --base main \
      --head "{BRANCH_NAME}"

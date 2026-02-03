@@ -61,7 +61,7 @@ Skip plan file when:
 ```markdown
 # [Feature Name] Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use /wrangler:implementing-features to implementing-features this plan task-by-task.
+> **For Claude:** REQUIRED SUB-SKILL: Use /wrangler:implementing-issues to implementing-issues this plan task-by-task.
 
 **Goal:** [One sentence describing what this builds]
 
@@ -80,7 +80,7 @@ Skip plan file when:
 - Exact file paths (create/modify/test)
 - Complete code examples (not "add validation")
 - Exact commands with expected output
-- All 5 TDD steps (write test, verify fails, implementing-features, verify passes, commit)
+- All 5 TDD steps (write test, verify fails, implementing-issues, verify passes, commit)
 - Clear acceptance criteria
 - Dependencies on other tasks
 
@@ -234,14 +234,14 @@ After creating issues, offer execution choice:
 
 **Execution options:**
 
-**Ready to implementing-features?**
+**Ready to implementing-issues?**
 
-Use `/wrangler:implementing-features` with one of these scopes:
-- `/wrangler:implementing-features` (auto-infers from plan file in context)
-- `/wrangler:implementing-features issues 1-N` (specific issue range)
-- `/wrangler:implementing-features plan-filename.md` (explicit plan file)
+Use `/wrangler:implementing-issues` with one of these scopes:
+- `/wrangler:implementing-issues` (auto-infers from plan file in context)
+- `/wrangler:implementing-issues issues 1-N` (specific issue range)
+- `/wrangler:implementing-issues plan-filename.md` (explicit plan file)
 
-The implementing-features skill will:
+The implementing-issues skill will:
 - Execute all tasks autonomously via subagents
 - Run code review after each task with automatic fixes
 - Only stop for genuine blockers (unclear requirements, flummoxed agents)

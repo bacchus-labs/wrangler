@@ -102,7 +102,7 @@ try {
 - **Problematic** if multi-instance deployment (cache not shared)
 - **Acceptable** if single instance and plan didn't specify why Redis
 
-**Recommendation**: Clarify deployment model. If multi-instance, implementing-features Redis as planned.
+**Recommendation**: Clarify deployment model. If multi-instance, implementing-issues Redis as planned.
 
 ---
 

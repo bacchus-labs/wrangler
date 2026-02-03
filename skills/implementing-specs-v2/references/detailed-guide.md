@@ -212,7 +212,7 @@ See `examples/` directory for detailed examples:
 
 ## Compliance Notes
 
-- **Always follow TDD:** Tests before implementation (enforced by implementing-features skill)
+- **Always follow TDD:** Tests before implementation (enforced by implementing-issues skill)
 - **Never skip VERIFY:** Mandatory compliance check (100% required)
 - **Use PR as audit trail:** All progress visible in GitHub
 - **Update PR regularly:** Keep stakeholders informed
@@ -224,7 +224,7 @@ See `examples/` directory for detailed examples:
 
 **Phase 1 (INIT):**
 - Uses `session_start` MCP tool (from wrangler MCP server)
-- Pattern from `implementing-features-spec` skill
+- Pattern from `implementing-issues-spec` skill
 
 **Phase 2 (PLAN):**
 - Invokes `writing-plans` skill (subagent dispatch)
@@ -232,7 +232,7 @@ See `examples/` directory for detailed examples:
 - Optional plan file for architecture context
 
 **Phase 3 (EXECUTE):**
-- Invokes `implementing-features` skill (autonomous execution)
+- Invokes `implementing-issues` skill (autonomous execution)
 - TDD enforcement via `practicing-tdd` skill
 - Code review via `requesting-reviewing-code` skill
 
@@ -247,7 +247,7 @@ See `examples/` directory for detailed examples:
 
 This modular approach means:
 - Changes to planning logic happen in `writing-plans` (one place)
-- Changes to implementation logic happen in `implementing-features` (one place)
+- Changes to implementation logic happen in `implementing-issues` (one place)
 - This skill focuses on orchestration and verification
 - No duplication, easier to maintain
 

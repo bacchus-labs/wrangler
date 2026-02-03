@@ -201,7 +201,7 @@ You MUST complete each phase before proceeding to the next.
 
    **Pattern indicating architectural problem:**
    - Each fix reveals new shared state/coupling/problem in different place
-   - Fixes require "massive refactoring" to implementing-features
+   - Fixes require "massive refactoring" to implementing-issues
    - Each fix creates new symptoms elsewhere
 
    **STOP and question fundamentals:**

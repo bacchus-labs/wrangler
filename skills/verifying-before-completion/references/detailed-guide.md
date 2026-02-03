@@ -45,7 +45,7 @@ All 6 tests pass successfully.
 ### Scenario 5: Frontend Component Implementation
 
 ```
-Agent: "I need to implementing-features a checkout form component."
+Agent: "I need to implementing-issues a checkout form component."
 
 [Uses frontend-visual-regression-testing + frontend-accessibility-verification]
 
