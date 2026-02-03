@@ -139,7 +139,7 @@ Add password reset functionality for users who forget their credentials.
 - Password strength validation
 - Rate limiting to prevent abuse
 
-## Implementation Steps
+## Implementation
 
 1. Create password reset API endpoint
 2. Implement email service integration

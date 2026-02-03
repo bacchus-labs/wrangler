@@ -20,7 +20,7 @@ This skill captures user ideas exactly as stated, without interpretation, enhanc
 
 The idea artifact type exists to capture raw thoughts before they undergo refinement into specifications or issues.
 
-## When to Use This Skill
+## When to Use
 
 Use this skill when the user:
 - Suggests a feature or improvement casually

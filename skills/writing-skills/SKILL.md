@@ -89,7 +89,6 @@ Inline code or link to file
 What goes wrong + fixes
 ```
 
-
 ## Claude Search Optimization (CSO)
 
 ### 1. Rich Description Field

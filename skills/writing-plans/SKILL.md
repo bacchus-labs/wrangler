@@ -147,7 +147,7 @@ Reference: [specification filename]
 - Modify: \`path/to/existing.ts:45-67\`
 - Test: \`path/to/test.ts\`
 
-## Implementation Steps
+## Implementation
 
 **Step 1: Write the failing test**
 
