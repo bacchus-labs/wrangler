@@ -1,628 +1,274 @@
-# implement-spec-v2: GitHub-Centric Specification Implementation
+# implement-spec-v2
+
+Modular specification implementation skill that orchestrates existing wrangler skills.
 
 ## Overview
 
-`implement-spec-v2` is a comprehensive workflow system for implementing specifications using GitHub PR as the primary audit trail. It replaces local plan files with a living PR description that updates through five distinct phases: ANALYZE, PLAN, EXECUTE, VERIFY, and PUBLISH.
+This skill implements specifications end-to-end by coordinating existing skills (writing-plans, implement) rather than reimplementing their logic. It focuses on workflow orchestration, verification gates, and GitHub PR management.
 
-**Key Features:**
-- GitHub PR as single source of truth
-- Mandatory verification gates (cannot skip VERIFY)
-- Automatic E2E test requirement detection
-- Spec compliance tracking (must reach 100%)
-- Phase-based PR description updates
-- TDD enforcement throughout
+## Architecture
 
-## Table of Contents
+### Modular Design
 
-- [Installation](#installation)
-- [Quick Start](#quick-start)
-- [Workflow Phases](#workflow-phases)
-- [Scripts](#scripts)
-- [Templates](#templates)
-- [Quality Gates](#quality-gates)
-- [Testing](#testing)
-- [Migration from V1](#migration-from-v1)
-- [Troubleshooting](#troubleshooting)
-
-## Installation
-
-### Prerequisites
-
-- Bash 4.0+
-- Git
-- GitHub CLI (`gh`) installed and authenticated
-- `jq` command-line JSON processor
-
-### Setup
-
-All scripts are self-contained Bash scripts. No build step required.
-
-```bash
-cd skills/implement-spec-v2
-
-# Make scripts executable (already done in repo)
-chmod +x scripts/*.sh scripts/utils/*.sh
+```
+implement-spec-v2 (orchestrator)
+├── Phase 1: INIT → Uses session_start MCP tool
+├── Phase 2: PLAN → Invokes writing-plans skill
+├── Phase 3: EXECUTE → Invokes implement skill
+├── Phase 4: VERIFY → LLM-based compliance audit
+├── Phase 5: PUBLISH → GitHub PR finalization
+└── Phase 6: COMPLETE → Session closure
 ```
 
-### Verify Installation
+### Benefits
 
-```bash
-# Check gh CLI is authenticated
-gh auth status
+- **No duplication**: Planning logic lives in writing-plans (one place)
+- **No duplication**: Implementation logic lives in implement (one place)
+- **Maintainability**: Changes to planning/execution update all consumers
+- **Testability**: Each skill can be tested independently
+- **Composability**: Skills can be invoked standalone or orchestrated
 
-# Check jq is installed
-jq --version
+## Dependencies
 
-# Test script execution
-./scripts/analyze-spec.sh --help
-```
+### Required Skills
 
-## Quick Start
+- **writing-plans**: Creates MCP issues from specification
+- **implement**: Executes issues with TDD and code review
+- **test-driven-development**: TDD workflow enforced by implement
+- **requesting-code-review**: Code review framework used by implement
 
-### 1. Invoke the Skill
+### Required Tools
 
-```bash
-/wrangler:implement-v2 SPEC-000042
-```
-
-### 2. Follow the Five-Phase Workflow
-
-The skill will guide you through:
-- **ANALYZE:** Extract acceptance criteria from spec
-- **PLAN:** Create GitHub PR with planning description
-- **EXECUTE:** Implement features with TDD
-- **VERIFY:** Verify 100% compliance (mandatory)
-- **PUBLISH:** Mark PR ready for review
-
-### 3. Monitor Progress
-
-All progress is visible in the GitHub PR description, which updates through each phase.
+- **session_start**: MCP tool for worktree initialization
+- **session_phase**: MCP tool for phase tracking
+- **session_checkpoint**: MCP tool for recovery
+- **session_complete**: MCP tool for finalization
+- **issues_create**: MCP tool for issue creation (via writing-plans)
+- **issues_list**: MCP tool for issue querying
 
 ## Workflow Phases
 
-### Phase 1: ANALYZE
+### Phase 1: INIT
 
-**Purpose:** Extract structured data from specification file.
-
-**Actions:**
-```bash
-./scripts/analyze-spec.sh .wrangler/specifications/SPEC-000042.md session-123 > analysis.json
-```
-
-**Outputs:**
-- Acceptance criteria list (AC-001, AC-002, etc.)
-- E2E test requirements (boolean + reasons)
-- Manual testing checklist (MT-001, MT-002, etc.)
-
-**Quality Gate:** Analysis complete and validated.
-
----
+- Calls `session_start` MCP tool to create worktree
+- Verifies worktree location and branch
+- Establishes session context
 
 ### Phase 2: PLAN
 
-**Purpose:** Create GitHub PR with planning description.
+- Dispatches planning subagent with specification
+- Subagent invokes `writing-plans` skill
+- writing-plans creates MCP issues (source of truth)
+- Optional plan file created for architecture context
+- Creates GitHub PR with overview (not full plan)
 
-**Actions:**
-```bash
-git checkout -b feature/spec-000042-implementation
-
-./scripts/generate-pr-description.sh planning templates/ analysis.json > planning.md
-
-gh pr create \
-  --title "feat: implement SPEC-000042" \
-  --body "$(cat planning.md)" \
-  --base main \
-  --draft
-```
-
-**Outputs:**
-- GitHub PR created (draft mode)
-- Planning description visible
-- PR number recorded
-
-**Quality Gate:** PR created successfully.
-
----
+**Key insight**: Individual issues are generated by writing-plans calling `issues_create` for each task with complete implementation details (files, code, tests, commands).
 
 ### Phase 3: EXECUTE
 
-**Purpose:** Implement features following TDD.
+- Invokes `implement` skill with issue IDs
+- implement dispatches subagent per issue
+- Each subagent follows TDD (RED-GREEN-REFACTOR)
+- Automatic code review after each issue
+- Auto-fix for Critical/Important issues
+- Only stops for genuine blockers
 
-**Actions:**
-- Write tests FIRST (RED phase)
-- Implement features (GREEN phase)
-- Refactor code (REFACTOR phase)
-- Update PR description with progress
-
-```bash
-# After milestone completion
-./scripts/generate-pr-description.sh execution templates/ analysis.json tasks.json > execution.md
-
-./scripts/update-pr-description.sh 123 execution.md update-sections
-```
-
-**Outputs:**
-- All tests passing
-- Features implemented
-- PR shows progress
-
-**Quality Gate:** All acceptance criteria implemented.
-
----
+**Key insight**: All execution logic lives in implement skill. We just invoke it with our session context.
 
 ### Phase 4: VERIFY
 
-**Purpose:** Verify 100% compliance with quality gates.
+- LLM reads spec and extracts acceptance criteria
+- Verifies each criterion has evidence (tests, code, commits)
+- Runs fresh test suite
+- Checks git status (must be clean)
+- Calculates compliance percentage
+- **BLOCKS if compliance < 100%**
 
-**THIS PHASE IS MANDATORY AND CANNOT BE SKIPPED.**
-
-**Actions:**
-```bash
-# Audit compliance
-./scripts/audit-spec-compliance.sh analysis.json tasks.json > compliance.json
-
-# Verify compliance = 100%
-# If < 100%, return to EXECUTE phase
-
-# Update PR with verification status
-./scripts/generate-pr-description.sh verification templates/ analysis.json > verification.md
-
-./scripts/update-pr-description.sh 123 verification.md update-sections
-```
-
-**Quality Gates:**
-- [ ] All unit tests passing (80%+ coverage)
-- [ ] All E2E tests passing (if required)
-- [ ] Manual testing checklist complete
-- [ ] Spec compliance = 100%
-
-**Blocker:** If compliance < 100%, must return to EXECUTE.
-
----
+**Key insight**: LLM-based extraction handles varied spec formats gracefully (not brittle regex parsing).
 
 ### Phase 5: PUBLISH
 
-**Purpose:** Finalize PR and request review.
+- Updates PR description with final summary
+- Lists all tasks with commit hashes
+- Shows test results and compliance
+- Marks PR ready for review
+- Adds reviewers if configured
 
-**Actions:**
-```bash
-# Generate completion summary
-./scripts/generate-pr-description.sh complete templates/ analysis.json > complete.md
+### Phase 6: COMPLETE
 
-./scripts/update-pr-description.sh 123 complete.md update-sections
-
-# Mark PR as ready
-gh pr ready 123
-
-# Request reviews (optional)
-gh pr edit 123 --add-reviewer reviewer-username
-```
-
-**Outputs:**
-- PR marked as ready for review
-- Reviewers notified
-- CI/CD checks running
-
-**Quality Gate:** PR ready for merge after approval.
-
----
-
-## Scripts
-
-### analyze-spec.sh
-
-**Purpose:** Extract acceptance criteria from specification file.
-
-**Usage:**
-```bash
-./scripts/analyze-spec.sh <specFile> <sessionId> [--output analysis.json]
-```
-
-**Example:**
-```bash
-./scripts/analyze-spec.sh .wrangler/specifications/SPEC-000042.md session-123 > analysis.json
-```
-
-**Output Format:**
-```json
-{
-  "acceptanceCriteria": [
-    {
-      "id": "AC-001",
-      "description": "User can log in",
-      "section": "FR-001",
-      "priority": "must",
-      "met": false
-    }
-  ],
-  "e2eTestFeatures": ["AC-001: User can log in"],
-  "manualTestingChecklist": [
-    {
-      "id": "MT-001",
-      "description": "Start application"
-    }
-  ],
-  "totalCriteria": 1
-}
-```
-
----
-
-### generate-pr-description.sh
-
-**Purpose:** Generate PR description from template and analysis data.
-
-**Usage:**
-```bash
-./scripts/generate-pr-description.sh <phase> <templatesDir> <analysisPath> [--tasks tasksPath] [--compliance compliancePath]
-```
-
-**Phases:**
-- `planning` - Initial planning phase
-- `execution` - Progress tracking
-- `verification` - Quality gates
-- `complete` - Final summary
-
-**Example:**
-```bash
-./scripts/generate-pr-description.sh planning templates/ analysis.json > planning.md
-```
-
----
-
-### audit-spec-compliance.sh
-
-**Purpose:** Calculate spec compliance percentage and generate recommendations.
-
-**Usage:**
-```bash
-./scripts/audit-spec-compliance.sh <analysisPath> <tasksPath> [--output compliance.json]
-```
-
-**Example:**
-```bash
-./scripts/audit-spec-compliance.sh analysis.json tasks.json > compliance.json
-```
-
-**Output Format:**
-```json
-{
-  "totalCriteria": 4,
-  "metCriteria": 2,
-  "percentage": 50,
-  "criteriaBreakdown": [...],
-  "completedTasksCount": 2,
-  "recommendations": ["Address must-have criterion: AC-003 - ..."],
-  "summary": "Specification 50% complete: 2/4 criteria met"
-}
-```
-
----
-
-### update-pr-description.sh
-
-**Purpose:** Update GitHub PR description via gh CLI.
-
-**Usage:**
-```bash
-./scripts/update-pr-description.sh <prNumber> <newDescriptionPath> [strategy] [--dry-run]
-```
-
-**Merge Strategies:**
-- `replace` - Replace entire description
-- `append` - Append new content
-- `update-sections` - Update specific sections (default)
-
-**Example:**
-```bash
-./scripts/update-pr-description.sh 123 execution.md update-sections
-
-# Dry run (preview without updating)
-./scripts/update-pr-description.sh 123 execution.md update-sections --dry-run
-```
-
----
-
-## Templates
-
-All templates use simple `{{VARIABLE}}` placeholder syntax and are located in `templates/` directory.
-
-### planning.md
-
-**Purpose:** Initial planning phase description.
-
-**Sections:**
-- Spec information
-- Analysis results
-- E2E test requirements
-- Acceptance criteria checklist
-- Manual testing checklist
-- Next steps
-
-**Variables:**
-- `specId`, `specTitle`, `status`, `priority`
-- `taskCount`, `analyzedAt`
-- `acceptanceCriteria`, `manualTestingChecklist`
-- `requiresE2ETests`, `e2eTestFeatures`
-
----
-
-### execution.md
-
-**Purpose:** Progress tracking during implementation.
-
-**Sections:**
-- Implementation progress (tasks)
-- Acceptance criteria (with checkboxes)
-- Manual testing checklist
-- Progress percentage
-
-**Variables:**
-- All planning variables
-- `tasks` (array of {id, title, status})
-- `complianceMet`, `complianceTotal`, `compliancePercentage`
-
----
-
-### verification.md
-
-**Purpose:** Quality gates and verification status.
-
-**Sections:**
-- Compliance status
-- Quality gates (unit tests, E2E tests, manual testing)
-- Spec compliance checklist
-- Blockers (unmet criteria)
-
-**Variables:**
-- All execution variables
-- `complianceReport` object
-
----
-
-### complete.md
-
-**Purpose:** Final summary when implementation complete.
-
-**Sections:**
-- Implementation complete banner
-- All acceptance criteria (checked)
-- Quality gates (all passed)
-- Implementation summary
-- Review checklist
-
-**Variables:**
-- All verification variables
-
----
+- Calls `session_complete` MCP tool
+- Records PR URL, session ID, metrics
+- Presents completion summary
+- Provides audit trail location
 
 ## Quality Gates
 
-### Required Gates
+| Phase | Gate | Required |
+|-------|------|----------|
+| INIT | Worktree created | Yes |
+| PLAN | Issues created | Yes |
+| EXECUTE | All tasks complete | Yes |
+| VERIFY | 100% compliance | Yes |
+| VERIFY | All tests passing | Yes |
+| VERIFY | Git clean | Yes |
+| PUBLISH | PR ready | Yes |
 
-| Gate | When | Criteria |
-|------|------|----------|
-| Analysis Complete | ANALYZE → PLAN | All criteria extracted |
-| PR Created | PLAN → EXECUTE | GitHub PR exists |
-| Features Implemented | EXECUTE → VERIFY | All criteria implemented |
-| **100% Compliance** | **VERIFY → PUBLISH** | **All criteria met** |
-| Tests Passing | VERIFY → PUBLISH | 80%+ coverage |
-| Manual Testing Complete | VERIFY → PUBLISH | If E2E required |
-| PR Ready | PUBLISH → MERGE | Reviewers approved |
+**VERIFY phase is mandatory and cannot be skipped.**
 
-### Mandatory Verification
+## Usage
 
-**The VERIFY phase cannot be skipped.** You must:
-- Run compliance audit
-- Achieve 100% compliance
-- Pass all quality gates
-- Update PR with verification results
+### Via Slash Command
 
-**If compliance < 100%, you MUST return to EXECUTE phase.**
-
----
-
-## Testing
-
-### Run All Tests
-
-```bash
-npm test
+```
+/wrangler:implement-v2 SPEC-000042
 ```
 
-### Run Specific Test Suites
+### Manual Invocation
 
-```bash
-# Unit tests
-npm test -- analyze-spec.test.sh
-npm test -- audit-spec-compliance.test.sh
-npm test -- generate-pr-description.test.sh
-npm test -- update-pr-description.test.sh
-
-# Integration tests
-npm test -- integration.test.sh
-
-# E2E tests
-npm test -- e2e.test.sh
+```markdown
+I'm using the implement-spec-v2 skill to implement SPEC-000042.md
 ```
 
-### Test Coverage
-
-```bash
-npm test -- --coverage
-```
-
-**Current Coverage:**
-- Statements: 85%+
-- Branches: 80%+
-- Functions: 90%+
-- Lines: 85%+
-
----
-
-## Migration from V1
-
-### Key Differences
-
-| Feature | V1 | V2 |
-|---------|----|----|
-| Audit Trail | Local plan files | GitHub PR |
-| VERIFY Phase | Optional | **Mandatory** |
-| Compliance | Optional | **100% required** |
-| PR Updates | Manual | Automated |
-| E2E Detection | Manual | Automatic |
-
-### Migration Steps
-
-1. **For existing branches:**
-   ```bash
-   # Create PR if not exists
-   gh pr create --title "feat: ..." --body "..." --draft
-
-   # Generate analysis
-   ./scripts/analyze-spec.sh .wrangler/specifications/SPEC-XXX.md session-id > analysis.json
-
-   # Audit current state
-   ./scripts/audit-spec-compliance.sh analysis.json tasks.json > compliance.json
-
-   # Update PR with current status
-   ./scripts/generate-pr-description.sh execution templates/ analysis.json tasks.json > execution.md
-   ./scripts/update-pr-description.sh <prNumber> execution.md
-   ```
-
-2. **Resume at appropriate phase:**
-   - If features incomplete: Resume at EXECUTE
-   - If features complete: Move to VERIFY
-   - If verified: Move to PUBLISH
-
----
-
-## Troubleshooting
-
-### Spec File Not Found
-
-**Error:** `Spec file not found: /path/to/spec.md`
-
-**Solution:**
-- Verify spec file path is correct
-- Check file exists in `.wrangler/specifications/`
-- Use absolute path or relative from project root
-
-### PR Creation Failed
-
-**Error:** `gh: PR creation failed`
-
-**Solution:**
-- Ensure `gh` CLI is authenticated: `gh auth status`
-- Check branch is pushed to remote: `git push -u origin branch-name`
-- Verify base branch exists: `gh repo view`
-
-### Compliance Less Than 100%
-
-**Error:** Cannot proceed to PUBLISH with <100% compliance
-
-**Solution:**
-- Review compliance report for unmet criteria
-- Return to EXECUTE phase
-- Address all unmet criteria
-- Re-run compliance audit
-- Only proceed when percentage = 100%
-
-### Template Not Found
-
-**Error:** `Template file not found: templates/phase.md`
-
-**Solution:**
-- Verify templates directory path
-- Check template file exists
-- Use correct phase name (planning, execution, verification, complete)
-
-### Script Execution Errors
-
-**Error:** Script execution fails
-
-**Solution:**
-- Ensure scripts are executable: `chmod +x scripts/*.sh`
-- Check Bash version: `bash --version` (requires 4.0+)
-- Verify jq is installed: `jq --version`
-
----
+See `SKILL.md` for detailed workflow documentation.
 
 ## Examples
 
-### Example 1: Simple Backend Feature
+See `examples/` directory:
+- `simple-feature.md` - Backend feature (no E2E)
+- `complex-feature.md` - User-facing feature (with E2E)
+- `recovery.md` - Session recovery after interruption
 
+## Scripts
+
+### generate-pr-description.sh
+
+Generates PR description from template and session data.
+
+**Usage:**
 ```bash
-# ANALYZE
-./scripts/analyze-spec.sh .wrangler/specifications/SPEC-000042.md session-123 > analysis.json
-
-# PLAN
-git checkout -b feature/spec-000042-api
-./scripts/generate-pr-description.sh planning templates/ analysis.json > planning.md
-gh pr create --title "feat: implement API endpoints" --body "$(cat planning.md)" --draft
-
-# EXECUTE
-# ... implement features with TDD ...
-echo '[{"id":"ISS-001","title":"Add API route","status":"closed"}]' > tasks.json
-./scripts/generate-pr-description.sh execution templates/ analysis.json tasks.json > execution.md
-./scripts/update-pr-description.sh 123 execution.md
-
-# VERIFY
-./scripts/audit-spec-compliance.sh analysis.json tasks.json > compliance.json
-# Verify compliance.json shows 100%
-./scripts/generate-pr-description.sh verification templates/ analysis.json > verification.md
-./scripts/update-pr-description.sh 123 verification.md
-
-# PUBLISH
-./scripts/generate-pr-description.sh complete templates/ analysis.json > complete.md
-./scripts/update-pr-description.sh 123 complete.md
-gh pr ready 123
+./scripts/generate-pr-description.sh <phase> <session-data>
 ```
 
-### Example 2: User-Facing Feature with E2E
+**Phases:**
+- planning: Initial PR creation
+- execution: Progress updates
+- verification: Quality gate results
+- complete: Final summary
 
-Same as Example 1, but VERIFY phase includes:
-- Running E2E test suite: `npm run test:e2e`
-- Completing manual testing checklist
-- Recording verification evidence
+### update-pr-description.sh
 
----
+Updates GitHub PR description via gh CLI with sanitization.
+
+**Usage:**
+```bash
+./scripts/update-pr-description.sh <prNumber> <newDescription>
+```
+
+**Features:**
+- Sanitizes sensitive data (tokens, credentials)
+- Validates PR exists before update
+- Error handling for gh CLI failures
+
+### Removed Scripts
+
+- `analyze-spec.sh` - Removed (replaced with LLM-based extraction)
+- `audit-spec-compliance.sh` - Removed (integrated into VERIFY phase)
+- `orchestrator.sh` - Removed (logic now in SKILL.md)
+
+**Why removed**: Brittle regex parsing that breaks with spec format variations. LLM-based extraction is more robust and intelligent.
+
+## Testing
+
+No tests currently (orchestration skill, not implementation).
+
+Future testing considerations:
+- Mock skill invocations
+- Test phase transitions
+- Test quality gate logic
+- Test recovery scenarios
+
+## Integration with Wrangler
+
+This skill is part of the wrangler skills library and follows wrangler patterns:
+
+- Uses MCP tools for session management
+- Invokes existing skills (no duplication)
+- Follows TDD enforcement via implement skill
+- Uses GitHub PR as primary audit trail
+- Supports worktree isolation
+- Provides recovery capability via checkpoints
+
+## Comparison with implement-spec (v1)
+
+**implement-spec (v1):**
+- Assumes MCP issues already exist
+- Goes straight to execution (INIT → PLAN → EXECUTE → VERIFY → PUBLISH)
+- Uses `implement` skill for execution
+- Best for: Implementing existing issues
+
+**implement-spec-v2 (this skill):**
+- Starts from specification file
+- Adds PLAN phase (invokes writing-plans)
+- Adds mandatory VERIFY phase (compliance audit)
+- Uses `implement` skill for execution
+- Best for: Implementing specs end-to-end
+
+**When to use which:**
+- Use `implement-spec` if you have MCP issues already
+- Use `implement-spec-v2` if starting from specification
+
+## File Structure
+
+```
+implement-spec-v2/
+├── SKILL.md                    # Detailed workflow documentation
+├── README.md                   # This file (architecture overview)
+├── examples/                   # Usage examples
+│   ├── simple-feature.md       # Backend feature example
+│   ├── complex-feature.md      # UI feature with E2E
+│   └── recovery.md             # Session recovery example
+├── scripts/                    # Helper scripts
+│   ├── generate-pr-description.sh
+│   ├── update-pr-description.sh
+│   └── utils/                  # Shared utilities
+└── templates/                  # PR description templates
+    ├── planning.md
+    ├── execution.md
+    ├── verification.md
+    └── complete.md
+```
 
 ## Contributing
 
-### Adding New Scripts
+When modifying this skill:
 
-1. Create script in `scripts/` directory
-2. Write comprehensive tests FIRST (TDD)
-3. Implement script logic
-4. Add CLI entry point
-5. Document usage in this README
+1. **Planning changes**: Update `writing-plans` skill (not here)
+2. **Implementation changes**: Update `implement` skill (not here)
+3. **Orchestration changes**: Update `SKILL.md` (here)
+4. **Verification changes**: Update VERIFY phase logic (here)
+5. **PR management changes**: Update scripts or templates (here)
 
-### Adding New Templates
+**Keep orchestration logic separate from implementation logic.**
 
-1. Create template in `templates/` directory
-2. Use simple {{VARIABLE}} placeholders
-3. Follow existing template structure
-4. Test with generate-pr-description script
-5. Document template variables
+## Related Documentation
 
----
+- [SKILL.md](SKILL.md) - Detailed workflow documentation
+- [commands/implement-v2.md](../../commands/implement-v2.md) - Slash command documentation
+- [skills/writing-plans/SKILL.md](../writing-plans/SKILL.md) - Planning skill
+- [skills/implement/SKILL.md](../implement/SKILL.md) - Implementation skill
+- [docs/MCP-USAGE.md](../../docs/MCP-USAGE.md) - MCP tools reference
 
-## Support
+## Version History
 
-**Issues:** Report bugs or feature requests via GitHub Issues
+- **v2.0.0** (2025-02-02): Modular architecture refactor
+  - Removed brittle spec parsing scripts
+  - Changed to skill orchestration pattern
+  - Added LLM-based verification
+  - Added mandatory VERIFY phase
+  - Improved recovery capability
 
-**Documentation:** See `SKILL.md` for detailed workflow documentation
-
-**Examples:** See `__tests__/e2e.test.sh` for complete workflow examples
-
----
+- **v1.0.0** (initial): GitHub-centric workflow (deprecated)
 
 ## License
 
-MIT License - See LICENSE file for details
-
----
-
-**Last Updated:** 2026-02-02
-**Version:** 2.0.0
+MIT (part of wrangler project)
