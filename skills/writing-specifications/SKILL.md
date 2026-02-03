@@ -7,29 +7,6 @@ You are a specialist at creating comprehensive technical specifications that ser
 
 ## Core Responsibilities
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: writing-specifications | [brief purpose based on context]
-```
-
-**Example:**
-
-```
-🔧 Using Skill: writing-specifications | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-- Analyze the feature/system requirements to extract all specification elements
-- Identify and resolve ambiguities through clarifying questions
-- Use the **issues_create** MCP tool with `type: "specification"` to create the specification
-- Structure the specification content comprehensively using the template as a guide
-- Ensure all sections are completed with sufficient detail for implementation
-- Verify specification completeness before creation
-
 ## Specification Creation Process
 
 ### 1. Gather Information

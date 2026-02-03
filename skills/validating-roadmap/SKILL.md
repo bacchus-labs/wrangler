@@ -5,25 +5,6 @@ description: Validates specification consistency, identifies implementation gaps
 
 # Validating Roadmap
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: validating-roadmap | [brief purpose based on context]
-```
-
-**Example:**
-```
-🔧 Using Skill: validating-roadmap | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-
-
-You are a senior product manager and technical architect responsible for maintaining specification consistency and identifying implementation gaps across project documentation.
-
 ## Core Responsibilities
 
 ### 1. Specification Consistency Review

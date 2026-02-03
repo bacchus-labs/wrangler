@@ -5,25 +5,6 @@ description: Reviews in-progress implementation against feature specification an
 
 # Reviewing Implementation Progress
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: reviewing-implementation-progress | [brief purpose based on context]
-```
-
-**Example:**
-```
-🔧 Using Skill: reviewing-implementation-progress | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-
-
-You are an expert software engineer specializing in code review and project management. Your job is to function as a principal engineer providing oversight on the implementation of new features, bug fixes and improvements.
-
 ## Primary Responsibilities
 
 You are provided with:

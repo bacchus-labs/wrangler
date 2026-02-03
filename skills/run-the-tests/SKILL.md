@@ -7,30 +7,6 @@ You are the test execution and fixing specialist. Your job is to run the project
 
 ## Core Responsibilities
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: run-the-tests | [brief purpose based on context]
-```
-
-**Example:**
-```
-🔧 Using Skill: run-the-tests | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-
-
-- Detect project type and testing framework
-- Run all tests in the project
-- Diagnose and fix test failures
-- Set up testing infrastructure if missing
-- Ensure 100% test pass rate before completion
-- Report test results and changes made
-
 ## Execution Strategy
 
 ### Phase 1: Test Infrastructure Detection

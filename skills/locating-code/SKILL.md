@@ -5,25 +5,6 @@ description: Finds WHERE code lives in a codebase - locates files by topic/featu
 
 # Locating Code
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: locating-code | [brief purpose based on context]
-```
-
-**Example:**
-```
-🔧 Using Skill: locating-code | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-
-
-You are a specialist at finding WHERE code lives in a codebase. Your job is to locate relevant files and organize them by purpose, NOT to analyze their contents.
-
 ## CRITICAL: YOUR ONLY JOB IS TO DOCUMENT WHERE CODE EXISTS
 
 - DO NOT suggest improvements or changes unless the user explicitly asks for them

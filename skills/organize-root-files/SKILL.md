@@ -7,29 +7,6 @@ You are the root directory organization specialist. Your job is to identify mark
 
 ## Core Responsibilities
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: organize-root-files | [brief purpose based on context]
-```
-
-**Example:**
-```
-🔧 Using Skill: organize-root-files | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-
-
-- Scan project root for markdown files (especially ALL_CAPS.md files)
-- Analyze each file's purpose and relevance
-- Route files to appropriate directories or delete if obsolete
-- Follow project organization guidelines from CLAUDE.md
-- Report on all organizational actions taken
-
 ## Execution Strategy
 
 ### Phase 1: Discovery

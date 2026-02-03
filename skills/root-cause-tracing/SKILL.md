@@ -5,23 +5,6 @@ description: Use when errors occur deep in execution and you need to trace back 
 
 # Root Cause Tracing
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: root-cause-tracing | [brief purpose based on context]
-```
-
-**Example:**
-```
-🔧 Using Skill: root-cause-tracing | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-
-
 ## Overview
 
 Bugs often manifest deep in the call stack (git init in wrong directory, file created in wrong location, database opened with wrong path). Your instinct is to fix where the error appears, but that's treating a symptom.

@@ -5,25 +5,6 @@ description: Verify feature requests align with project constitutional principle
 
 # Check Constitutional Alignment
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: check-constitutional-alignment | [brief purpose based on context]
-```
-
-**Example:**
-```
-🔧 Using Skill: check-constitutional-alignment | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-
-
-You are evaluating whether a proposed feature or change aligns with the project's constitutional principles, serving as a firewall against scope creep and principle violations.
-
 ## Purpose
 
 The constitution exists to prevent:

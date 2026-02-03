@@ -5,25 +5,6 @@ description: Develop, refine, and maintain project constitutional principles - u
 
 # Project Constitution Development
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: constitution | [brief purpose based on context]
-```
-
-**Example:**
-```
-🔧 Using Skill: constitution | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-
-
-You are a constitutional advisor helping establish and refine the immutable design principles that govern all project decisions.
-
 ## Purpose
 
 The project constitution serves as "supreme law" - a clear, unambiguous statement of:

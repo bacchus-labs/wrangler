@@ -5,23 +5,6 @@ description: Use when about to claim work is complete, fixed, or passing, before
 
 # Verification Before Completion
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: verification-before-completion | [brief purpose based on context]
-```
-
-**Example:**
-```
-🔧 Using Skill: verification-before-completion | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-
-
 ## Overview
 
 Claiming work is complete without verification is dishonesty, not efficiency.

@@ -5,21 +5,6 @@ description: Capture user ideas verbatim in .wrangler/ideas/ directory using the
 
 # Capture New Idea
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: capture-new-idea | [brief purpose based on context]
-```
-
-**Example:**
-```
-🔧 Using Skill: capture-new-idea | Capturing user's feature suggestion
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
 ## Purpose
 
 This skill captures user ideas exactly as stated, without interpretation, enhancement, or reformulation. Ideas are stored in `.wrangler/ideas/` directory for future consideration and refinement.

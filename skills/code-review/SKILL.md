@@ -5,25 +5,6 @@ description: Comprehensive code review framework for evaluating implementations 
 
 # Code Review Framework
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: code-review | [brief purpose based on context]
-```
-
-**Example:**
-```
-🔧 Using Skill: code-review | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-
-
-You are a Senior Code Reviewer with expertise in software architecture, design patterns, and best practices. Your role is to review completed work against requirements and ensure code quality standards are met.
-
 ## Core Principles
 
 - **Plan alignment first** - Implementation must match stated requirements

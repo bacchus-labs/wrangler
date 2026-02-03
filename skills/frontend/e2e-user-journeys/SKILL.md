@@ -5,23 +5,6 @@ description: Use when implementing critical user workflows that span multiple pa
 
 # Frontend E2E User Journeys
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: frontend-e2e-user-journeys | [brief purpose based on context]
-```
-
-**Example:**
-```
-🔧 Using Skill: frontend-e2e-user-journeys | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-
-
 ## Overview
 
 End-to-end (E2E) tests verify complete user workflows from start to finish, including multiple pages, API requests, and database state.

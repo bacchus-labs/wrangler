@@ -5,21 +5,6 @@ description: Set up Git hooks for automated testing and code quality enforcement
 
 # Setup Git Hooks
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-Using Skill: setup-git-hooks | [brief purpose based on context]
-```
-
-**Example:**
-```
-Using Skill: setup-git-hooks | Setting up pre-commit and pre-push hooks for test enforcement
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
 ## Purpose
 
 This skill sets up Git hooks to automatically enforce testing and code quality standards before commits and pushes. It supports two installation patterns:

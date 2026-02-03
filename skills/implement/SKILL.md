@@ -5,23 +5,6 @@ description: Autonomously implement tasks from specs, plans, or issues using sub
 
 # Implement
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: implement | [brief purpose based on context]
-```
-
-**Example:**
-```
-🔧 Using Skill: implement | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-
-
 ## Overview
 
 Autonomous implementation workflow that handles specifications, plans, issue ranges, or standalone issues.

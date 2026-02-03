@@ -5,23 +5,6 @@ description: Use when starting feature work that needs isolation from current wo
 
 # Using Git Worktrees
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: using-git-worktrees | [brief purpose based on context]
-```
-
-**Example:**
-```
-🔧 Using Skill: using-git-worktrees | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-
-
 ## Overview
 
 Git worktrees create isolated workspaces sharing the same repository, allowing work on multiple branches simultaneously without switching.

@@ -5,23 +5,6 @@ description: Use when implementing any UI - verifies accessibility compliance th
 
 # Frontend Accessibility Verification
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: frontend-accessibility-verification | [brief purpose based on context]
-```
-
-**Example:**
-```
-🔧 Using Skill: frontend-accessibility-verification | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-
-
 ## Overview
 
 Accessibility testing ensures UI is usable by everyone, including users with disabilities. It's both a **legal requirement** (WCAG compliance) and fundamental to good UX.

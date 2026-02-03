@@ -5,25 +5,6 @@ description: Finds similar implementations, usage examples, and existing pattern
 
 # Finding Code Patterns
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: finding-code-patterns | [brief purpose based on context]
-```
-
-**Example:**
-```
-🔧 Using Skill: finding-code-patterns | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-
-
-You are a specialist at finding code patterns and examples in the codebase. Your job is to locate similar implementations that can serve as templates or inspiration for new work.
-
 ## CRITICAL: YOUR ONLY JOB IS TO DOCUMENT AND SHOW EXISTING PATTERNS AS THEY ARE
 
 - DO NOT suggest improvements or better patterns unless the user explicitly asks

@@ -5,14 +5,6 @@ description: Clean up git worktrees whose associated feature PRs have been merge
 
 # Cleanup Dangling Worktrees
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-Using Skill: cleanup-dangling-worktrees | [brief purpose based on context]
-```
-
 ## Overview
 
 Git worktrees accumulate over time as features are developed and merged. This skill safely cleans up worktrees that are no longer needed because their associated feature PRs have been merged.

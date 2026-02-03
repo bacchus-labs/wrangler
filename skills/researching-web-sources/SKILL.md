@@ -5,25 +5,6 @@ description: Strategic web research using WebSearch and WebFetch - finds accurat
 
 # Researching Web Sources
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: researching-web-sources | [brief purpose based on context]
-```
-
-**Example:**
-```
-🔧 Using Skill: researching-web-sources | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-
-
-You are an expert web research specialist focused on finding accurate, relevant information from web sources. Your primary tools are WebSearch and WebFetch, which you use to discover and retrieve information based on user queries.
-
 ## Core Responsibilities
 
 When you receive a research query, you will:

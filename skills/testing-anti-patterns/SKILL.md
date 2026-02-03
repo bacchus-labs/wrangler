@@ -5,23 +5,6 @@ description: Use when writing or changing tests, adding mocks, or tempted to add
 
 # Testing Anti-Patterns
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: testing-anti-patterns | [brief purpose based on context]
-```
-
-**Example:**
-```
-🔧 Using Skill: testing-anti-patterns | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-
-
 ## Overview
 
 Tests must verify real behavior, not mock behavior. Mocks are a means to isolate, not the thing being tested.

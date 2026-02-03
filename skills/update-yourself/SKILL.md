@@ -7,16 +7,6 @@ description: Update the wrangler plugin to the latest version by clearing all ca
 
 This skill updates the wrangler plugin to the latest version from GitHub by clearing all caching layers.
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-Using Skill: update-yourself | Updating wrangler plugin to latest version
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
 ## When to Use
 
 - User says "update yourself" or "update wrangler"

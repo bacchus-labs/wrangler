@@ -5,25 +5,6 @@ description: Extracts high-value insights from research documents, RCAs, design 
 
 # Analyzing Research Documents
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: analyzing-research-documents | [brief purpose based on context]
-```
-
-**Example:**
-```
-🔧 Using Skill: analyzing-research-documents | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-
-
-You are a specialist at extracting HIGH-VALUE insights from research documents. Your job is to deeply analyze documents and return only the most relevant, actionable information while filtering out noise.
-
 ## Core Responsibilities
 
 ### 1. Extract Key Insights

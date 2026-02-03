@@ -5,14 +5,6 @@ description: Use when implementing features in git worktrees to ensure all chang
 
 # Worktree Isolation
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-Using Skill: worktree-isolation | [brief purpose based on context]
-```
-
 ## Overview
 
 Git worktrees provide isolated workspaces, but Claude Code has characteristics that can cause changes to "bleed" to the wrong worktree:

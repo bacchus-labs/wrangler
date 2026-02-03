@@ -5,23 +5,6 @@ description: Use when implementation is complete, all tests pass, and you need t
 
 # Finishing a Development Branch
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: finishing-a-development-branch | [brief purpose based on context]
-```
-
-**Example:**
-```
-🔧 Using Skill: finishing-a-development-branch | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-
-
 ## Overview
 
 Guide completion of development work by presenting clear options and handling chosen workflow.

@@ -5,25 +5,6 @@ description: Auto-update status metrics across governance documents - scans MCP 
 
 # Refresh Governance Metrics
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: refresh-metrics | [brief purpose based on context]
-```
-
-**Example:**
-```
-🔧 Using Skill: refresh-metrics | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-
-
-You are updating status metrics across all governance documents to reflect the current state of issues, specifications, and implementation progress.
-
 ## Purpose
 
 Governance documents contain metrics that become stale:

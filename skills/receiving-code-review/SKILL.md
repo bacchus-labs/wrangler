@@ -5,23 +5,6 @@ description: Use when receiving code review feedback, before implementing sugges
 
 # Code Review Reception
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: receiving-code-review | [brief purpose based on context]
-```
-
-**Example:**
-```
-🔧 Using Skill: receiving-code-review | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-
-
 ## Overview
 
 Code review requires technical evaluation, not emotional performance.

@@ -5,23 +5,6 @@ description: Use when implementing any feature or bugfix, before writing impleme
 
 # Test-Driven Development (TDD)
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: test-driven-development | [brief purpose based on context]
-```
-
-**Example:**
-```
-🔧 Using Skill: test-driven-development | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-
-
 ## Overview
 
 Write the test first. Watch it fail. Write minimal code to pass.

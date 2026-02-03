@@ -10,16 +10,6 @@ You are the sitrep workflow coordinator. Your job is to surface what's new since
 
 **Surface new memos that collaborators created** - so you don't evaluate priorities without knowing the latest learnings.
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: sitrep | Generating situational awareness report
-```
-
----
-
 ## Multi-Phase Workflow
 
 ```

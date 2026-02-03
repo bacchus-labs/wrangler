@@ -5,21 +5,6 @@ description: Orchestrate spec-to-PR workflow with session tracking, worktree iso
 
 # Implement-Spec Orchestrator
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-Using Skill: implement-spec | [brief purpose based on context]
-```
-
-**Example:**
-```
-Using Skill: implement-spec | Implementing spec-auth-system.md with full audit trail
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
 ## Overview
 
 End-to-end orchestration that takes a specification file and produces a GitHub Pull Request with comprehensive audit trail.

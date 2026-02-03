@@ -5,23 +5,6 @@ description: Use when facing 3+ logically independent failures (different featur
 
 # Dispatching Parallel Agents
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: dispatching-parallel-agents | [brief purpose based on context]
-```
-
-**Example:**
-```
-🔧 Using Skill: dispatching-parallel-agents | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-
-
 ## Overview
 
 When you have multiple unrelated failures (different test files, different subsystems, different bugs), investigating them sequentially wastes time. Each investigation is independent and can happen in parallel.

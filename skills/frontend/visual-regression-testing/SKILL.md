@@ -5,23 +5,6 @@ description: Use when implementing UI components, design systems, or responsive 
 
 # Frontend Visual Regression Testing
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: frontend-visual-regression-testing | [brief purpose based on context]
-```
-
-**Example:**
-```
-🔧 Using Skill: frontend-visual-regression-testing | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-
-
 ## Overview
 
 Visual regression testing captures screenshots of UI components/pages and compares them against baseline images to detect unintended visual changes.

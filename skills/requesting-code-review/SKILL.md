@@ -5,29 +5,6 @@ description: Use when completing tasks, implementing major features, or before m
 
 # Requesting Code Review
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: requesting-code-review | [brief purpose based on context]
-```
-
-**Example:**
-```
-🔧 Using Skill: requesting-code-review | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-
-
-Dispatch a subagent using the `code-review` skill to catch issues before they cascade.
-
-**Core principle:** Review early, review often.
-
-**Review Framework**: See `code-review` skill for comprehensive review process (6 phases: plan alignment, code quality, architecture, testing, security/performance, documentation).
-
 ## When to Request Review
 
 Code review MUST always be obtained (without exception) for ALL code changes.

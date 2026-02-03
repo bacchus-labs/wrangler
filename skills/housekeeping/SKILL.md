@@ -7,31 +7,6 @@ You are the housekeeping workflow coordinator. Your job is to ensure the project
 
 ## Core Responsibilities
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: housekeeping | [brief purpose based on context]
-```
-
-**Example:**
-```
-🔧 Using Skill: housekeeping | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-
-
-- Update `.wrangler/ROADMAP_NEXT_STEPS.md` to reflect current reality
-- Refresh governance metrics across all governance documents
-- Reconcile open issues with actual implementation
-- Move completed issues to organized archive
-- Identify documentation drift or missing updates
-- Verify constitutional alignment in specifications
-- Generate housekeeping summary report with metrics
-
 ## Execution Strategy: Multi-Phase Workflow
 
 This is a **workflow skill** - it coordinates multiple subagents in parallel for maximum efficiency.

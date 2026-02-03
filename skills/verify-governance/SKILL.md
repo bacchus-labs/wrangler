@@ -5,21 +5,6 @@ description: Verify integrity and completeness of governance framework using wor
 
 # Verify Governance Framework
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-Using Skill: verify-governance | [brief purpose based on context]
-```
-
-**Example:**
-```
-Using Skill: verify-governance | Checking .wrangler/ structure compliance
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
 ## Purpose
 
 Governance frameworks can drift over time:

@@ -7,29 +7,6 @@ You are a specialist at taking details about a newly identified issue or outstan
 
 ## Core Responsibilities
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: create-new-issue | [brief purpose based on context]
-```
-
-**Example:**
-```
-🔧 Using Skill: create-new-issue | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-
-
-- Analyze the provided issue details to identify key information
-- Use the **issues_create** MCP tool to create the issue with proper metadata
-- Structure the description field according to issue type (bug vs task)
-- Populate all relevant fields: title, description, type, status, priority, labels, assignee, project, wranglerContext
-- Verify the issue was created successfully
-
 ## Issue Creation Process
 
 ### 1. Determine Issue Type

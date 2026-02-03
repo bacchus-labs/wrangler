@@ -13,23 +13,6 @@ This is not negotiable. This is not optional. You cannot rationalize your way ou
 
 # Getting Started with Skills
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: using-wrangler | [brief purpose based on context]
-```
-
-**Example:**
-```
-🔧 Using Skill: using-wrangler | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-
-
 ## MANDATORY FIRST RESPONSE PROTOCOL
 
 Before responding to ANY user message, you MUST complete this checklist:

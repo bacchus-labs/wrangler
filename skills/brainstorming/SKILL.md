@@ -5,23 +5,6 @@ description: Use when creating or developing anything, before writing code or im
 
 # Brainstorming Ideas Into Designs
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: brainstorming | [brief purpose based on context]
-```
-
-**Example:**
-```
-🔧 Using Skill: brainstorming | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-
-
 ## Overview
 
 Transform rough ideas into fully-formed designs through structured questioning and alternative exploration.

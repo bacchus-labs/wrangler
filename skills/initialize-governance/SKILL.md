@@ -5,25 +5,6 @@ description: Initialize complete governance framework in a project - creates con
 
 # Initialize Governance Framework
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: initialize-governance | [brief purpose based on context]
-```
-
-**Example:**
-```
-🔧 Using Skill: initialize-governance | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-
-
-You are setting up a complete project governance framework to ensure perfect alignment between AI assistant and human partner on design principles, strategic direction, and tactical execution.
-
 ## Purpose
 
 This skill creates the three-tier governance hierarchy:
@@ -290,7 +271,6 @@ Use Edit tool to:
 - Specification template: `skills/writing-specifications/templates/SPECIFICATION_TEMPLATE.md`
 
 No copying to `.wrangler/templates/` is needed. Skills reference templates from their own directories.
-
 
 ### Phase 5: Integration and Verification
 

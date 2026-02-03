@@ -5,23 +5,6 @@ description: Use when encountering any bug, test failure, or unexpected behavior
 
 # Systematic Debugging
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: systematic-debugging | [brief purpose based on context]
-```
-
-**Example:**
-```
-🔧 Using Skill: systematic-debugging | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-
-
 ## Overview
 
 Random fixes waste time and create new bugs. Quick patches mask underlying issues.

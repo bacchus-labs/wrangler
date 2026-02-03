@@ -5,21 +5,6 @@ description: Update existing Git hooks configuration without full re-setup. Read
 
 # Update Git Hooks
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-Using Skill: update-git-hooks | [brief purpose based on context]
-```
-
-**Example:**
-```
-Using Skill: update-git-hooks | Changing protected branch patterns to include feature/*
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
 ## Purpose
 
 This skill allows updating existing git hooks configuration without going through full interactive setup. It preserves current configuration while allowing specific changes.
