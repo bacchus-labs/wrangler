@@ -2,7 +2,7 @@
 id: ISS-000041
 title: Create commit-msg hook template (optional)
 type: issue
-status: open
+status: closed
 priority: medium
 labels:
   - git-hooks
@@ -10,7 +10,7 @@ labels:
   - commit-msg
   - optional
 createdAt: '2026-01-21T22:19:45.212Z'
-updatedAt: '2026-01-21T22:19:45.212Z'
+updatedAt: '2026-02-02T21:55:11.186Z'
 project: Wrangler Core Framework
 wranglerContext:
   parentTaskId: SPEC-000041

@@ -2,13 +2,13 @@
 id: ISS-000045
 title: 'Create /wrangler:setup-git-hooks slash command'
 type: issue
-status: open
+status: closed
 priority: medium
 labels:
   - slash-command
   - entry-point
 createdAt: '2026-01-21T22:19:45.751Z'
-updatedAt: '2026-01-21T22:19:45.751Z'
+updatedAt: '2026-02-02T21:55:12.762Z'
 project: Wrangler Core Framework
 wranglerContext:
   parentTaskId: SPEC-000041

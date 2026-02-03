@@ -2,7 +2,7 @@
 id: ISS-000039
 title: Create pre-commit hook template with parameterization
 type: issue
-status: open
+status: closed
 priority: high
 labels:
   - git-hooks
@@ -10,7 +10,7 @@ labels:
   - pre-commit
   - enforcement
 createdAt: '2026-01-21T22:19:44.918Z'
-updatedAt: '2026-01-21T22:19:44.918Z'
+updatedAt: '2026-02-02T21:55:10.155Z'
 project: Wrangler Core Framework
 wranglerContext:
   parentTaskId: SPEC-000041

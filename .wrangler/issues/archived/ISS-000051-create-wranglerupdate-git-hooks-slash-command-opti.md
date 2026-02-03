@@ -2,14 +2,14 @@
 id: ISS-000051
 title: 'Create /wrangler:update-git-hooks slash command (optional)'
 type: issue
-status: open
+status: closed
 priority: low
 labels:
   - slash-command
   - optional
   - update
 createdAt: '2026-01-21T22:19:46.628Z'
-updatedAt: '2026-01-21T22:19:46.628Z'
+updatedAt: '2026-02-02T21:55:14.401Z'
 project: Wrangler Core Framework
 wranglerContext:
   parentTaskId: SPEC-000041

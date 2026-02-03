@@ -2,14 +2,14 @@
 id: ISS-000042
 title: Create hooks configuration JSON schema and template
 type: issue
-status: open
+status: closed
 priority: high
 labels:
   - configuration
   - schema
   - template
 createdAt: '2026-01-21T22:19:45.323Z'
-updatedAt: '2026-01-21T22:19:45.323Z'
+updatedAt: '2026-02-02T21:55:11.704Z'
 project: Wrangler Core Framework
 wranglerContext:
   parentTaskId: SPEC-000041

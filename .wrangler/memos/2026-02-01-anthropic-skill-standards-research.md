@@ -11,6 +11,7 @@ Wrangler's skills were created when Anthropic's skill-creator skill was in early
 **Critical Finding**: Wrangler has ONE major advantage (TDD-based testing methodology) and TWELVE significant gaps in standards compliance.
 
 **Priority Assessment**:
+
 - **CRITICAL**: 3 gaps (frontmatter format, skill invocation announcement pattern, naming conventions)
 - **HIGH**: 4 gaps (progressive disclosure, description format, token efficiency, directory structure)
 - **MEDIUM**: 3 gaps (templates, documentation clarity, cross-references)
@@ -23,6 +24,7 @@ Wrangler's skills were created when Anthropic's skill-creator skill was in early
 ### Anthropic's Latest Skill Structure (2026)
 
 **Official Sources**:
+
 - [Anthropic Skills Repository](https://github.com/anthropics/skills) - 60.5k stars, created Sep 2025
 - [Claude Code Skills Documentation](https://code.claude.com/docs/en/skills)
 - [Skill Authoring Best Practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices)
@@ -31,6 +33,7 @@ Wrangler's skills were created when Anthropic's skill-creator skill was in early
 **Key Standards (2026)**:
 
 1. **Frontmatter**: YAML format with ONLY `name` and `description` fields
+
    ```yaml
    ---
    name: my-skill-name
@@ -52,6 +55,7 @@ Wrangler's skills were created when Anthropic's skill-creator skill was in early
    - Bundled resources - As needed (scripts/, references/, assets/)
 
 5. **Directory Structure**: Organized by resource type
+
    ```
    skill-name/
    ├── SKILL.md (required)
@@ -70,6 +74,7 @@ Wrangler's skills were created when Anthropic's skill-creator skill was in early
 ### Wrangler's Current Implementation
 
 **Structure** (47 skills in flat directory):
+
 ```
 skills/
   skill-name/
@@ -80,6 +85,7 @@ skills/
 **Common Patterns in Wrangler Skills**:
 
 1. **Frontmatter**: YAML with `name` and `description` only ✅
+
    ```yaml
    ---
    name: test-driven-development
@@ -88,14 +94,17 @@ skills/
    ```
 
 2. **Skill Usage Announcement** (NOT in Anthropic standards): ❌
+
    ```markdown
    ## Skill Usage Announcement
 
    **MANDATORY**: When using this skill, announce it at the start with:
+   ```
+
+   🔧 Using Skill: test-driven-development | [brief purpose]
 
    ```
-   🔧 Using Skill: test-driven-development | [brief purpose]
-   ```
+
    ```
 
 3. **Naming**: Mix of patterns
@@ -122,20 +131,20 @@ skills/
 
 ## 2. Side-by-Side Comparison
 
-| Aspect | Anthropic 2026 Standard | Wrangler Current | Gap? |
-|--------|------------------------|------------------|------|
-| **Frontmatter** | YAML with `name` and `description` only | Same ✅ | NO |
-| **Name field** | Lowercase, hyphens, gerund form preferred | Mix of patterns (gerund, noun, action) | MINOR |
-| **Description format** | Third person, includes what AND when | Mostly correct, some missing triggers | MEDIUM |
-| **Skill invocation announcement** | NOT RECOMMENDED | "🔧 Using Skill: X" pattern in ALL skills | **CRITICAL** |
-| **Progressive disclosure** | Explicit 3-level system with scripts/, references/, assets/ | Limited separation, most skills self-contained | HIGH |
-| **Token efficiency targets** | <500 lines SKILL.md, <200 words for frequent | `writing-skills` is 870 lines | HIGH |
-| **Directory structure** | `scripts/`, `references/`, `assets/` subdirectories | Flat, supporting files at skill root | MEDIUM |
-| **Testing methodology** | "Build evaluations first" with scenarios | TDD approach with pressure testing (SUPERIOR) | **ADVANTAGE** |
-| **Naming conventions** | Strong recommendation for gerund form | Mixed patterns | LOW |
-| **Description triggers** | Explicit "Use when..." with symptoms | Variable, some lack specific triggers | MEDIUM |
-| **Cross-references** | Avoid @ links, use skill names only | Uses explicit requirement markers (good) | NO |
-| **Documentation clarity** | "Claude is already smart" principle | Verbose in places | MEDIUM |
+| Aspect                            | Anthropic 2026 Standard                                     | Wrangler Current                               | Gap?          |
+| --------------------------------- | ----------------------------------------------------------- | ---------------------------------------------- | ------------- |
+| **Frontmatter**                   | YAML with `name` and `description` only                     | Same ✅                                        | NO            |
+| **Name field**                    | Lowercase, hyphens, gerund form preferred                   | Mix of patterns (gerund, noun, action)         | MINOR         |
+| **Description format**            | Third person, includes what AND when                        | Mostly correct, some missing triggers          | MEDIUM        |
+| **Skill invocation announcement** | NOT RECOMMENDED                                             | "🔧 Using Skill: X" pattern in ALL skills      | **CRITICAL**  |
+| **Progressive disclosure**        | Explicit 3-level system with scripts/, references/, assets/ | Limited separation, most skills self-contained | HIGH          |
+| **Token efficiency targets**      | <500 lines SKILL.md, <200 words for frequent                | `writing-skills` is 870 lines                  | HIGH          |
+| **Directory structure**           | `scripts/`, `references/`, `assets/` subdirectories         | Flat, supporting files at skill root           | MEDIUM        |
+| **Testing methodology**           | "Build evaluations first" with scenarios                    | TDD approach with pressure testing (SUPERIOR)  | **ADVANTAGE** |
+| **Naming conventions**            | Strong recommendation for gerund form                       | Mixed patterns                                 | LOW           |
+| **Description triggers**          | Explicit "Use when..." with symptoms                        | Variable, some lack specific triggers          | MEDIUM        |
+| **Cross-references**              | Avoid @ links, use skill names only                         | Uses explicit requirement markers (good)       | NO            |
+| **Documentation clarity**         | "Claude is already smart" principle                         | Verbose in places                              | MEDIUM        |
 
 ---
 
@@ -147,13 +156,15 @@ skills/
 
 **What Wrangler Does**:
 Every single skill includes this section:
+
 ```markdown
 ## Skill Usage Announcement
 
 **MANDATORY**: When using this skill, announce it at the start with:
-
 ```
+
 🔧 Using Skill: writing-skills | [brief purpose based on context]
+
 ```
 
 This creates an audit trail showing which skills were applied during the session.
@@ -162,6 +173,7 @@ This creates an audit trail showing which skills were applied during the session
 **What Anthropic Recommends**: No such pattern exists in any Anthropic documentation or examples.
 
 **Why This is a Gap**:
+
 - Adds ~10 lines to EVERY skill
 - Increases token count unnecessarily
 - Not a recognized best practice
@@ -170,6 +182,7 @@ This creates an audit trail showing which skills were applied during the session
 **Impact**: CRITICAL - Affects all 47 skills
 
 **Recommendation**: REMOVE from all skills OR move to CLAUDE.md as a general instruction
+SJH: Let's just remove it altogether since Claude Code tracks skill usage natively.
 
 ---
 
@@ -178,6 +191,7 @@ This creates an audit trail showing which skills were applied during the session
 **What Wrangler Might Have**: Unknown (need to check template)
 
 **What Anthropic Uses**:
+
 ```yaml
 ---
 name: template-skill
@@ -188,17 +202,20 @@ description: Replace with description of the skill and when Claude should use it
 **Why This Matters**: Template determines how new skills are created
 
 **Recommendation**: Verify template format matches Anthropic standard
+SJH: Approved.
 
 ---
 
 #### Gap 3: Naming Consistency 📛
 
 **What Wrangler Does**: Mix of patterns
+
 - Gerund: `writing-skills`, `testing-skills`
 - Noun phrase: `test-driven-development`, `code-review`
 - Action: `create-new-issue`, `capture-new-idea`
 
 **What Anthropic Recommends**: Gerund form (verb + -ing)
+
 - `processing-pdfs`, `analyzing-spreadsheets`, `managing-databases`
 
 **Why This Matters**: Consistency improves discoverability and professionalism
@@ -206,6 +223,7 @@ description: Replace with description of the skill and when Claude should use it
 **Impact**: MEDIUM - Affects 30+ skills
 
 **Recommendation**: Create naming convention decision in CLAUDE.md, don't rename existing skills unless major refactor
+SJH: Let's adopt anthropic's best practices for this and modify all our existing skills accordingly. But we need to make sure we update any references in slash commands that invoke skills.
 
 ---
 
@@ -214,11 +232,13 @@ description: Replace with description of the skill and when Claude should use it
 #### Gap 4: Progressive Disclosure Implementation 📚
 
 **What Wrangler Does**:
+
 - Most skills are self-contained in single SKILL.md
 - Few skills use supporting files
 - No consistent `scripts/`, `references/`, `assets/` structure
 
 **What Anthropic Recommends**:
+
 ```
 skill-name/
 ├── SKILL.md (overview, <500 lines)
@@ -228,6 +248,7 @@ skill-name/
 ```
 
 **Example from Anthropic**:
+
 ```
 pdf/
 ├── SKILL.md (main instructions)
@@ -241,6 +262,7 @@ pdf/
 ```
 
 **Why This Matters**:
+
 - Token efficiency (don't load everything at once)
 - Better organization for complex skills
 - Clearer separation of concerns
@@ -248,20 +270,23 @@ pdf/
 **Skills That Need This**: `writing-skills` (870 lines), potentially others
 
 **Recommendation**:
+
 1. Split `writing-skills` into SKILL.md + references/
 2. Create `references/` pattern for documentation-heavy skills
 3. Use `scripts/` for reusable utilities
 
----
+SJH: Approved for all three.
 
 #### Gap 5: Description Format Inconsistency 📝
 
 **What Wrangler Does**: Variable formats
+
 - Some: "Use when implementing any feature or bugfix..." ✅
 - Some: "Comprehensive code review framework..." ❌ (missing triggers)
 - Some: "Orchestrate spec-to-PR workflow..." ❌ (missing when to use)
 
 **What Anthropic Recommends**: ALWAYS include both what AND when
+
 ```yaml
 description: Extract text and tables from PDF files, fill forms, merge documents. Use when working with PDF files or when the user mentions PDFs, forms, or document extraction.
 ```
@@ -269,20 +294,25 @@ description: Extract text and tables from PDF files, fill forms, merge documents
 **Why This Matters**: Description is PRIMARY triggering mechanism
 
 **Recommendation**: Audit all 47 skills, ensure each description includes:
+
 1. What the skill does (functional description)
 2. When to use it ("Use when..." with specific triggers/symptoms)
 3. Third person voice
+
+SJH: Approved.
 
 ---
 
 #### Gap 6: Token Efficiency Targets 💰
 
 **What Wrangler Does**:
+
 - `writing-skills`: 870 lines (WAY TOO LONG ❌)
 - Most skills: reasonable length
 - No explicit token budget awareness
 
 **What Anthropic Recommends**:
+
 - SKILL.md body: <500 lines (ideally much less)
 - Getting-started workflows: <150 words
 - Frequently-loaded skills: <200 words total
@@ -291,20 +321,23 @@ description: Extract text and tables from PDF files, fill forms, merge documents
 **Why This Matters**: "The context window is a public good"
 
 **Calculation for writing-skills**:
+
 - 870 lines ≈ 6,000 words ≈ 8,000 tokens
 - Anthropic target: ~500 lines ≈ 3,500 words ≈ 4,500 tokens
 - OVER BUDGET BY 3,500 TOKENS
 
 **Recommendation**:
+
 1. URGENT: Split `writing-skills` immediately
 2. Audit other skills for length
 3. Move heavy content to `references/`
 
----
+SJH: Approved.
 
 #### Gap 7: Directory Structure for Resources 📁
 
 **What Wrangler Does**:
+
 ```
 skills/writing-skills/
   SKILL.md
@@ -314,6 +347,7 @@ skills/writing-skills/
 ```
 
 **What Anthropic Recommends**:
+
 ```
 skills/writing-skills/
   SKILL.md
@@ -327,13 +361,14 @@ skills/writing-skills/
 ```
 
 **Why This Matters**:
+
 - Clearer organization
 - Signals intent (reference vs script vs asset)
 - Follows community standard
 
 **Recommendation**: Adopt Anthropic structure for skills with supporting files
 
----
+SJH: Approved.
 
 ### MEDIUM Priority Gaps
 
@@ -342,6 +377,7 @@ skills/writing-skills/
 **What Wrangler Does**: Unknown level of template usage
 
 **What Anthropic Recommends**: Provide templates with "Template pattern" approach
+
 - Strict templates for API responses, data formats
 - Flexible templates for adaptable workflows
 
@@ -356,12 +392,15 @@ skills/writing-skills/
 **What Wrangler Does**: Some skills are verbose with explanations
 
 **What Anthropic Recommends**: "Default assumption: Claude is already very smart"
+
 - Only add context Claude doesn't have
 - Challenge each paragraph: "Does this justify its token cost?"
 
 **Example**:
-```markdown
+
+````markdown
 ❌ BAD (verbose):
+
 ## Extract PDF text
 
 PDF (Portable Document Format) files are a common file format that contains
@@ -369,23 +408,26 @@ text, images, and other content. To extract text from a PDF, you'll need to
 use a library...
 
 ✅ GOOD (concise):
+
 ## Extract PDF text
 
 Use pdfplumber for text extraction:
+
 ```python
 import pdfplumber
 with pdfplumber.open("file.pdf") as pdf:
     text = pdf.pages[0].extract_text()
 ```
-```
 
 **Recommendation**: Audit skills for unnecessary explanations
+SJH: approved
 
 ---
 
 #### Gap 10: Cross-Reference Format 🔗
 
 **What Wrangler Does**: Good patterns
+
 - Uses skill names directly
 - Uses "REQUIRED SUB-SKILL" markers
 - Avoids @ links (good!)
@@ -395,6 +437,7 @@ with pdfplumber.open("file.pdf") as pdf:
 **Why This Matters**: This is actually ALIGNED, not a gap
 
 **Recommendation**: Keep current approach
+sjh: approved.
 
 ---
 
@@ -405,6 +448,7 @@ with pdfplumber.open("file.pdf") as pdf:
 **What Wrangler Does**: Flat namespace, minimal examples of multi-file skills
 
 **What Anthropic Recommends**: Rich examples of progressive disclosure
+
 - Pattern 1: High-level guide with references
 - Pattern 2: Domain-specific organization
 - Pattern 3: Conditional details
@@ -412,6 +456,7 @@ with pdfplumber.open("file.pdf") as pdf:
 **Why This Matters**: Provides clear patterns for complex skills
 
 **Recommendation**: Document progressive disclosure patterns in wrangler
+sjh: approved.
 
 ---
 
@@ -420,20 +465,26 @@ with pdfplumber.open("file.pdf") as pdf:
 **What Wrangler Does**: Has checklists in some skills (e.g., writing-skills)
 
 **What Anthropic Recommends**: Explicit "Copy this checklist" pattern
+
 ```markdown
 Copy this checklist and track your progress:
-
 ```
+````
+
 Research Progress:
+
 - [ ] Step 1: Read all source documents
 - [ ] Step 2: Identify key themes
-...
+      ...
+
 ```
+
 ```
 
 **Why This Matters**: Improves task tracking for multi-step workflows
 
 **Recommendation**: Adopt this pattern for complex workflows
+SJH: Approved.
 
 ---
 
@@ -442,6 +493,7 @@ Research Progress:
 ### Advantage: TDD Testing Methodology
 
 **What Wrangler Has**: Comprehensive skill testing framework
+
 - Pressure scenario testing
 - Rationalization tables
 - RED-GREEN-REFACTOR for documentation
@@ -449,18 +501,21 @@ Research Progress:
 - Bulletproofing against compliance bypass
 
 **What Anthropic Has**: Basic "evaluation-driven development"
+
 - Create evaluations before writing skill
 - Test scenarios
 - But NO systematic pressure testing
 - No rationalization detection
 
 **Why Wrangler's Approach is Superior**:
+
 1. **Systematic**: TDD cycle adapted to documentation
 2. **Rigorous**: Tests skills under pressure (time, sunk cost, authority)
 3. **Comprehensive**: Captures rationalizations agents use to bypass rules
 4. **Iterative**: Close loopholes systematically
 
 **Recommendation**: KEEP this advantage, potentially contribute back to Anthropic community
+SJH: approved but w/o contributing back for now.
 
 ---
 
@@ -475,13 +530,16 @@ Research Progress:
 **Options**:
 
 **Option 1 (RECOMMENDED)**: Move to CLAUDE.md as general instruction
+SJH: Let's just remove it altogether since Claude Code tracks skill usage natively.
+
 ```markdown
 ## Skill Usage Audit Trail
 
 When using any wrangler skill, announce it at the start:
-
 ```
+
 🔧 Using Skill: [skill-name] | [brief purpose]
+
 ```
 
 This creates an audit trail for session analysis.
@@ -490,6 +548,7 @@ This creates an audit trail for session analysis.
 **Option 2**: Remove entirely, rely on Claude Code's built-in skill invocation tracking
 
 **Effort**:
+
 - Option 1: 2 hours (update CLAUDE.md, remove from all skills)
 - Option 2: 1 hour (remove from all skills)
 
@@ -511,6 +570,7 @@ This creates an audit trail for session analysis.
 **Target**: <500 lines, <4,500 tokens
 
 **Proposed Structure**:
+
 ```
 skills/writing-skills/
   SKILL.md (overview, core workflow, <400 lines)
@@ -524,6 +584,7 @@ skills/writing-skills/
 ```
 
 **New SKILL.md Structure** (slim):
+
 1. Overview (what is skill writing + TDD principle)
 2. When to create a skill
 3. Core RED-GREEN-REFACTOR cycle
@@ -539,11 +600,13 @@ skills/writing-skills/
 #### D. Audit and Fix All Skill Descriptions
 
 **Action**: Ensure EVERY description includes:
+
 1. What the skill does (functional)
 2. When to use it ("Use when..." with triggers)
 3. Third person voice
 
 **Process**:
+
 1. Export all descriptions
 2. Review each one
 3. Rewrite any missing triggers/symptoms
@@ -558,6 +621,7 @@ skills/writing-skills/
 **Identify candidates**: Skills >300 lines or with heavy reference material
 
 **Apply pattern**:
+
 1. Keep SKILL.md as overview (<500 lines)
 2. Create `references/` for documentation
 3. Create `scripts/` for utilities
@@ -566,6 +630,7 @@ skills/writing-skills/
 **Effort**: 2-4 hours per skill
 
 **Priority skills**:
+
 1. `writing-skills` (CRITICAL)
 2. `code-review` (if verbose)
 3. Any skills with API docs or heavy reference
@@ -577,16 +642,19 @@ skills/writing-skills/
 **Action**: Create wrangler standard for skill length
 
 **Add to CLAUDE.md**:
+
 ```markdown
 ## Skill Length Guidelines
 
 Follow Anthropic's token efficiency standards:
+
 - SKILL.md body: <500 lines (target: 300-400)
 - Getting-started workflows: <150 words
 - Frequently-used skills: <200 words total
 - Complex skills: <500 words main content, rest in references/
 
 If skill exceeds limits, use progressive disclosure:
+
 - Move details to references/
 - Keep only essential workflow in SKILL.md
 ```
@@ -602,6 +670,7 @@ If skill exceeds limits, use progressive disclosure:
 **Action**: Migrate multi-file skills to Anthropic structure
 
 **Pattern**:
+
 ```
 skill-name/
   SKILL.md
@@ -611,6 +680,7 @@ skill-name/
 ```
 
 **Affected skills**:
+
 - `writing-skills` (has supporting files)
 - Any others with multiple files
 
@@ -623,6 +693,7 @@ skill-name/
 **Action**: Apply "Claude is already smart" principle
 
 **Process**:
+
 1. Read each skill
 2. Ask: "Does Claude need this explanation?"
 3. Cut unnecessary context
@@ -637,6 +708,7 @@ skill-name/
 **Action**: For complex multi-step skills, add "Copy this checklist" pattern
 
 **Candidates**:
+
 - `writing-specifications`
 - `implementing-specifications`
 - `code-review`
@@ -655,15 +727,18 @@ skill-name/
 **Options**:
 
 **Option 1**: Adopt Anthropic gerund form for NEW skills only
+
 - Keep existing names (too disruptive to rename)
 - Use gerund form for future skills
 - Document in CLAUDE.md
 
-**Option 2**: Keep current mixed approach
+  **Option 2**: Keep current mixed approach
+
 - Allow flexibility
 - Optimize for readability over consistency
 
 **Recommendation**: Option 1
+SJH: Let's do option 1.
 
 **Effort**: 30 minutes (decision + documentation)
 
@@ -674,6 +749,7 @@ skill-name/
 **Action**: Create examples in wrangler docs
 
 **Add to** `docs/skill-best-practices.md`:
+
 - Pattern 1: High-level guide with references
 - Pattern 2: Domain-specific organization
 - Pattern 3: Conditional details
@@ -767,6 +843,7 @@ Wrangler's skills were created based on an early version of Anthropic's skill-cr
 **Wrangler needs to evolve to match 2026 standards while PRESERVING its superior TDD testing methodology.**
 
 The most critical changes are:
+
 1. Remove bloated "Skill Usage Announcement" pattern (affects all 47 skills)
 2. Split writing-skills to meet token budget (currently 75% over)
 3. Ensure all descriptions include "Use when..." triggers
@@ -774,6 +851,7 @@ The most critical changes are:
 The most valuable asset is wrangler's TDD-based skill testing approach, which is MORE rigorous than Anthropic's evaluation-driven development.
 
 **Recommendation**: Implement Priority 1 changes immediately, then work through Priority 2-3 over next sprint. Consider contributing TDD methodology back to Anthropic community.
+SJH: No, let's just do all of the changes regardless of priority.
 
 ---
 

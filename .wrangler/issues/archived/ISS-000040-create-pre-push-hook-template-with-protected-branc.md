@@ -2,7 +2,7 @@
 id: ISS-000040
 title: Create pre-push hook template with protected branch detection
 type: issue
-status: open
+status: closed
 priority: high
 labels:
   - git-hooks
@@ -10,7 +10,7 @@ labels:
   - pre-push
   - enforcement
 createdAt: '2026-01-21T22:19:45.068Z'
-updatedAt: '2026-01-21T22:19:45.068Z'
+updatedAt: '2026-02-02T21:55:10.667Z'
 project: Wrangler Core Framework
 wranglerContext:
   parentTaskId: SPEC-000041

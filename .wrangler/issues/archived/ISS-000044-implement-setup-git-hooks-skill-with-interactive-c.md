@@ -2,7 +2,7 @@
 id: ISS-000044
 title: Implement setup-git-hooks skill with interactive configuration
 type: issue
-status: open
+status: closed
 priority: high
 labels:
   - skill
@@ -10,7 +10,7 @@ labels:
   - interactive
   - core
 createdAt: '2026-01-21T22:19:45.608Z'
-updatedAt: '2026-01-21T22:19:45.608Z'
+updatedAt: '2026-02-02T21:55:12.229Z'
 project: Wrangler Core Framework
 wranglerContext:
   parentTaskId: SPEC-000041

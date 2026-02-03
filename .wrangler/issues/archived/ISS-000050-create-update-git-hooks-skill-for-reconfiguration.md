@@ -2,7 +2,7 @@
 id: ISS-000050
 title: Create update-git-hooks skill for reconfiguration
 type: issue
-status: open
+status: closed
 priority: low
 labels:
   - skill
@@ -10,7 +10,7 @@ labels:
   - optional
   - maintenance
 createdAt: '2026-01-21T22:19:46.517Z'
-updatedAt: '2026-01-21T22:19:46.517Z'
+updatedAt: '2026-02-02T21:55:13.873Z'
 project: Wrangler Core Framework
 wranglerContext:
   parentTaskId: SPEC-000041

@@ -2,7 +2,7 @@
 id: ISS-000048
 title: Create install-hooks script for version-controlled hooks pattern (Pattern B)
 type: issue
-status: open
+status: closed
 priority: medium
 labels:
   - script
@@ -10,7 +10,7 @@ labels:
   - version-control
   - installation
 createdAt: '2026-01-21T22:19:46.187Z'
-updatedAt: '2026-01-21T22:19:46.187Z'
+updatedAt: '2026-02-02T21:55:13.290Z'
 project: Rangler Core Framework
 wranglerContext:
   parentTaskId: SPEC-000041

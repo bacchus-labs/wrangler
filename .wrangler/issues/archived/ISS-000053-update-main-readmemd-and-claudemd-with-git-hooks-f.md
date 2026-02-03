@@ -2,14 +2,14 @@
 id: ISS-000053
 title: Update main README.md and CLAUDE.md with git hooks feature
 type: issue
-status: open
+status: closed
 priority: high
 labels:
   - documentation
   - readme
   - project-docs
 createdAt: '2026-01-21T22:19:46.910Z'
-updatedAt: '2026-01-21T22:19:46.910Z'
+updatedAt: '2026-02-02T21:55:15.290Z'
 project: Wrangler Core Framework
 wranglerContext:
   parentTaskId: SPEC-000041
