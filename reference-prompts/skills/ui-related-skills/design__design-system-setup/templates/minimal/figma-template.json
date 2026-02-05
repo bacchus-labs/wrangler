@@ -1,0 +1,101 @@
+{
+  "name": "Minimal Design System",
+  "description": "Clean, focused design system for projects that need essential foundations",
+  "pages": [
+    {
+      "name": "🎨 Colors",
+      "frames": [
+        {
+          "name": "Primary",
+          "type": "color-swatch",
+          "tokens": ["color.primary"]
+        },
+        {
+          "name": "Neutrals",
+          "type": "color-palette",
+          "tokens": [
+            "color.neutral.white",
+            "color.neutral.100",
+            "color.neutral.300",
+            "color.neutral.500",
+            "color.neutral.700",
+            "color.neutral.black"
+          ]
+        },
+        {
+          "name": "Semantic",
+          "type": "color-palette",
+          "tokens": [
+            "color.semantic.success",
+            "color.semantic.warning",
+            "color.semantic.error"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "📝 Typography",
+      "frames": [
+        {
+          "name": "Font Families",
+          "type": "text-specimen",
+          "tokens": ["typography.fontFamily.sans", "typography.fontFamily.mono"]
+        },
+        {
+          "name": "Font Sizes",
+          "type": "type-scale",
+          "tokens": [
+            "typography.fontSize.xs",
+            "typography.fontSize.sm",
+            "typography.fontSize.base",
+            "typography.fontSize.lg",
+            "typography.fontSize.xl"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "📏 Spacing",
+      "frames": [
+        {
+          "name": "Spacing Scale",
+          "type": "spacing-visualization",
+          "tokens": ["spacing.xs", "spacing.sm", "spacing.md", "spacing.lg", "spacing.xl"]
+        }
+      ]
+    },
+    {
+      "name": "🧩 Components",
+      "frames": [
+        {
+          "name": "Buttons",
+          "type": "component-showcase",
+          "components": [
+            "button.variants.primary",
+            "button.variants.secondary",
+            "button.variants.ghost"
+          ]
+        },
+        {
+          "name": "Inputs",
+          "type": "component-showcase",
+          "components": ["input.default"]
+        },
+        {
+          "name": "Cards",
+          "type": "component-showcase",
+          "components": ["card.default"]
+        },
+        {
+          "name": "Badges",
+          "type": "component-showcase",
+          "components": [
+            "badge.variants.success",
+            "badge.variants.warning",
+            "badge.variants.error"
+          ]
+        }
+      ]
+    }
+  ]
+}

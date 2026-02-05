@@ -1,0 +1,93 @@
+{
+  "components": {
+    "button": {
+      "variants": {
+        "primary": {
+          "backgroundColor": "{color.primary}",
+          "color": "{color.neutral.white}",
+          "borderRadius": "{borderRadius.md}",
+          "padding": "{spacing.sm} {spacing.md}",
+          "fontSize": "{typography.fontSize.base}",
+          "fontWeight": "{typography.fontWeight.medium}",
+          "hover": {
+            "backgroundColor": "darken({color.primary}, 10%)"
+          }
+        },
+        "secondary": {
+          "backgroundColor": "{color.neutral.100}",
+          "color": "{color.neutral.700}",
+          "borderRadius": "{borderRadius.md}",
+          "padding": "{spacing.sm} {spacing.md}",
+          "fontSize": "{typography.fontSize.base}",
+          "fontWeight": "{typography.fontWeight.medium}",
+          "hover": {
+            "backgroundColor": "{color.neutral.300}"
+          }
+        },
+        "ghost": {
+          "backgroundColor": "transparent",
+          "color": "{color.primary}",
+          "borderRadius": "{borderRadius.md}",
+          "padding": "{spacing.sm} {spacing.md}",
+          "fontSize": "{typography.fontSize.base}",
+          "fontWeight": "{typography.fontWeight.medium}",
+          "hover": {
+            "backgroundColor": "{color.neutral.100}"
+          }
+        }
+      }
+    },
+    "input": {
+      "default": {
+        "backgroundColor": "{color.neutral.white}",
+        "border": "1px solid {color.neutral.300}",
+        "borderRadius": "{borderRadius.md}",
+        "padding": "{spacing.sm} {spacing.md}",
+        "fontSize": "{typography.fontSize.base}",
+        "fontFamily": "{typography.fontFamily.sans}",
+        "lineHeight": "{typography.lineHeight.normal}",
+        "focus": {
+          "borderColor": "{color.primary}",
+          "outline": "none",
+          "boxShadow": "0 0 0 3px {color.primary}20"
+        }
+      }
+    },
+    "card": {
+      "default": {
+        "backgroundColor": "{color.neutral.white}",
+        "borderRadius": "{borderRadius.md}",
+        "padding": "{spacing.lg}",
+        "boxShadow": "{shadow.md}"
+      }
+    },
+    "badge": {
+      "variants": {
+        "success": {
+          "backgroundColor": "{color.semantic.success}20",
+          "color": "{color.semantic.success}",
+          "borderRadius": "{borderRadius.full}",
+          "padding": "{spacing.xs} {spacing.sm}",
+          "fontSize": "{typography.fontSize.xs}",
+          "fontWeight": "{typography.fontWeight.medium}"
+        },
+        "warning": {
+          "backgroundColor": "{color.semantic.warning}20",
+          "color": "{color.semantic.warning}",
+          "borderRadius": "{borderRadius.full}",
+          "padding": "{spacing.xs} {spacing.sm}",
+          "fontSize": "{typography.fontSize.xs}",
+          "fontWeight": "{typography.fontWeight.medium}"
+        },
+        "error": {
+          "backgroundColor": "{color.semantic.error}20",
+          "color": "{color.semantic.error}",
+          "borderRadius": "{borderRadius.full}",
+          "padding": "{spacing.xs} {spacing.sm}",
+          "fontSize": "{typography.fontSize.xs}",
+          "fontWeight": "{typography.fontWeight.medium}"
+        }
+      }
+    }
+  }
+}

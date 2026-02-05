@@ -1,0 +1,101 @@
+<svg width="400" height="300" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background with subtle gradient -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FAFAFA;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#F5F5F5;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="pinkPurple" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FF1A94;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#941AFF;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="orangePink" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#FF881A;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FF1A94;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#FF1A94;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#941AFF;stop-opacity:1" />
+    </linearGradient>
+    <filter id="vibrantShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="4"/>
+      <feOffset dx="0" dy="4" result="offsetblur"/>
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.2"/>
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="400" height="300" fill="url(#bgGradient)"/>
+
+  <!-- Title -->
+  <text x="200" y="35" font-family="Poppins, -apple-system, sans-serif" font-size="26" font-weight="700" fill="#171717" text-anchor="middle">Vibrant Template</text>
+  <text x="200" y="58" font-family="Work Sans, -apple-system, sans-serif" font-size="13" fill="#525252" text-anchor="middle">Playful & Energetic Design System</text>
+
+  <!-- Multi-Color Palette -->
+  <g transform="translate(50, 75)">
+    <!-- Pink -->
+    <rect x="0" y="0" width="28" height="28" rx="8" fill="#FF1A94" filter="url(#vibrantShadow)"/>
+    <rect x="32" y="0" width="28" height="28" rx="8" fill="#FF80C2"/>
+
+    <!-- Orange -->
+    <rect x="68" y="0" width="28" height="28" rx="8" fill="#FF881A" filter="url(#vibrantShadow)"/>
+    <rect x="100" y="0" width="28" height="28" rx="8" fill="#FFBE80"/>
+
+    <!-- Teal -->
+    <rect x="136" y="0" width="28" height="28" rx="8" fill="#1AC7C7" filter="url(#vibrantShadow)"/>
+    <rect x="168" y="0" width="28" height="28" rx="8" fill="#80DFDF"/>
+
+    <!-- Purple -->
+    <rect x="204" y="0" width="28" height="28" rx="8" fill="#941AFF" filter="url(#vibrantShadow)"/>
+    <rect x="236" y="0" width="28" height="28" rx="8" fill="#C280FF"/>
+
+    <!-- Yellow -->
+    <rect x="272" y="0" width="28" height="28" rx="8" fill="#FFDF1A" filter="url(#vibrantShadow)"/>
+  </g>
+
+  <!-- Playful Buttons -->
+  <g transform="translate(30, 125)">
+    <!-- Pink Primary Button -->
+    <rect x="0" y="0" width="100" height="40" rx="16" fill="#FF1A94" filter="url(#vibrantShadow)"/>
+    <text x="50" y="26" font-family="Poppins, sans-serif" font-size="14" font-weight="700" fill="#FFFFFF" text-anchor="middle">Primary</text>
+
+    <!-- Orange Secondary Button -->
+    <rect x="110" y="0" width="100" height="40" rx="16" fill="#FF881A" filter="url(#vibrantShadow)"/>
+    <text x="160" y="26" font-family="Poppins, sans-serif" font-size="14" font-weight="700" fill="#FFFFFF" text-anchor="middle">Orange</text>
+
+    <!-- Gradient Accent Button -->
+    <rect x="220" y="0" width="120" height="44" rx="24" fill="url(#pinkPurple)" filter="url(#vibrantShadow)"/>
+    <text x="280" y="28" font-family="Fredoka One, sans-serif" font-size="16" font-weight="700" fill="#FFFFFF" text-anchor="middle">Accent!</text>
+  </g>
+
+  <!-- Colorful Badges -->
+  <g transform="translate(30, 185)">
+    <rect x="0" y="0" width="60" height="24" rx="12" fill="#00D97E" filter="url(#vibrantShadow)"/>
+    <text x="30" y="16" font-family="Poppins, sans-serif" font-size="11" font-weight="700" fill="#FFFFFF" text-anchor="middle">Success</text>
+
+    <rect x="68" y="0" width="55" height="24" rx="12" fill="#FFB800" filter="url(#vibrantShadow)"/>
+    <text x="95.5" y="16" font-family="Poppins, sans-serif" font-size="11" font-weight="700" fill="#FFFFFF" text-anchor="middle">Warning</text>
+
+    <rect x="131" y="0" width="45" height="24" rx="12" fill="#FF3860" filter="url(#vibrantShadow)"/>
+    <text x="153.5" y="16" font-family="Poppins, sans-serif" font-size="11" font-weight="700" fill="#FFFFFF" text-anchor="middle">Error</text>
+
+    <rect x="184" y="0" width="70" height="24" rx="12" fill="#1AC7C7" filter="url(#vibrantShadow)"/>
+    <text x="219" y="16" font-family="Poppins, sans-serif" font-size="11" font-weight="700" fill="#FFFFFF" text-anchor="middle">Teal Tag</text>
+  </g>
+
+  <!-- Vibrant Card -->
+  <g transform="translate(30, 225)">
+    <rect x="0" y="0" width="340" height="60" rx="24" fill="#FFFFFF" stroke="#FF1A94" stroke-width="3" filter="url(#vibrantShadow)"/>
+    <text x="20" y="26" font-family="Poppins, sans-serif" font-size="15" font-weight="700" fill="#171717">Colorful Card Component</text>
+    <text x="20" y="46" font-family="Work Sans, sans-serif" font-size="12" fill="#525252">Bold colors, playful shapes, generous spacing!</text>
+
+    <!-- Gradient badge in card -->
+    <rect x="270" y="15" width="55" height="28" rx="14" fill="url(#orangePink)" filter="url(#vibrantShadow)"/>
+    <text x="297.5" y="33" font-family="Poppins, sans-serif" font-size="11" font-weight="700" fill="#FFFFFF" text-anchor="middle">NEW</text>
+  </g>
+</svg>
