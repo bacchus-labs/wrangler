@@ -80,7 +80,7 @@ Invoke the brainstorming skill to refine this idea into a fully-formed design th
 
 | Type | Purpose | Example | Invocation |
 |------|---------|---------|------------|
-| **Skill** | Detailed workflow instructions | `test-driven-development` | Automatic (when applicable) |
+| **Skill** | Detailed workflow instructions | `practicing-tdd` | Automatic (when applicable) |
 | **Command** | Shortcut to invoke skill | `/wrangler:brainstorm` | User types command |
 | **Tool** | Programmatic function | `issues_create` | Code calls tool |
 
@@ -246,7 +246,7 @@ Ready for next batch? (Tasks 2.1 - 2.3)
 
 ### Maintenance & Updates
 
-#### `/wrangler:update-yourself`
+#### `/wrangler:updating-wrangler`
 
 **Purpose**: Generate LLM-friendly migration instructions for wrangler version updates
 
@@ -266,7 +266,7 @@ Ready for next batch? (Tasks 2.1 - 2.3)
 
 **Example**:
 ```
-User: /wrangler:update-yourself
+User: /wrangler:updating-wrangler
 
 Claude: Detecting wrangler version gap...
 
@@ -465,7 +465,7 @@ Report progress after each step.
 
 **Good Names**:
 - `/wrangler:run-tests` (verb + noun, clear action)
-- `/wrangler:update-yourself` (verb + target)
+- `/wrangler:updating-wrangler` (verb + target)
 - `/wrangler:analyze-session-gaps` (verb + what to analyze)
 
 **Bad Names**:
@@ -678,7 +678,7 @@ ls ~/.claude/plugins/wrangler/skills/my-skill/SKILL.md
 ## Changelog
 
 ### v1.1.0 (2025-11-18)
-- Added `/wrangler:update-yourself` command
+- Added `/wrangler:updating-wrangler` command
 - Documented all existing commands
 - Added troubleshooting guide
 - Explained command creation process

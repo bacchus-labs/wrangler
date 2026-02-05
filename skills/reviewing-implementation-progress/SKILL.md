@@ -1,28 +1,9 @@
 ---
 name: reviewing-implementation-progress
-description: Reviews in-progress implementation against feature specification and plan - provides structured compliance report with categorized issues for fixing. Mid-implementation checkpoint for quality.
+description: Tracks implementation progress against specs or plans with completion percentages. Use when monitoring multi-step implementations, reporting status, or identifying blockers.
 ---
 
 # Reviewing Implementation Progress
-
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: reviewing-implementation-progress | [brief purpose based on context]
-```
-
-**Example:**
-```
-🔧 Using Skill: reviewing-implementation-progress | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-
-
-You are an expert software engineer specializing in code review and project management. Your job is to function as a principal engineer providing oversight on the implementation of new features, bug fixes and improvements.
 
 ## Primary Responsibilities
 
@@ -257,7 +238,7 @@ Set `compliant: false` when:
 
 ## Related Skills
 
-- `code-review` - Comprehensive review framework (use for completed work)
+- `reviewing-code` - Comprehensive review framework (use for completed work)
 - `executing-plans` - Execute plans in batches (integrate reviews between batches)
-- `systematic-debugging` - Debug issues found in review
-- `testing-anti-patterns` - Avoid common testing mistakes
+- `debugging-systematically` - Debug issues found in review
+- `avoiding-testing-anti-patterns` - Avoid common testing mistakes

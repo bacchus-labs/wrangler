@@ -341,13 +341,13 @@ Breaking changes detected in:
 
 5. Verify migration:
    - Run `ls .wrangler/` and confirm all directories exist
-   - Run `/wrangler:verify-governance` to validate structure
+   - Run `/wrangler:verifying-governance` to validate structure
 
 ### Verification
 
 After migration complete:
 1. Confirm constitution shows `wranglerVersion: "1.2.0"`
-2. Run `/wrangler:verify-governance` - should pass all checks
+2. Run `/wrangler:verifying-governance` - should pass all checks
 3. Run startup skill again - should report SUCCESS
 ```
 
@@ -486,7 +486,7 @@ git reset --hard HEAD^
 - [ ] All files moved to new locations
 - [ ] No files left in old locations
 - [ ] Constitution frontmatter updated with new version
-- [ ] Governance verification passes (`/wrangler:verify-governance`)
+- [ ] Governance verification passes (`/wrangler:verifying-governance`)
 - [ ] MCP tools still work
 - [ ] Skills still load correctly
 - [ ] Startup check reports SUCCESS
@@ -501,7 +501,7 @@ grep "wranglerVersion" .wrangler/governance/CONSTITUTION.md
 
 # Verify governance
 # (Run via Claude Code, not bash)
-/wrangler:verify-governance
+/wrangler:verifying-governance
 ```
 
 ---

@@ -55,7 +55,7 @@ rm -rf .husky
 
 ```bash
 # Run setup
-/wrangler:setup-git-hooks
+/wrangler:setting-up-git-hooks
 
 # When prompted, enter the commands from your Husky config
 ```
@@ -142,7 +142,7 @@ pip uninstall pre-commit
 **Step 4: Install Wrangler Hooks**
 
 ```bash
-/wrangler:setup-git-hooks
+/wrangler:setting-up-git-hooks
 
 # Enter combined commands when prompted
 ```
@@ -207,7 +207,7 @@ cp .git/hooks/commit-msg .git/hooks.backup/ 2>/dev/null
 **Step 4: Install Wrangler Hooks**
 
 ```bash
-/wrangler:setup-git-hooks
+/wrangler:setting-up-git-hooks
 
 # Enter commands from your custom scripts
 ```
@@ -254,7 +254,7 @@ If you don't currently have hooks:
 **Step 1: Run Setup**
 
 ```bash
-/wrangler:setup-git-hooks
+/wrangler:setting-up-git-hooks
 ```
 
 **Step 2: Choose Defaults**
@@ -403,7 +403,7 @@ cp .git/hooks.backup/* .git/hooks/
 ## Getting Help
 
 - See [docs/git-hooks.md](git-hooks.md) for comprehensive documentation
-- Run `/wrangler:setup-git-hooks` for interactive setup
+- Run `/wrangler:setting-up-git-hooks` for interactive setup
 - Check `.wrangler/config/hooks-config.json` for current configuration
 
 ---

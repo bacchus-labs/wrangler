@@ -54,7 +54,7 @@ Start here for a quick introduction:
 **Common First Tasks**:
 - Create a specification: See [MCP-USAGE.md](MCP-USAGE.md#creating-specifications)
 - Start a feature: `/wrangler:brainstorm` → `/wrangler:write-plan` → `/wrangler:execute-plan`
-- Initialize governance: Use `initialize-governance` skill
+- Initialize governance: Use `initializing-governance` skill
 
 ---
 
@@ -103,7 +103,7 @@ Wrangler Plugin
 │   ├── /wrangler:brainstorm
 │   ├── /wrangler:write-plan
 │   ├── /wrangler:execute-plan
-│   ├── /wrangler:update-yourself
+│   ├── /wrangler:updating-wrangler
 │   └── ... (diagnostics)
 │
 └── Governance Templates → Constitution, roadmap, issues, specs
@@ -167,7 +167,7 @@ Wrangler Plugin
 **Steps**:
 1. **Brainstorm**: `/wrangler:brainstorm` - Refine rough idea into design
 2. **Create Spec**: Use MCP `issues_create` with type="specification"
-3. **Constitutional Check**: `/wrangler:check-constitutional-alignment` skill
+3. **Constitutional Check**: `/wrangler:checking-constitutional-alignment` skill
 4. **Write Plan**: `/wrangler:write-plan` - Detailed implementation steps
 5. **Execute**: `/wrangler:execute-plan` - Batch execution with review gates
 
@@ -183,14 +183,14 @@ Wrangler Plugin
 **Workflow**: Reproduce → Diagnose → Fix → Verify
 
 **Steps**:
-1. **Systematic Debugging**: Use `systematic-debugging` skill
-2. **Root Cause**: Use `root-cause-tracing` skill if needed
-3. **TDD**: Write failing test first (`test-driven-development` skill)
+1. **Systematic Debugging**: Use `debugging-systematically` skill
+2. **Root Cause**: Use `tracing-root-causes` skill if needed
+3. **TDD**: Write failing test first (`practicing-tdd` skill)
 4. **Fix**: Implement minimal code to pass test
 5. **Verify**: Run full test suite before completion
 
 **Documentation**:
-- Skills: `systematic-debugging`, `root-cause-tracing`, `test-driven-development`
+- Skills: `debugging-systematically`, `tracing-root-causes`, `practicing-tdd`
 - [CLAUDE.md](../CLAUDE.md#skills)
 
 ---
@@ -279,7 +279,7 @@ Wrangler Plugin
 | `/wrangler:brainstorm` | `brainstorming` | [SLASH-COMMANDS.md](SLASH-COMMANDS.md#wranglerbrainstorm) |
 | `/wrangler:write-plan` | `writing-plans` | [SLASH-COMMANDS.md](SLASH-COMMANDS.md#wranglerwrite-plan) |
 | `/wrangler:execute-plan` | `executing-plans` | [SLASH-COMMANDS.md](SLASH-COMMANDS.md#wranglerexecute-plan) |
-| `/wrangler:update-yourself` | `startup-checklist` | [SLASH-COMMANDS.md](SLASH-COMMANDS.md#wranglerupdate-yourself) |
+| `/wrangler:updating-wrangler` | `startup-checklist` | [SLASH-COMMANDS.md](SLASH-COMMANDS.md#wranglerupdate-yourself) |
 | `/wrangler:run-tests` | (utility) | [SLASH-COMMANDS.md](SLASH-COMMANDS.md#wranglerrun-tests) |
 | `/wrangler:scan-dependencies` | (utility) | [SLASH-COMMANDS.md](SLASH-COMMANDS.md#wranglerscan-dependencies) |
 | `/wrangler:analyze-session-gaps` | (utility) | [SLASH-COMMANDS.md](SLASH-COMMANDS.md#wrangleranalyze-session-gaps) |
@@ -322,7 +322,7 @@ Wrangler maintains an `ideas/` directory for exploratory concepts that may becom
 **Q: What's the difference between a skill, command, and tool?**
 
 A:
-- **Skill** - Detailed workflow instructions (e.g., `test-driven-development`)
+- **Skill** - Detailed workflow instructions (e.g., `practicing-tdd`)
 - **Command** - Shortcut to invoke skill (e.g., `/wrangler:brainstorm`)
 - **Tool** - Programmatic function (e.g., `issues_create`)
 
@@ -352,7 +352,7 @@ A:
 
 **Q: How do I initialize governance in my project?**
 
-A: Use the `initialize-governance` skill. It creates constitution, roadmap, and README templates.
+A: Use the `initializing-governance` skill. It creates constitution, roadmap, and README templates.
 
 **Q: Can I modify the constitution?**
 

@@ -2,7 +2,7 @@
 description: Update wrangler plugin to latest version by clearing all caching layers
 ---
 
-# /wrangler:update-yourself
+# /wrangler:updating-wrangler
 
 Update the wrangler plugin to the latest version from GitHub.
 

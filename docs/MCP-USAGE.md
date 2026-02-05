@@ -408,7 +408,7 @@ Returns:
 
 ### Session Management Tools (5 tools)
 
-These tools support orchestrated specification implementation workflows using the `implement-spec` skill.
+These tools support orchestrated specification implementation workflows using the `implementing-specs` skill.
 
 ### 12. session_start
 
@@ -506,7 +506,7 @@ session_get({})
 
 **Returns:** Session state including tasks completed/pending, checkpoint info if available
 
-**Note:** Session tools are primarily used by the `implement-spec` skill for end-to-end spec-to-PR workflows.
+**Note:** Session tools are primarily used by the `implementing-specs` skill for end-to-end spec-to-PR workflows.
 
 ## Auto-Archive Behavior
 

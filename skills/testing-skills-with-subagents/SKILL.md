@@ -1,28 +1,9 @@
 ---
 name: testing-skills-with-subagents
-description: DEPRECATED - Use writing-skills instead. This skill has been consolidated into writing-skills which now contains both skill creation and testing methodology.
+description: DEPRECATED - Use writing-skills instead. This functionality has been consolidated into writing-skills which now contains both skill creation and testing methodology.
 ---
 
 # Testing Skills With Subagents
-
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: testing-skills-with-subagents | [brief purpose based on context]
-```
-
-**Example:**
-```
-🔧 Using Skill: testing-skills-with-subagents | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-
-
-**This skill has been deprecated and merged into `writing-skills`.**
 
 ## Migration Notice
 

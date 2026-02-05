@@ -5,23 +5,6 @@ description: Use when you've developed a broadly useful skill and want to contri
 
 # Sharing Skills
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: sharing-skills | [brief purpose based on context]
-```
-
-**Example:**
-```
-🔧 Using Skill: sharing-skills | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-
-
 ## Overview
 
 Contribute skills from your local branch back to the upstream repository.

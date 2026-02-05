@@ -22,7 +22,7 @@ Task tool with:
 - run_in_background: true
 - description: "Capture new idea"
 - prompt: |
-    Use the wrangler:capture-new-idea skill to capture this idea verbatim:
+    Use the wrangler:capturing-ideas skill to capture this idea verbatim:
 
     """
     $IDEA_TEXT

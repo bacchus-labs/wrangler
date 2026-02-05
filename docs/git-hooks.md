@@ -30,7 +30,7 @@ The Git Hooks Enforcement Framework provides automated testing and code quality 
 
 ```bash
 # Run the setup command
-/wrangler:setup-git-hooks
+/wrangler:setting-up-git-hooks
 ```
 
 Follow the interactive prompts to configure your hooks.
@@ -393,20 +393,20 @@ cat .wrangler/config/hooks-config.json | grep protectedBranches
 
 | Command | Purpose |
 |---------|---------|
-| `/wrangler:setup-git-hooks` | Initial hook installation |
-| `/wrangler:update-git-hooks` | Update existing configuration |
-| `/wrangler:initialize-governance` | Full governance setup (includes hooks option) |
+| `/wrangler:setting-up-git-hooks` | Initial hook installation |
+| `/wrangler:updating-git-hooks` | Update existing configuration |
+| `/wrangler:initializing-governance` | Full governance setup (includes hooks option) |
 
 ## Related Skills
 
 | Skill | Relationship |
 |-------|--------------|
-| `setup-git-hooks` | Main setup skill |
-| `update-git-hooks` | Configuration updates |
-| `test-driven-development` | TDD workflow with hooks |
-| `run-the-tests` | Manual test execution |
-| `verification-before-completion` | Verification requirements |
-| `initialize-governance` | Governance integration |
+| `setting-up-git-hooks` | Main setup skill |
+| `updating-git-hooks` | Configuration updates |
+| `practicing-tdd` | TDD workflow with hooks |
+| `running-tests` | Manual test execution |
+| `verifying-before-completion` | Verification requirements |
+| `initializing-governance` | Governance integration |
 
 ## File Reference
 

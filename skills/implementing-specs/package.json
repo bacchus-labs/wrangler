@@ -1,0 +1,12 @@
+{
+  "name": "@wrangler/implementing-specs",
+  "version": "3.0.0",
+  "description": "GitHub-centric implementation workflow with evolving PR descriptions",
+  "private": true,
+  "scripts": {
+    "test": "bats __tests__/scripts.bats"
+  },
+  "devDependencies": {
+    "bats": "^1.13.0"
+  }
+}

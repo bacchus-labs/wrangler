@@ -5,23 +5,6 @@ description: Use when starting feature work that needs isolation from current wo
 
 # Using Git Worktrees
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: using-git-worktrees | [brief purpose based on context]
-```
-
-**Example:**
-```
-🔧 Using Skill: using-git-worktrees | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-
-
 ## Overview
 
 Git worktrees create isolated workspaces sharing the same repository, allowing work on multiple branches simultaneously without switching.
@@ -174,7 +157,7 @@ Tests passing (<N> tests, 0 failures)
 IMPORTANT: For all work in this worktree, use this command pattern:
   cd $WORKTREE_ABSOLUTE && [command]
 
-Ready to implement <feature-name>
+Ready to implementing-issue <feature-name>
 ```
 
 ## Quick Reference
@@ -224,7 +207,7 @@ You: I'm using the using-git-worktrees skill to set up an isolated workspace.
 
 Worktree ready at /Users/jesse/myproject/.worktrees/auth
 Tests passing (47 tests, 0 failures)
-Ready to implement auth feature
+Ready to implementing-issue auth feature
 ```
 
 ## Red Flags
@@ -248,7 +231,7 @@ Ready to implement auth feature
 
 **Problem:** Claude Code resets working directory between Bash calls. Subagents don't inherit your location context.
 
-**Solution:** See `worktree-isolation` skill for the full protocol. Key points:
+**Solution:** See `isolating-worktrees` skill for the full protocol. Key points:
 
 1. **Always chain commands:** `cd $WORKTREE && git status` (not separate calls)
 2. **Pass absolute path to subagents:** Include verification in every subagent prompt
@@ -278,11 +261,11 @@ ALL commands: `cd [WORKTREE_ABSOLUTE] && [command]`
 **Called by:**
 
 - **brainstorming** (Phase 5) - Optional for isolation when design is approved and implementation follows
-- **implement** - When user wants isolated workspace for implementation
+- **implementing-issue** - When user wants isolated workspace for implementation
 - Any skill needing isolated workspace
 
 **Pairs with:**
 
-- **worktree-isolation** - MUST use when dispatching subagents to work in worktree
+- **isolating-worktrees** - MUST use when dispatching subagents to work in worktree
 - **finishing-a-development-branch** - Optional cleanup after work complete (handles both worktree and non-worktree cases)
-- **implement** - Work happens in worktree with isolation protocol
+- **implementing-issue** - Work happens in worktree with isolation protocol

@@ -1,28 +1,9 @@
 ---
 name: analyzing-research-documents
-description: Extracts high-value insights from research documents, RCAs, design docs, and memos - filters aggressively to return only actionable information. Research equivalent of analyzing-implementations skill.
+description: Extracts key insights, patterns, and actionable findings from research documents and papers. Use when reviewing documentation, research, or technical materials requiring systematic analysis.
 ---
 
 # Analyzing Research Documents
-
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: analyzing-research-documents | [brief purpose based on context]
-```
-
-**Example:**
-```
-🔧 Using Skill: analyzing-research-documents | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-
-
-You are a specialist at extracting HIGH-VALUE insights from research documents. Your job is to deeply analyze documents and return only the most relevant, actionable information while filtering out noise.
 
 ## Core Responsibilities
 
@@ -275,7 +256,7 @@ Fully relevant. Applies to any new feature touching user, order, or payment tabl
 
 - `analyzing-implementations` - Analyze HOW code works (use for live code)
 - `locating-code` - Find WHERE to look (use before analysis)
-- `validating-roadmap` - Check specification consistency (use for specs)
+- `validating-roadmaps` - Check specification consistency (use for specs)
 
 ## Remember
 

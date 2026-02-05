@@ -75,7 +75,7 @@ Claude Code will:
 
 1. **Read Your Constitution**: `.wrangler/CONSTITUTION.md`
    - Verify principles match your vision
-   - Refine any ambiguities using `constitution` skill
+   - Refine any ambiguities using `defining-constitution` skill
 
 2. **Review Your Roadmap**: `.wrangler/ROADMAP.md`
    - Confirm phases and timelines
@@ -240,9 +240,9 @@ mkdir -p .wrangler/specifications
 mkdir -p .wrangler/issues
 
 # 2. Copy templates from wrangler (skill-local pattern)
-cp /path/to/wrangler/skills/constitution/templates/_CONSTITUTION.md .wrangler/CONSTITUTION.md
-cp /path/to/wrangler/skills/validating-roadmap/templates/_ROADMAP.md .wrangler/ROADMAP.md
-cp /path/to/wrangler/skills/validating-roadmap/templates/_ROADMAP__NEXT_STEPS.md .wrangler/ROADMAP_NEXT_STEPS.md
+cp /path/to/wrangler/skills/defining-constitution/templates/_CONSTITUTION.md .wrangler/CONSTITUTION.md
+cp /path/to/wrangler/skills/validating-roadmaps/templates/_ROADMAP.md .wrangler/ROADMAP.md
+cp /path/to/wrangler/skills/validating-roadmaps/templates/_ROADMAP__NEXT_STEPS.md .wrangler/ROADMAP_NEXT_STEPS.md
 
 # 3. Fill in placeholders
 # Edit files to replace [PROJECT_NAME], add principles, etc.
@@ -264,7 +264,7 @@ cp /path/to/wrangler/skills/validating-roadmap/templates/_ROADMAP__NEXT_STEPS.md
 
    Tell Claude: "Check if [feature] aligns with our constitution"
 
-   Claude will use `check-constitutional-alignment` skill to:
+   Claude will use `checking-constitutional-alignment` skill to:
    - Apply all 5 decision framework questions
    - Check against each principle
    - Verify no anti-pattern violations
@@ -383,7 +383,7 @@ cp /path/to/wrangler/skills/validating-roadmap/templates/_ROADMAP__NEXT_STEPS.md
 
    Tell Claude: "Verify governance framework"
 
-   Claude will use `verify-governance` skill to:
+   Claude will use `verifying-governance` skill to:
    - Check all required files exist
    - Validate constitution structure
    - Validate roadmap structure
@@ -402,8 +402,8 @@ cp /path/to/wrangler/skills/validating-roadmap/templates/_ROADMAP__NEXT_STEPS.md
 3. **Take Recommended Actions**
 
    Follow priority actions from report:
-   - Run `refresh-metrics` if stale
-   - Run `constitution` if ambiguity detected
+   - Run `refreshing-metrics` if stale
+   - Run `defining-constitution` if ambiguity detected
    - Fix broken links or missing sections
 
 ---
@@ -554,7 +554,7 @@ cp /path/to/wrangler/skills/validating-roadmap/templates/_ROADMAP__NEXT_STEPS.md
 
 ### _CONSTITUTION.md Template
 
-**Location**: `skills/constitution/templates/_CONSTITUTION.md`
+**Location**: `skills/defining-constitution/templates/_CONSTITUTION.md`
 
 **Key Sections**:
 - Version tracking
@@ -571,7 +571,7 @@ cp /path/to/wrangler/skills/validating-roadmap/templates/_ROADMAP__NEXT_STEPS.md
 
 ### _ROADMAP.md Template
 
-**Location**: `skills/validating-roadmap/templates/_ROADMAP.md`
+**Location**: `skills/validating-roadmaps/templates/_ROADMAP.md`
 
 **Key Sections**:
 - Overview and current state
@@ -587,7 +587,7 @@ cp /path/to/wrangler/skills/validating-roadmap/templates/_ROADMAP__NEXT_STEPS.md
 
 ### _ROADMAP__NEXT_STEPS.md Template
 
-**Location**: `skills/validating-roadmap/templates/_ROADMAP__NEXT_STEPS.md`
+**Location**: `skills/validating-roadmaps/templates/_ROADMAP__NEXT_STEPS.md`
 
 **Key Sections**:
 - Executive summary (% complete)
@@ -618,7 +618,7 @@ cp /path/to/wrangler/skills/validating-roadmap/templates/_ROADMAP__NEXT_STEPS.md
 
 ### issue.md Template
 
-**Location**: `skills/create-new-issue/templates/TASK_ISSUE_TEMPLATE.md`
+**Location**: `skills/creating-issues/templates/TASK_ISSUE_TEMPLATE.md`
 
 **Key Sections**:
 - YAML frontmatter with all fields
@@ -822,7 +822,7 @@ Brainstorming → Under Review → Decision
 Before approving an idea, validate it against the constitution:
 
 1. **Read the Idea**: Understand the core concept and goals
-2. **Check Alignment**: Run `/wrangler:check-constitutional-alignment` with idea summary
+2. **Check Alignment**: Run `/wrangler:checking-constitutional-alignment` with idea summary
 3. **Evaluate Result**:
    - ✅ APPROVE → Proceed with approval
    - ⚠️ REVISE → Request modifications to align with principles
@@ -965,7 +965,7 @@ Track idea pipeline health:
 **Symptoms**: Different people interpret principles differently
 
 **Solution**:
-1. Run `constitution` skill on vague principle
+1. Run `defining-constitution` skill on vague principle
 2. Answer Socratic questions to force specificity
 3. Add concrete examples
 4. Test with scenarios - do you and AI agree?
@@ -979,7 +979,7 @@ Track idea pipeline health:
 **Symptoms**: README shows "Last Updated: [>30 days ago]"
 
 **Solution**:
-1. Run `refresh-metrics` skill
+1. Run `refreshing-metrics` skill
 2. Review updated counts
 3. Update Next Steps manually if needed
 
@@ -989,10 +989,10 @@ Track idea pipeline health:
 
 ### Problem: Specification Missing Constitutional Alignment
 
-**Symptoms**: `verify-governance` reports compliance <100%
+**Symptoms**: `verifying-governance` reports compliance <100%
 
 **Solution**:
-1. For each spec, run `check-constitutional-alignment`
+1. For each spec, run `checking-constitutional-alignment`
 2. Add Constitutional Alignment section with results
 3. Update spec with alignment details
 
@@ -1015,7 +1015,7 @@ Track idea pipeline health:
 
 ### Problem: Feature Rejected by Constitutional Check
 
-**Symptoms**: `check-constitutional-alignment` returns ❌ REJECT
+**Symptoms**: `checking-constitutional-alignment` returns ❌ REJECT
 
 **Solution**:
 1. Read rejection reasoning carefully
@@ -1035,9 +1035,9 @@ Track idea pipeline health:
 
 **Solution**:
 1. Use automation:
-   - `refresh-metrics` for metrics
+   - `refreshing-metrics` for metrics
    - `housekeeping` for regular maintenance
-   - `verify-governance` for health checks
+   - `verifying-governance` for health checks
 2. Focus on:
    - Constitution (rarely changes)
    - Next Steps (frequently updates)
@@ -1073,15 +1073,15 @@ Tell Claude Code: **"Initialize governance framework"**
 
 **Questions or Issues?**
 
-- Check `verify-governance` for health status
+- Check `verifying-governance` for health status
 - Review this guide's troubleshooting section
-- Refine principles with `constitution` skill
+- Refine principles with `defining-constitution` skill
 - Run `housekeeping` for comprehensive cleanup
 
 **For More Details**:
 - Read your project's `.wrangler/CONSTITUTION.md`
-- Review governance-related skills: `constitution`, `check-constitutional-alignment`, `initialize-governance`, `verify-governance`
-- Check templates in skill-specific directories (e.g., `skills/constitution/templates/`)
+- Review governance-related skills: `defining-constitution`, `checking-constitutional-alignment`, `initializing-governance`, `verifying-governance`
+- Check templates in skill-specific directories (e.g., `skills/defining-constitution/templates/`)
 
 ---
 

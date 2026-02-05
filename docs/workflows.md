@@ -6,7 +6,7 @@ This document describes the major workflows that AI agents should follow when us
 
 ### 1. Test-Driven Development (TDD) Workflow
 
-**Skill**: `skills/test-driven-development/SKILL.md`
+**Skill**: `skills/practicing-tdd/SKILL.md`
 
 **When**: Always when implementing features, fixing bugs, or changing behavior
 
@@ -53,7 +53,7 @@ This document describes the major workflows that AI agents should follow when us
 - Both outputs must be provided in conversation
 - Claims without evidence violate verification requirements
 
-**Anti-Patterns** (See `testing-anti-patterns` skill):
+**Anti-Patterns** (See `avoiding-testing-anti-patterns` skill):
 - Writing tests after implementation
 - Tests passing immediately
 - Claiming "followed TDD" without certification
@@ -80,7 +80,7 @@ Before claiming work complete, provide certification:
 
 ### 2. Verification Before Completion Workflow
 
-**Skill**: `skills/verification-before-completion/SKILL.md`
+**Skill**: `skills/verifying-before-completion/SKILL.md`
 
 **When**: Before ANY completion claim, success claim, or satisfaction expression
 
@@ -159,7 +159,7 @@ Must verify:
 
 **Skills**:
 - `skills/requesting-code-review/SKILL.md` (requester)
-- `skills/code-review/SKILL.md` (reviewer)
+- `skills/reviewing-code/SKILL.md` (reviewer)
 
 **When**: After implementing ANY code changes (see exceptions above)
 
@@ -363,7 +363,7 @@ Ready to implement? Use `/wrangler:implement`
 
 ### 6. Constitutional Alignment Workflow
 
-**Skill**: `skills/check-constitutional-alignment/SKILL.md`
+**Skill**: `skills/checking-constitutional-alignment/SKILL.md`
 
 **When**: Before creating specifications, during feature discussions, reviewing PRs, roadmap updates
 
@@ -549,13 +549,13 @@ Claims without evidence violate verification-before-completion.
 
 ## Cross-References
 
-- **TDD Details**: See `skills/test-driven-development/SKILL.md`
-- **Verification Details**: See `skills/verification-before-completion/SKILL.md`
-- **Code Review Details**: See `skills/code-review/SKILL.md`
+- **TDD Details**: See `skills/practicing-tdd/SKILL.md`
+- **Verification Details**: See `skills/verifying-before-completion/SKILL.md`
+- **Code Review Details**: See `skills/reviewing-code/SKILL.md`
 - **Subagent Details**: See `skills/dispatching-parallel-agents/SKILL.md`
 - **Planning Details**: See `skills/writing-plans/SKILL.md`
-- **Constitutional Checks**: See `skills/check-constitutional-alignment/SKILL.md`
-- **Testing Anti-Patterns**: See `skills/testing-anti-patterns/SKILL.md`
+- **Constitutional Checks**: See `skills/checking-constitutional-alignment/SKILL.md`
+- **Testing Anti-Patterns**: See `skills/avoiding-testing-anti-patterns/SKILL.md`
 - **Verification Requirements**: See `docs/verification-requirements.md`
 - **Skill Invocation Patterns**: See `docs/skill-invocation-patterns.md`
 

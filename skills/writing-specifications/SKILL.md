@@ -7,29 +7,6 @@ You are a specialist at creating comprehensive technical specifications that ser
 
 ## Core Responsibilities
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: writing-specifications | [brief purpose based on context]
-```
-
-**Example:**
-
-```
-🔧 Using Skill: writing-specifications | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-- Analyze the feature/system requirements to extract all specification elements
-- Identify and resolve ambiguities through clarifying questions
-- Use the **issues_create** MCP tool with `type: "specification"` to create the specification
-- Structure the specification content comprehensively using the template as a guide
-- Ensure all sections are completed with sufficient detail for implementation
-- Verify specification completeness before creation
-
 ## Specification Creation Process
 
 ### 1. Gather Information
@@ -145,7 +122,7 @@ Before creating, verify:
 - [ ] **Complete:** All must-have sections are filled out with sufficient detail
 - [ ] **Clear:** No ambiguous requirements or undefined terms (or clearly marked as open questions)
 - [ ] **Consistent:** No contradictions between sections
-- [ ] **Implementable:** Enough detail for an engineer to implement without guessing
+- [ ] **Implementable:** Enough detail for an engineer to implementing-issue without guessing
 - [ ] **Testable:** Requirements are specific enough to write tests against
 - [ ] **Bounded:** Scope is clear, non-goals are explicit
 - [ ] **Justified:** Decisions have rationale, trade-offs are documented
@@ -355,7 +332,16 @@ issues_create({
 - Performance: p95 latency < 500ms maintained for 30 days
 - Security: Zero successful unauthorized access attempts
 
+
+
+## Workflow Checklist
+
+Copy this checklist to track your progress:
+
+See `assets/workflow-checklist.md` for the complete checklist.
+
 ## References
+
 
 ### Related Specifications
 
@@ -415,7 +401,7 @@ issues_create({
 
 After creating the specification, validate:
 
-1. **Engineer test:** Could a new engineer implement this without asking questions?
+1. **Engineer test:** Could a new engineer implementing-issue this without asking questions?
 2. **Tester test:** Could QA write comprehensive tests from this spec?
 3. **Completeness test:** Are all requirements, constraints, and decisions captured?
 4. **Clarity test:** Are there any ambiguous terms or undefined concepts?

@@ -5,23 +5,6 @@ description: Use when implementation is complete, all tests pass, and you need t
 
 # Finishing a Development Branch
 
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: finishing-a-development-branch | [brief purpose based on context]
-```
-
-**Example:**
-```
-🔧 Using Skill: finishing-a-development-branch | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-
-
 ## Overview
 
 Guide completion of development work by presenting clear options and handling chosen workflow.
@@ -57,7 +40,7 @@ go test ./...
 
 #### 1.2: Requirements Met
 
-Check verification-before-completion requirements checklist:
+Check verifying-before-completion requirements checklist:
 
 - [ ] All planned features implemented
 - [ ] All edge cases handled
@@ -69,7 +52,7 @@ Check verification-before-completion requirements checklist:
 
 #### 1.3: Code Review Obtained (MANDATORY)
 
-Check verification-before-completion code review gate:
+Check verifying-before-completion code review gate:
 
 - [ ] Code review completed (or valid exception 1, 2, or 3 documented)
 - [ ] Critical issues: 0 (MUST be zero)
@@ -87,7 +70,7 @@ Check verification-before-completion code review gate:
 
 #### 1.4: TDD Compliance
 
-Check verification-before-completion TDD certification:
+Check verifying-before-completion TDD certification:
 
 - [ ] TDD compliance certification completed
 - [ ] All new functions have tests written first
@@ -298,12 +281,12 @@ THEN:
 - Complete ALL verification steps
 - This is not optional
 
-Proceeding without complete Step 1 verification violates verification-before-completion.
+Proceeding without complete Step 1 verification violates verifying-before-completion.
 
 ## Integration
 
 **Called by:**
-- **implement** - After all tasks complete and final verification passes
+- **implementing-issues** - After all tasks complete and final verification passes
 
 **Pairs with:**
 - **using-git-worktrees** - Cleans up worktree if one was created (optional)

@@ -17,7 +17,7 @@ Guide to building multi-agent workflow skills in Wrangler.
 | **Execution** | Sequential only | Sequential + Parallel |
 | **Duration** | < 2 minutes typical | 2-10 minutes typical |
 | **Metrics** | Simple (success/failure) | Complex (per-phase timing, throughput) |
-| **Examples** | `create-new-issue`, `test-driven-development` | `housekeeping`, `feature-development` |
+| **Examples** | `creating-issues`, `practicing-tdd` | `housekeeping`, `feature-development` |
 
 ---
 

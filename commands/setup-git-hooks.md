@@ -1,4 +1,4 @@
-# /wrangler:setup-git-hooks
+# /wrangler:setting-up-git-hooks
 
 Set up Git hooks for automated testing and code quality enforcement.
 
@@ -20,7 +20,7 @@ This command helps you configure and install Git hooks in your project to enforc
 Simply run the command:
 
 ```
-/wrangler:setup-git-hooks
+/wrangler:setting-up-git-hooks
 ```
 
 Follow the interactive prompts to configure your hooks.
@@ -62,7 +62,7 @@ WRANGLER_SKIP_HOOKS=1 git commit -m "WIP: failing test for feature X"
 ### Basic Setup
 
 ```
-/wrangler:setup-git-hooks
+/wrangler:setting-up-git-hooks
 ```
 
 ### After Setup
@@ -80,8 +80,8 @@ git push origin main
 
 ## Related Commands
 
-- `/wrangler:update-git-hooks` - Update existing hook configuration
-- `/wrangler:initialize-governance` - Full governance setup (includes hooks option)
+- `/wrangler:updating-git-hooks` - Update existing hook configuration
+- `/wrangler:initializing-governance` - Full governance setup (includes hooks option)
 
 ## Implementation
 
@@ -116,6 +116,6 @@ rm .git/hooks/pre-commit .git/hooks/pre-push .git/hooks/commit-msg
 ### Conflicts with Husky
 
 If using Husky:
-1. Run `/wrangler:setup-git-hooks` - it will detect Husky
+1. Run `/wrangler:setting-up-git-hooks` - it will detect Husky
 2. Choose to migrate or keep Husky
 3. See migration guide: `docs/git-hooks-migration.md`

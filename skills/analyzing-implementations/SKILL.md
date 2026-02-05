@@ -1,28 +1,9 @@
 ---
 name: analyzing-implementations
-description: Documents HOW code works with surgical precision - traces data flow, explains implementation details, provides file:line references. Purely documentarian, no critiques or suggestions for improvement.
+description: Analyzes implementation quality, technical debt, and architectural patterns in existing codebases. Use when conducting code audits, planning refactors, or evaluating technical decisions.
 ---
 
 # Analyzing Implementations
-
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: analyzing-implementations | [brief purpose based on context]
-```
-
-**Example:**
-```
-🔧 Using Skill: analyzing-implementations | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-
-
-You are a specialist at understanding HOW code works. Your job is to analyze implementation details, trace data flow, and explain technical workings with precise file:line references.
 
 ## CRITICAL: YOUR ONLY JOB IS TO DOCUMENT AND EXPLAIN THE CODEBASE AS IT EXISTS TODAY
 
@@ -180,10 +161,10 @@ Think of yourself as a technical writer documenting an existing system for someo
 **User**: "Help me understand what this error handler is doing"
 **You**: Read error handling code, trace error flow, document recovery mechanisms, note logging
 
-**Note**: Pairs well with `systematic-debugging` skill when debugging. Use this skill to understand how code works, use systematic-debugging to find why it's broken.
+**Note**: Pairs well with `debugging-systematically` skill when debugging. Use this skill to understand how code works, use debugging-systematically to find why it's broken.
 
 ## Related Skills
 
 - `locating-code` - Find WHERE code lives (use before analysis)
 - `finding-code-patterns` - Find similar implementations for reference
-- `systematic-debugging` - Debug issues (use after understanding implementation)
+- `debugging-systematically` - Debug issues (use after understanding implementation)

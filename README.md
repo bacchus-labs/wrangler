@@ -19,14 +19,14 @@ Issue and specification tracking using markdown files with YAML frontmatter. Sto
 - `/wrangler:write-plan` - Implementation planning
 - `/wrangler:implement` - Autonomous execution
 - `/wrangler:run-tests` - Test execution
-- `/wrangler:update-yourself` - Version migration
-- `/wrangler:setup-git-hooks` - Git hooks configuration
-- `/wrangler:update-git-hooks` - Update hooks configuration
+- `/wrangler:updating-wrangler` - Version migration
+- `/wrangler:setting-up-git-hooks` - Git hooks configuration
+- `/wrangler:updating-git-hooks` - Update hooks configuration
 - `/wrangler:commit-push-pr` - Commit, push, and create PR
 - `/wrangler:generate-plan-for-spec` - Generate plan from specification
 - `/wrangler:help` - Wrangler help and documentation
 - `/wrangler:issues` - Issue status summary
-- `/wrangler:sitrep` - Situational awareness report
+- `/wrangler:reporting-status` - Situational awareness report
 
 ### Git Hooks Enforcement
 
@@ -35,7 +35,7 @@ Automated testing and code quality enforcement through Git hooks:
 - **Pre-push**: Runs full test suite before pushing to protected branches
 - **Commit-msg**: Validates commit message format (optional)
 
-Run `/wrangler:setup-git-hooks` to configure. See [docs/git-hooks.md](docs/git-hooks.md) for details.
+Run `/wrangler:setting-up-git-hooks` to configure. See [docs/git-hooks.md](docs/git-hooks.md) for details.
 
 ### Session Hooks
 
@@ -60,8 +60,8 @@ Install via Claude Code plugin system. Run `/help` to verify - should list `/wra
 ### Collaboration
 - **brainstorming** - Socratic design refinement
 - **writing-plans** - Implementation plan creation with MCP issues
-- **implement** - Autonomous implementation via subagents with TDD and code review
-- **implement-spec** - Orchestrate spec-to-PR workflow with session tracking
+- **implementing-issue** - Single issue TDD implementation with code review
+- **implementing-specs** - Orchestrate spec-to-PR workflow with session tracking
 - **code-review** - Comprehensive code review framework
 - **requesting-code-review** - Pre-merge review workflow
 - **receiving-code-review** - Technical rigor in feedback responses

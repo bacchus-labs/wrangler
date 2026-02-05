@@ -15,17 +15,16 @@ You write test cases (pressure scenarios with subagents), watch them fail (basel
 
 **Core principle:** If you didn't watch an agent fail without the skill, you don't know if the skill teaches the right thing.
 
-**REQUIRED BACKGROUND:** You MUST understand wrangler:test-driven-development before using this skill. That skill defines the fundamental RED-GREEN-REFACTOR cycle. This skill adapts TDD to documentation.
+**REQUIRED BACKGROUND:** You MUST understand wrangler:practicing-tdd before using this skill. That skill defines the fundamental RED-GREEN-REFACTOR cycle. This skill adapts TDD to documentation.
 
 **Official guidance:** For Anthropic's official skill authoring resources, see references/anthropic-resources.md for links to live documentation maintained by Anthropic.
 
 ## What is a Skill?
 
-A **skill** is a reference guide for proven techniques, patterns, or tools. Skills help future Claude instances find and apply effective approaches.
+A **skill** is a reference guide for proven techniques, patterns, or tools.
 
 **Skills are:** Reusable techniques, patterns, tools, reference guides
-
-**Skills are NOT:** Narratives about how you solved a problem once
+**Skills are NOT:** Narratives about specific problem-solving sessions
 
 ## TDD Mapping for Skills
 
@@ -70,7 +69,7 @@ skills/skill-name/
 
 ## SKILL.md Structure
 
-**Frontmatter:** Only `name` (letters, numbers, hyphens) and `description` (third-person, starts with "Use when..."). Max 1024 chars.
+**Frontmatter:** `name` (letters, numbers, hyphens) and `description` (third-person, "Use when..." triggers). Max 1024 chars.
 
 ```markdown
 ---
@@ -81,23 +80,20 @@ description: Use when [triggers] - [what it does]
 ## Overview
 Core principle in 1-2 sentences.
 ## When to Use
-Symptoms and use cases (flowchart if decision non-obvious)
+Symptoms and use cases
 ## Quick Reference
-Table for scanning common operations
+Table for common operations
 ## Implementation
 Inline code or link to file
 ## Common Mistakes
 What goes wrong + fixes
 ```
 
-
 ## Claude Search Optimization (CSO)
-
-**Critical for discovery:** Future Claude needs to FIND your skill
 
 ### 1. Rich Description Field
 
-Start with "Use when..." to focus on triggering conditions. Use concrete triggers/symptoms, describe problems not language-specific details, write third person.
+Start with "Use when..." for triggering conditions. Use concrete triggers/symptoms, describe problems not language-specific details, third person.
 
 ```yaml
 # ❌ BAD: Too abstract
@@ -117,7 +113,7 @@ Use words Claude would search for:
 
 ### 3. Descriptive Naming
 
-Use active voice, verb-first (creating-skills not skill-creation). Name by what you DO or core insight (condition-based-waiting > async-test-helpers). Gerunds work well for processes.
+Verb-first (creating-skills not skill-creation). Name by what you DO or core insight. Gerunds work well for processes.
 
 ### 4. Token Efficiency
 
@@ -125,38 +121,38 @@ Target: getting-started <150 words, frequently-loaded <200 words, others <500 wo
 
 ### 5. Cross-Referencing
 
-Use skill name with explicit requirement markers: "REQUIRED: Use wrangler:test-driven-development". Don't use @ links (force-loads context).
+Use skill name with explicit requirement markers: "REQUIRED: Use wrangler:practicing-tdd". Don't use @ links (force-loads context).
 
 ## Flowchart Usage
 
-Use flowcharts ONLY for: Non-obvious decision points, process loops, "A vs B" decisions.
+Use ONLY for: Non-obvious decision points, process loops, "A vs B" decisions.
 
-Never for: Reference material (use tables), code examples (use markdown), linear instructions (use lists), meaningless labels.
+Never for: Reference material (tables), code examples (markdown), linear instructions (lists).
 
 See assets/graphviz-conventions.dot for style rules.
 
 ## Code Examples
 
-One excellent example beats many mediocre ones. Choose relevant language (testing → TypeScript, system → Shell/Python). Make it complete, runnable, well-commented (WHY), from real scenario. Don't implement in multiple languages or create templates.
+One excellent example beats many mediocre ones. Choose relevant language, make it complete and runnable, comment WHY not what. Single language only.
 
 ## File Organization
 
 Choose your organization strategy based on skill complexity and token efficiency:
 
 ### Self-Contained (Recommended Default)
-**When to use**: Simple skills, <200 lines, no heavy reference material
-**Structure**: Everything in SKILL.md
-**Benefits**: Single file to load, fastest discovery, no progressive disclosure overhead
+**When:** Simple skills, <200 lines, no heavy reference material
+**Structure:** Everything in SKILL.md
+**Benefits:** Single file, fastest discovery
 
 ### Progressive Disclosure
-**When to use**: Skills >300 lines, complex workflows, heavy reference docs
-**Structure**: SKILL.md + references/ or templates/ subdirectories
-**Benefits**: Keep frequently-needed content in SKILL.md, defer rarely-needed details
+**When:** Skills >300 lines, complex workflows, heavy reference docs
+**Structure:** SKILL.md + references/ or templates/
+**Benefits:** Frequently-needed content in SKILL.md, defer rarely-needed details
 
 ### With Executable Tools
-**When to use**: Skill provides reusable code/scripts
-**Structure**: SKILL.md + scripts/ or templates/ for executable content
-**Benefits**: Code can be directly used, not just read
+**When:** Skill provides reusable code/scripts
+**Structure:** SKILL.md + scripts/ or templates/
+**Benefits:** Code can be directly used
 
 ### Decision Criteria
 
@@ -178,28 +174,21 @@ Choose your organization strategy based on skill complexity and token efficiency
 - Heavy reference material (>100 lines) should be in references/
 - Templates should be in templates/, not inline
 
-**See**: https://code.claude.com/docs/en/skills for comprehensive guidance on progressive disclosure patterns
+**Reference**: https://code.claude.com/docs/en/skills for progressive disclosure patterns
 
-## The Iron Law (Same as TDD)
+## The Iron Law
 
 ```
 NO SKILL WITHOUT A FAILING TEST FIRST
 ```
 
-This applies to NEW skills AND EDITS to existing skills.
+Applies to NEW skills AND EDITS.
 
 Write skill before testing? Delete it. Start over.
-Edit skill without testing? Same violation.
 
-**No exceptions:**
-- Not for "simple additions"
-- Not for "just adding a section"
-- Not for "documentation updates"
-- Don't keep untested changes as "reference"
-- Don't "adapt" while running tests
-- Delete means delete
+**No exceptions:** Not for "simple additions", "just adding a section", or "documentation updates". Don't keep untested changes as "reference". Delete means delete.
 
-**REQUIRED BACKGROUND:** The wrangler:test-driven-development skill explains why this matters. Same principles apply to documentation.
+**REQUIRED BACKGROUND:** wrangler:practicing-tdd skill.
 
 ## Testing All Skill Types
 
@@ -207,7 +196,7 @@ Different skill types need different test approaches:
 
 **Discipline Skills** (TDD, verification): Test with pressure scenarios combining time + sunk cost + exhaustion. Success = agent follows rule under maximum pressure.
 
-**Technique Skills** (condition-based-waiting, root-cause-tracing): Test with application scenarios and variations. Success = agent applies technique correctly to new scenario.
+**Technique Skills** (condition-based-waiting, tracing-root-causes): Test with application scenarios and variations. Success = agent applies technique correctly to new scenario.
 
 **Pattern Skills** (reducing-complexity): Test with recognition and counter-examples. Success = agent knows when/how to apply pattern.
 
@@ -328,16 +317,14 @@ helper1, helper2, step3, pattern4
 
 ## STOP: Before Moving to Next Skill
 
-**After writing ANY skill, you MUST STOP and complete the deployment process.**
+After writing ANY skill, STOP and complete the deployment process.
 
 **Do NOT:**
-- Create multiple skills in batch without testing each
-- Move to next skill before current one is verified
-- Skip testing because "batching is more efficient"
+- Batch create skills without testing each
+- Move to next skill before verification
+- Skip testing for "efficiency"
 
-**The deployment checklist below is MANDATORY for EACH skill.**
-
-Deploying untested skills = deploying untested code. It's a violation of quality standards.
+Deployment checklist below is MANDATORY for EACH skill.
 
 ## Skill Creation Checklist (TDD Adapted)
 
@@ -353,80 +340,19 @@ Deploying untested skills = deploying untested code. It's a violation of quality
 
 ## Discovery Workflow
 
-Future Claude: Encounters problem → Finds skill (description matches) → Scans overview → Reads quick reference → Loads example if implementing. Optimize by putting searchable terms early and often.
+Encounters problem → Finds skill (description matches) → Scans overview → Reads quick reference → Loads example if implementing. Put searchable terms early.
 
-## Testing Skills: Detailed Methodology
+## Testing Skills
 
-### When to Test Skills
+Create pressure scenarios (3+ combined pressures: time, sunk cost, authority) → Run WITHOUT skill → Document rationalizations → Write skill to counter those specific rationalizations → Re-test → Plug new holes → Repeat until bulletproof.
 
-Test: Discipline-enforcing skills with compliance costs that could be rationalized away.
-Don't test: Pure reference skills, skills without rules to violate.
-
-### Writing Pressure Scenarios
-
-**Bad (no pressure):** "You need to implement a feature. What does the skill say?" - Too academic.
-
-**Good (single pressure):** "Production down. $10k/min lost. Manager says 2-line fix now. 5 min deploy window." - Time + authority + consequences.
-
-**Great (multiple pressures):** "3 hours, 200 lines, manually tested, works. 6pm, dinner 6:30pm. Code review 9am. Forgot TDD. A) Delete, start tomorrow B) Commit, test later C) Test now (30 min)" - Sunk cost + time + exhaustion. Forces explicit choice.
-
-### Pressure Types
-
-Time (emergency, deadline), Sunk cost (hours invested), Authority (manager override), Economic (job/promotion), Exhaustion (end of day), Social (looking dogmatic), Pragmatic ("being pragmatic"). Best tests combine 3+ pressures.
-
-### Key Elements of Good Scenarios
-
-1. **Concrete options** - Force A/B/C choice, not open-ended
-2. **Real constraints** - Specific times, actual consequences, real file paths
-3. **Make agent act** - "What do you do?" not "What should you do?"
-4. **No easy outs** - Can't defer without choosing
-
-Frame scenarios as real work, not academic quizzes.
-
-### VERIFY GREEN: Pressure Testing Process
-
-Create pressure scenarios (3+ combined pressures) → Run WITHOUT skill → Document rationalizations verbatim → Identify patterns → Note which pressures trigger violations. NOW you know what the skill must prevent.
-
-### Plugging Each Hole
-
-For each new rationalization discovered during testing:
-
-1. **Add explicit negation** - "Write code before test? Delete it. Start over. No exceptions: Don't keep as 'reference', don't adapt, delete means delete."
-2. **Add to rationalization table** - Document the excuse and counter-argument
-3. **Add red flag** - Include in "Red Flags - STOP" list
-4. **Update description** - Add symptoms of ABOUT to violate
-
-### Re-verify After Refactoring
-
-Re-test with updated skill. Agent should choose correctly, cite new sections, acknowledge previous rationalization addressed. If NEW rationalization found, continue REFACTOR. If follows rule, success.
-
-### Meta-Testing (When GREEN Isn't Working)
-
-After agent chooses wrong option, ask: "How could the skill have made it crystal clear that Option A was the only answer?"
-
-Three responses:
-1. "Skill was clear, I ignored it" → Need stronger foundational principle
-2. "Skill should have said X" → Documentation problem, add their suggestion
-3. "Didn't see section Y" → Organization problem, make key points prominent
-
-### When Skill is Bulletproof
-
-Bulletproof: Agent chooses correctly under max pressure, cites sections, acknowledges temptation, meta-test shows "skill was clear".
-
-Not bulletproof: New rationalizations, argues skill wrong, creates hybrids, argues for violations.
-
-### Example: TDD Skill Bulletproofing
-
-Test 1: Agent chose C (tests after). Rationalization: "Tests after achieve same goals"
-Iteration 1: Added "Why Order Matters". Agent STILL chose C. New excuse: "Spirit not letter"
-Iteration 2: Added "Violating letter is violating spirit". Agent chose A (delete). Bulletproof achieved.
+**Detailed methodology**: See `references/testing-methodology.md` for complete pressure scenario patterns, verification process, and bulletproofing techniques.
 
 ## The Bottom Line
 
-**Creating skills IS TDD for process documentation.**
+Creating skills IS TDD for process documentation.
 
 Same Iron Law: No skill without failing test first.
 Same cycle: RED (baseline) → GREEN (write skill) → REFACTOR (close loopholes).
-Same benefits: Better quality, fewer surprises, bulletproof results.
 
-If you follow TDD for code, follow it for skills. It's the same discipline applied to documentation.
+If you follow TDD for code, follow it for skills.

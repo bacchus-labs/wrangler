@@ -1,4 +1,4 @@
-# /wrangler:update-git-hooks
+# /wrangler:updating-git-hooks
 
 Update existing Git hooks configuration without full re-setup.
 
@@ -8,7 +8,7 @@ This command helps you modify your existing Git hooks configuration. It reads cu
 
 ## Prerequisites
 
-Git hooks must already be set up. If you haven't set up hooks yet, use `/wrangler:setup-git-hooks` instead.
+Git hooks must already be set up. If you haven't set up hooks yet, use `/wrangler:setting-up-git-hooks` instead.
 
 ## What It Does
 
@@ -25,7 +25,7 @@ Git hooks must already be set up. If you haven't set up hooks yet, use `/wrangle
 Simply run the command:
 
 ```
-/wrangler:update-git-hooks
+/wrangler:updating-git-hooks
 ```
 
 Follow the prompts to select what to update and provide new values.
@@ -45,7 +45,7 @@ Follow the prompts to select what to update and provide new values.
 ### Change Test Command
 
 ```
-/wrangler:update-git-hooks
+/wrangler:updating-git-hooks
 
 Current: npm test
 New: npm run test:ci
@@ -54,7 +54,7 @@ New: npm run test:ci
 ### Add Protected Branch
 
 ```
-/wrangler:update-git-hooks
+/wrangler:updating-git-hooks
 
 Current: main, master
 New: main, master, develop, release/*
@@ -63,7 +63,7 @@ New: main, master, develop, release/*
 ### Enable Commit Message Validation
 
 ```
-/wrangler:update-git-hooks
+/wrangler:updating-git-hooks
 
 Enable commit message validation? Yes
 ```
@@ -76,7 +76,7 @@ If something goes wrong, restore from backup:
 cp .wrangler/config/hooks-config.json.backup .wrangler/config/hooks-config.json
 ```
 
-Then run `/wrangler:update-git-hooks` to regenerate hooks.
+Then run `/wrangler:updating-git-hooks` to regenerate hooks.
 
 ## Limitations
 
@@ -85,8 +85,8 @@ Then run `/wrangler:update-git-hooks` to regenerate hooks.
 
 ## Related Commands
 
-- `/wrangler:setup-git-hooks` - Initial hook setup
-- `/wrangler:initialize-governance` - Full governance setup (includes hooks option)
+- `/wrangler:setting-up-git-hooks` - Initial hook setup
+- `/wrangler:initializing-governance` - Full governance setup (includes hooks option)
 
 ## Implementation
 

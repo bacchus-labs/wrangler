@@ -1,32 +1,9 @@
 ---
-name: requesting-code-review
-description: Use when completing tasks, implementing major features, or before merging to verify work meets requirements - dispatches code-review subagent to review implementation against plan or requirements before proceeding
+name: requesting-reviewing-code
+description: Use when completing tasks, implementing major features, or before merging to verify work meets requirements - dispatches reviewing-code subagent to review implementation against plan or requirements before proceeding
 ---
 
 # Requesting Code Review
-
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: requesting-code-review | [brief purpose based on context]
-```
-
-**Example:**
-```
-🔧 Using Skill: requesting-code-review | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-
-
-Dispatch a subagent using the `code-review` skill to catch issues before they cascade.
-
-**Core principle:** Review early, review often.
-
-**Review Framework**: See `code-review` skill for comprehensive review process (6 phases: plan alignment, code quality, architecture, testing, security/performance, documentation).
 
 ## When to Request Review
 
@@ -67,7 +44,7 @@ Code review MUST always be obtained (without exception) for ALL code changes.
 
 **When in doubt**: Request code review. There are ONLY 3 exceptions above, no others.
 
-**If you skip review without valid exception 1, 2, or 3**: You violate verification-before-completion and cannot claim work complete.
+**If you skip review without valid exception 1, 2, or 3**: You violate verifying-before-completion and cannot claim work complete.
 
 ## Cannot Proceed Without Review
 
@@ -114,8 +91,8 @@ BEFORE proceeding to next step:
 
 If you skip code review without explicit exception:
 - Your human partner will lose trust in your work
-- You violate test-driven-development (no verification)
-- You violate verification-before-completion (incomplete verification)
+- You violate practicing-tdd (no verification)
+- You violate verifying-before-completion (incomplete verification)
 - Issues will be caught later (more expensive to fix)
 - You create technical debt (unreviewed code)
 
@@ -166,9 +143,9 @@ BASE_SHA=$(git rev-parse HEAD~1)  # or origin/main
 HEAD_SHA=$(git rev-parse HEAD)
 ```
 
-### Step 4: Dispatch code-review subagent
+### Step 4: Dispatch reviewing-code subagent
 
-Use Task tool with `general-purpose` subagent type, instructing it to use the `code-review` skill.
+Use Task tool with `general-purpose` subagent type, instructing it to use the `reviewing-code` skill.
 
 **Provide to subagent:**
 - What was implemented (feature/task description)
@@ -231,7 +208,7 @@ Action:
 
 **Important**: You cannot claim work complete or proceed to next phase until review status is "Approved" or "Approved with minor items".
 
-Attempting to proceed with "Needs revision" or "Blocked" status violates verification-before-completion skill.
+Attempting to proceed with "Needs revision" or "Blocked" status violates verifying-before-completion skill.
 
 ## Example
 
@@ -284,7 +261,7 @@ BASE_SHA=$(git log --oneline | grep "Task 1" | head -1 | awk '{print $1}')
 HEAD_SHA=$(git rev-parse HEAD)
 
 [Use Task tool with general-purpose subagent:]
-"Use the code-review skill to review my implementation of Task 2 from
+"Use the reviewing-code skill to review my implementation of Task 2 from
 .wrangler/plans/deployment-plan.md. Review changes from a7981ec..3df7661.
 
 I implemented verification and repair functions for conversation index
@@ -365,4 +342,4 @@ THEN:
 - Show code/tests that prove it works
 - Request clarification
 
-See `code-review` skill for detailed review framework and output format.
+See `reviewing-code` skill for detailed review framework and output format.

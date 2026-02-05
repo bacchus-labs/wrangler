@@ -117,23 +117,23 @@ Break a specification directly into MCP issues (no prompts).
 
 ### /wrangler:implement
 
-Autonomously implement tasks from specs, plans, or issues.
+Autonomously implement tasks from specs or issues.
 
 #### Usage
 
 ```bash
 /wrangler:implement
-/wrangler:implement issues 42-48
+/wrangler:implement issue #42
 /wrangler:implement .wrangler/specifications/SPEC-000001-feature.md
 ```
 
 #### What It Does
 
-- Executes tasks via subagents
+- Routes to `implementing-specs` skill for specification references
+- Routes to `implementing-issue` skill for single issue references
 - Follows TDD (RED-GREEN-REFACTOR)
 - Runs code review after each task
 - Only stops for genuine blockers
-- Invokes the `implement` skill
 
 ---
 
@@ -229,7 +229,8 @@ Wrangler includes 47+ skills covering:
 - `brainstorming` — Socratic design refinement
 - `writing-plans` — Implementation planning
 - `writing-specifications` — Spec creation
-- `implement` — Autonomous task execution
+- `implementing-issue` — Single issue TDD implementation
+- `implementing-specs` — Spec-to-PR orchestrated workflow
 - `test-driven-development` — TDD enforcement
 - `code-review` — Review framework
 

@@ -405,7 +405,7 @@ What would you like to do next?
 - **Not a blame exercise** - Focus on system gaps, not individual performance
 - **Not a compliance check** - That's `/wrangler:validate-session-adherence`
 - **Not a capability gap analysis** - That's `/wrangler:analyze-session-gaps`
-- **Not a code review** - That's `/wrangler:code-review`
+- **Not a code review** - That's `/wrangler:reviewing-code`
 
 ### What This Audit IS
 

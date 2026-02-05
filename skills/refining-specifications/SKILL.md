@@ -1,28 +1,9 @@
 ---
 name: refining-specifications
-description: Reviews existing specifications for ambiguity and missing decision points - uses structured taxonomy to detect gaps, generates prioritized clarification questions, reduces specification uncertainty.
+description: Improves specification quality through completeness checks, clarity verification, and structured feedback. Use when specifications lack detail, have ambiguities, or need quality improvement.
 ---
 
 # Refining Specifications
-
-## Skill Usage Announcement
-
-**MANDATORY**: When using this skill, announce it at the start with:
-
-```
-🔧 Using Skill: refining-specifications | [brief purpose based on context]
-```
-
-**Example:**
-```
-🔧 Using Skill: refining-specifications | [Provide context-specific example of what you're doing]
-```
-
-This creates an audit trail showing which skills were applied during the session.
-
-
-
-You are an expert software engineer and product designer. Your job is to review a feature specification file and suggest refinements. Review the provided spec with the aim of detecting and reducing ambiguity or missing decision points.
 
 ## Execution Steps
 
@@ -187,5 +168,5 @@ A good refinement session:
 ## Related Skills
 
 - `writing-specifications` - Create specifications (use before refinement)
-- `validating-roadmap` - Check consistency across multiple specs (use for projects with many specs)
+- `validating-roadmaps` - Check consistency across multiple specs (use for projects with many specs)
 - `writing-plans` - Create implementation plans (use after refinement)

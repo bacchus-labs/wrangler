@@ -198,12 +198,12 @@ These skills should trigger based on specific contexts:
 - "Create new Z component"
 
 **Required skills (in order)**:
-1. `check-constitutional-alignment` - Verify feature aligns
+1. `checking-constitutional-alignment` - Verify feature aligns
 2. `writing-specifications` - Document requirements (if complex)
 3. `writing-plans` - Break into tasks (if multi-step)
-4. `test-driven-development` - Implement with TDD
+4. `practicing-tdd` - Implement with TDD
 5. `requesting-code-review` - Get review
-6. `verification-before-completion` - Verify complete
+6. `verifying-before-completion` - Verify complete
 
 **Compliance checks**:
 - Constitutional check performed?
@@ -223,10 +223,10 @@ These skills should trigger based on specific contexts:
 - "Correct Z behavior"
 
 **Required skills (in order)**:
-1. `systematic-debugging` - Find root cause (if unknown)
-2. `test-driven-development` - Write failing test, fix, verify
+1. `debugging-systematically` - Find root cause (if unknown)
+2. `practicing-tdd` - Write failing test, fix, verify
 3. `requesting-code-review` - Get review
-4. `verification-before-completion` - Verify complete
+4. `verifying-before-completion` - Verify complete
 
 **Compliance checks**:
 - Root cause identified?
@@ -246,9 +246,9 @@ These skills should trigger based on specific contexts:
 - "Reorganize Z"
 
 **Required skills (in order)**:
-1. `test-driven-development` - Ensure tests exist, keep green
+1. `practicing-tdd` - Ensure tests exist, keep green
 2. `requesting-code-review` - Get review
-3. `verification-before-completion` - Verify complete
+3. `verifying-before-completion` - Verify complete
 
 **Compliance checks**:
 - Tests existed before refactor?
@@ -293,13 +293,13 @@ Are failures independent?
 - Large feature with multiple components
 
 **Required skills (in order)**:
-1. `check-constitutional-alignment` - Verify alignment
+1. `checking-constitutional-alignment` - Verify alignment
 2. `writing-specifications` - Document requirements
 3. `writing-plans` - Break into tasks
 4. For each task:
-   - `test-driven-development` - Implement
+   - `practicing-tdd` - Implement
    - `requesting-code-review` - Review
-5. `verification-before-completion` - Final verification
+5. `verifying-before-completion` - Final verification
 
 **Compliance checks**:
 - Constitutional check performed?
@@ -319,10 +319,10 @@ Are failures independent?
 - "Build page Z"
 
 **Required skills (in order)**:
-1. `frontend-design` - Design mockups/wireframes
-2. `test-driven-development` - Implement with tests
+1. `designing-frontends` - Design mockups/wireframes
+2. `practicing-tdd` - Implement with tests
 3. `requesting-code-review` - Get review
-4. `verification-before-completion` - Including frontend checklist:
+4. `verifying-before-completion` - Including frontend checklist:
    - Visual verification (DevTools, screenshots)
    - Console verification (0 errors)
    - Network verification (expected requests)
@@ -401,9 +401,9 @@ Are failures independent?
 - `*.java`, `*.kt`
 
 **Triggers**:
-1. `test-driven-development` - ALWAYS
+1. `practicing-tdd` - ALWAYS
 2. `requesting-code-review` - ALWAYS (except 3 exceptions)
-3. `verification-before-completion` - ALWAYS before completion claims
+3. `verifying-before-completion` - ALWAYS before completion claims
 
 ---
 
@@ -431,7 +431,7 @@ Are failures independent?
 - `specs/*.md`
 
 **Triggers**:
-1. `check-constitutional-alignment` - BEFORE creation
+1. `checking-constitutional-alignment` - BEFORE creation
 2. `writing-plans` - AFTER creation
 
 **Compliance checks**:
@@ -463,7 +463,7 @@ Are failures independent?
 ### When Subagents Should Be Used
 
 **Pattern 1: Code Review**
-- Always dispatch `code-review` subagent after code changes
+- Always dispatch `reviewing-code` subagent after code changes
 - Never skip review (except 3 documented exceptions)
 
 **Pattern 2: Parallel Investigation**
@@ -586,9 +586,9 @@ The `/wrangler:validate-session-adherence` command uses this document to:
 - **Workflows**: `docs/workflows.md`
 - **Verification Requirements**: `docs/verification-requirements.md`
 - **Skills Directory**: `skills/`
-- **TDD Skill**: `skills/test-driven-development/SKILL.md`
-- **Verification Skill**: `skills/verification-before-completion/SKILL.md`
-- **Code Review Skill**: `skills/code-review/SKILL.md`
+- **TDD Skill**: `skills/practicing-tdd/SKILL.md`
+- **Verification Skill**: `skills/verifying-before-completion/SKILL.md`
+- **Code Review Skill**: `skills/reviewing-code/SKILL.md`
 
 ---
 
