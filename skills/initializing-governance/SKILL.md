@@ -370,7 +370,7 @@ This project now has a complete governance framework to ensure alignment between
 
 - [ ] Read CONSTITUTION.md thoroughly
 - [ ] Review ROADMAP.md phases
-- [ ] Identify first features to implementing-issues
+- [ ] Identify first features to implementing-issue
 - [ ] Create specifications for Phase 1 features
 - [ ] Begin implementation following governance
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 
-# Tests for Bash scripts in implement-spec-v2
+# Tests for Bash scripts in implementing-specs
 
 setup() {
   export TEST_DIR="$(mktemp -d)"

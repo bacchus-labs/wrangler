@@ -61,7 +61,7 @@ gh pr create \
 # AC covered by tasks: 5 (100%)
 # Estimated post-execution compliance: 100%
 
-# Coverage validation: 100% >= 95% → ✅ PASS
+# Coverage validation: 100% >= 95% -> PASS
 # Proceed to EXECUTE automatically (no user input required)
 ```
 
@@ -92,16 +92,42 @@ gh pr create \
 ### EXECUTE Phase
 
 ```bash
-# Invoke implement skill with issue range
-# implement skill handles:
-# - ISS-000042: TDD → Code Review → Fixed → Complete
-# - ISS-000043: TDD → Code Review → Approved → Complete
-# - ISS-000044: TDD → Blocker (rate limit threshold unclear)
-#   → ESCALATE to user → User clarifies → Resume → Complete
-# - ISS-000045: TDD → Code Review → Fixed → Complete
-# - ISS-000046: TDD → Code Review → Approved → Complete
+# Orchestrator iterates over each issue, dispatching a subagent per issue:
+
+# --- Issue 1 ---
+# issues_update(id: "ISS-000042", status: "in_progress")
+# Dispatch subagent: "Implement ISS-000042: Implement JWT token generation"
+# Subagent follows implementing-issue skill:
+#   - Reads issue, writes failing test, implements, refactors
+#   - Requests code review, fixes Critical/Important issues
+#   - Commits work, reports back
+# Verify response: VERIFIED, tests passing, TDD certified, commit a1b2c3d
+# session_checkpoint(tasksCompleted: ["ISS-000042"], tasksPending: ["ISS-000043","ISS-000044","ISS-000045","ISS-000046"])
+# issues_mark_complete(id: "ISS-000042")
+
+# --- Issue 2 ---
+# issues_update(id: "ISS-000043", status: "in_progress")
+# Dispatch subagent: "Implement ISS-000043: Implement token refresh endpoint"
+# ... TDD -> Code Review -> Approved -> Complete
+# session_checkpoint(tasksCompleted: ["ISS-000042","ISS-000043"], tasksPending: ["ISS-000044","ISS-000045","ISS-000046"])
+# issues_mark_complete(id: "ISS-000043")
+
+# --- Issue 3 ---
+# issues_update(id: "ISS-000044", status: "in_progress")
+# Dispatch subagent: "Implement ISS-000044: Add rate limiting middleware"
+# Subagent reports blocker: rate limit threshold unclear
+# -> ESCALATE to user -> User clarifies -> Re-dispatch -> Complete
+# session_checkpoint(...)
+# issues_mark_complete(id: "ISS-000044")
+
+# --- Issue 4 ---
+# (same pattern for ISS-000045)
+
+# --- Issue 5 ---
+# (same pattern for ISS-000046)
 
 # Result: All 5 tasks complete
+# session_phase(phase: "execute", status: "complete", metadata: {tasks_completed: 5, total_commits: 5})
 ```
 
 ### VERIFY Phase
@@ -115,11 +141,11 @@ gh pr create \
 # - AC-005: Middleware protects endpoints
 
 # Verify evidence for each criterion
-# AC-001: ✓ Test: auth.test.ts:15, Code: auth.ts:42, Commit: a1b2c3d
-# AC-002: ✓ Test: tokens.test.ts:8, Code: tokens.ts:30, Commit: e4f5g6h
-# AC-003: ✓ Test: middleware.test.ts:22, Code: middleware.ts:18, Commit: i7j8k9l
-# AC-004: ✓ Test: flow.test.ts:10, Code: flow.ts:55, Commit: m0n1o2p
-# AC-005: ✓ Test: middleware.test.ts:40, Code: middleware.ts:70, Commit: q3r4s5t
+# AC-001: Test: auth.test.ts:15, Code: auth.ts:42, Commit: a1b2c3d
+# AC-002: Test: tokens.test.ts:8, Code: tokens.ts:30, Commit: e4f5g6h
+# AC-003: Test: middleware.test.ts:22, Code: middleware.ts:18, Commit: i7j8k9l
+# AC-004: Test: flow.test.ts:10, Code: flow.ts:55, Commit: m0n1o2p
+# AC-005: Test: middleware.test.ts:40, Code: middleware.ts:70, Commit: q3r4s5t
 
 # Compliance: 5/5 = 100%
 
@@ -131,7 +157,7 @@ cd /Users/user/project/.worktrees/spec-000042-auth && npm test
 cd /Users/user/project/.worktrees/spec-000042-auth && git status --short
 # Output: (empty - clean)
 
-# Quality gate: 100% >= 95% → ✅ PASS
+# Quality gate: 100% >= 95% -> PASS
 # Proceed to PUBLISH
 ```
 
@@ -147,11 +173,11 @@ cd /Users/user/project/.worktrees/spec-000042-auth && git status --short
 #
 # Self-healing iteration 1:
 # Creating ISS-000047: Add edge case test for rate limit threshold
-# Executing...
+# Dispatching subagent for ISS-000047 (follows implementing-issue skill)
 # Committed: xyz789
 #
 # Re-audit: 96% (4.8/5 AC met)
-# Quality gate: 96% >= 95% → ✅ PASS
+# Quality gate: 96% >= 95% -> PASS
 #
 # PR updated with self-healing note:
 # "During verification, auto-fixed:

@@ -115,5 +115,5 @@ This command **observes and reports**.
 ## See Also
 
 - `/wrangler:generate-plan-for-spec` — Create issues from a spec
-- `/wrangler:implementing-issues` — Execute issues
+- `/wrangler:implement` — Execute issues
 - `/wrangler:help` — Full documentation

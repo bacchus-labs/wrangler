@@ -136,7 +136,7 @@ When following TDD (Test-Driven Development):
 
 2. **GREEN Phase**: Make test pass
    - Normal commit should now pass hooks
-   - `git commit -m "feat: implementing-issues feature to pass test"`
+   - `git commit -m "feat: implementing-issue feature to pass test"`
 
 3. **REFACTOR Phase**: Improve code
    - All commits should pass hooks

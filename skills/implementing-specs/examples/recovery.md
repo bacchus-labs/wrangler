@@ -22,8 +22,8 @@ session_get()
   checkpoint: {
     tasksCompleted: ["ISS-000042", "ISS-000043", "ISS-000044"],
     tasksPending: ["ISS-000045", "ISS-000046"],
-    lastAction: "Completed task ISS-000044: Add rate limiting middleware",
-    resumeInstructions: "Continue with next task ISS-000045"
+    lastAction: "Completed ISS-000044: Add rate limiting middleware",
+    resumeInstructions: "Continue with next issue or proceed to VERIFY if all done"
   },
   metadata: {
     specFile: "SPEC-000042.md",
@@ -44,7 +44,7 @@ Found interrupted session: 2025-02-02-abc123
 - Phase: EXECUTE
 - Tasks completed: 3/5
 - Tasks pending: 2
-- Last action: Completed task ISS-000044
+- Last action: Completed ISS-000044
 
 **Would you like to resume?**
 - Yes: Continue from last checkpoint
@@ -63,8 +63,8 @@ cd /Users/user/project/.worktrees/spec-000042-auth && \
   echo "Branch: $(git branch --show-current)"
 
 # If worktree missing:
-# → CANNOT RESUME
-# → Offer to start fresh or recover manually
+# -> CANNOT RESUME
+# -> Offer to start fresh or recover manually
 ```
 
 ### 2. Verify Git Status
@@ -74,57 +74,67 @@ cd /Users/user/project/.worktrees/spec-000042-auth && \
   git status --short
 
 # If uncommitted changes:
-# → Show changes to user
-# → Ask: Commit, stash, or discard?
+# -> Show changes to user
+# -> Ask: Commit, stash, or discard?
 ```
 
-### 3. Resume from Checkpoint
+### 3. Resume EXECUTE Phase from Checkpoint
 
 ```bash
 # Read resumeInstructions from checkpoint
-# "Continue with next task ISS-000045"
+# "Continue with next issue or proceed to VERIFY if all done"
 
-# Continue EXECUTE phase with remaining tasks
-# Tasks: ["ISS-000045", "ISS-000046"]
+# Resume execution loop with remaining issues:
+# Tasks pending: ["ISS-000045", "ISS-000046"]
 
 # Use same sessionId for continuity
 # All subsequent session_phase calls use: "2025-02-02-abc123"
+
+# --- Issue 4 (resumed) ---
+# issues_update(id: "ISS-000045", status: "in_progress")
+# Dispatch subagent: "Implement ISS-000045: Implement user authentication flow"
+# Subagent follows implementing-issue skill: TDD -> Code Review -> Complete
+# session_checkpoint(tasksCompleted: ["ISS-000042","ISS-000043","ISS-000044","ISS-000045"], tasksPending: ["ISS-000046"])
+# issues_mark_complete(id: "ISS-000045")
+
+# --- Issue 5 (resumed) ---
+# issues_update(id: "ISS-000046", status: "in_progress")
+# Dispatch subagent: "Implement ISS-000046: Add authentication middleware"
+# Subagent follows implementing-issue skill: TDD -> Code Review -> Complete
+# session_checkpoint(tasksCompleted: ["ISS-000042","ISS-000043","ISS-000044","ISS-000045","ISS-000046"], tasksPending: [])
+# issues_mark_complete(id: "ISS-000046")
 ```
 
-### 4. Continue Through Phases
+### 4. Continue Through Remaining Phases
 
 ```bash
-# Complete EXECUTE phase
-# → ISS-000045: TDD → Code Review → Complete
-# → ISS-000046: TDD → Code Review → Complete
+# EXECUTE phase complete -> Proceed to VERIFY
+# -> Extract criteria
+# -> Verify evidence
+# -> Run tests
+# -> Calculate compliance
 
-# Proceed to VERIFY phase
-# → Extract criteria (already in cache)
-# → Verify evidence
-# → Run tests
-# → Calculate compliance
+# VERIFY passes -> Proceed to PUBLISH
+# -> Update PR (already exists)
+# -> Mark ready
 
-# Proceed to PUBLISH phase
-# → Update PR (already exists)
-# → Mark ready
-
-# Proceed to COMPLETE phase
-# → Complete session
-# → Present summary
+# PUBLISH complete -> Proceed to COMPLETE
+# -> Complete session
+# -> Present summary
 ```
 
 ## Checkpoint Strategy
 
-Checkpoints saved after each task ensures minimal loss:
+Checkpoints saved after each issue ensures minimal loss:
 
 ```bash
-# After each task completion
+# After each issue completion
 session_checkpoint(
   sessionId: "2025-02-02-abc123",
   tasksCompleted: [...completed],
   tasksPending: [...remaining],
-  lastAction: "Completed task {id}: {title}",
-  resumeInstructions: "Continue with next task or proceed to verify if all done"
+  lastAction: "Completed {ISSUE_ID}: {issue_title}",
+  resumeInstructions: "Continue with next issue or proceed to VERIFY if all done"
 )
 ```
 
@@ -138,16 +148,16 @@ Recovery: Re-run PLAN phase from beginning
 Note: No issues created yet, safe to restart
 ```
 
-### Scenario 2: Interrupted During EXECUTE (mid-task)
+### Scenario 2: Interrupted During EXECUTE (mid-issue)
 
 ```
-Status: Task partially implemented
+Status: Issue partially implemented by subagent
 Recovery:
 1. Check git log - what was committed?
-2. Check task status - what's complete?
-3. Option A: Mark current task complete if tests pass
-4. Option B: Re-run current task from scratch
-5. Continue with remaining tasks
+2. Check issue status - what's complete?
+3. Option A: Mark current issue complete if tests pass
+4. Option B: Re-dispatch subagent for current issue from scratch
+5. Continue execution loop with remaining issues
 ```
 
 ### Scenario 3: Interrupted During VERIFY
@@ -217,5 +227,5 @@ Cannot resume session: checkpoint data corrupted
 - session_get finds incomplete sessions automatically
 - Verify worktree and git status before resuming
 - Resume uses same sessionId for audit continuity
-- Recovery is safest after phase boundaries
-- Mid-task interruptions require manual assessment
+- Recovery is safest after phase boundaries (between issues)
+- Mid-issue interruptions require manual assessment

@@ -229,7 +229,7 @@ Must verify:
 
 **Skills**:
 - `skills/dispatching-parallel-agents/SKILL.md`
-- `skills/writing-plans/SKILL.md` (uses subagents via /wrangler:implementing-issues)
+- `skills/writing-plans/SKILL.md` (uses subagents via /wrangler:implement)
 
 **When**: 3+ independent failures OR complex implementation with multiple tasks
 
@@ -356,7 +356,7 @@ Plan complete:
 - Issues created: [N] tasks (project: [spec])
 - Plan file (optional): `.wrangler/plans/YYYY-MM-DD-PLAN_<spec>.md`
 
-Ready to implement? Use `/wrangler:implementing-issues`
+Ready to implement? Use `/wrangler:implement`
 ```
 
 ---

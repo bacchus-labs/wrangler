@@ -17,7 +17,7 @@ Issue and specification tracking using markdown files with YAML frontmatter. Sto
 12 commands that activate skills:
 - `/wrangler:brainstorm` - Design refinement
 - `/wrangler:write-plan` - Implementation planning
-- `/wrangler:implementing-issues` - Autonomous execution
+- `/wrangler:implement` - Autonomous execution
 - `/wrangler:run-tests` - Test execution
 - `/wrangler:updating-wrangler` - Version migration
 - `/wrangler:setting-up-git-hooks` - Git hooks configuration
@@ -60,8 +60,8 @@ Install via Claude Code plugin system. Run `/help` to verify - should list `/wra
 ### Collaboration
 - **brainstorming** - Socratic design refinement
 - **writing-plans** - Implementation plan creation with MCP issues
-- **implement** - Autonomous implementation via subagents with TDD and code review
-- **implement-spec** - Orchestrate spec-to-PR workflow with session tracking
+- **implementing-issue** - Single issue TDD implementation with code review
+- **implementing-specs** - Orchestrate spec-to-PR workflow with session tracking
 - **code-review** - Comprehensive code review framework
 - **requesting-code-review** - Pre-merge review workflow
 - **receiving-code-review** - Technical rigor in feedback responses

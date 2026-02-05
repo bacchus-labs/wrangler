@@ -157,7 +157,7 @@ Tests passing (<N> tests, 0 failures)
 IMPORTANT: For all work in this worktree, use this command pattern:
   cd $WORKTREE_ABSOLUTE && [command]
 
-Ready to implementing-issues <feature-name>
+Ready to implementing-issue <feature-name>
 ```
 
 ## Quick Reference
@@ -207,7 +207,7 @@ You: I'm using the using-git-worktrees skill to set up an isolated workspace.
 
 Worktree ready at /Users/jesse/myproject/.worktrees/auth
 Tests passing (47 tests, 0 failures)
-Ready to implementing-issues auth feature
+Ready to implementing-issue auth feature
 ```
 
 ## Red Flags
@@ -261,11 +261,11 @@ ALL commands: `cd [WORKTREE_ABSOLUTE] && [command]`
 **Called by:**
 
 - **brainstorming** (Phase 5) - Optional for isolation when design is approved and implementation follows
-- **implementing-issues** - When user wants isolated workspace for implementation
+- **implementing-issue** - When user wants isolated workspace for implementation
 - Any skill needing isolated workspace
 
 **Pairs with:**
 
 - **isolating-worktrees** - MUST use when dispatching subagents to work in worktree
 - **finishing-a-development-branch** - Optional cleanup after work complete (handles both worktree and non-worktree cases)
-- **implementing-issues** - Work happens in worktree with isolation protocol
+- **implementing-issue** - Work happens in worktree with isolation protocol

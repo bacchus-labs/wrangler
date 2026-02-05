@@ -1,214 +1,261 @@
 # Implementing Specs - Detailed Guide
 
+
+   Implements specification: `{SPEC_FILE}`
+
+   ### Changes
+
+   {git log main..HEAD --oneline formatted as bullet list}
+
+   ### Test Results
+
+   - All tests passing ({TESTS_TOTAL} tests)
+   - Compliance: {COMPLIANCE}%
+
+   ### Tasks Completed
+
+   {For each task from session:}
+   - [x] {task_id}: {task_title} ({commit_hash})
+
+   ### Implementation Details
+
+   - TDD compliance: All functions certified
+   - Code review: All tasks approved
+
+   ---
+
+   **Session ID:** `{SESSION_ID}`
+   **Audit trail:** `.wrangler/sessions/{SESSION_ID}/`
+
+   Generated with [Claude Code](https://claude.com/claude-code)
+   ```
+
+3. **Update PR description**
+
+   ```bash
+   cd "{WORKTREE_ABSOLUTE}" && \
+   gh pr edit {PR_NUMBER} --body "{PR_BODY}"
+   ```
+
+4. **Mark PR as ready**
+
+   ```bash
+   cd "{WORKTREE_ABSOLUTE}" && \
+   gh pr ready {PR_NUMBER}
+   ```
+
+5. **Request reviews if needed**
+
+   ```bash
+   cd "{WORKTREE_ABSOLUTE}" && \
+   gh pr edit {PR_NUMBER} --add-reviewer {REVIEWER}
+   ```
+
+6. **Log phase complete**
+   ```
+   session_phase(
+     sessionId: SESSION_ID,
+     phase: "publish",
+     status: "complete",
+     metadata: {
+       pr_url: PR_URL,
+       pr_number: PR_NUMBER,
+       pr_ready: true
+     }
+   )
+   ```
+
+### Outputs
+
+- PR marked as ready
+- Complete description visible
+- Reviewers notified (if configured)
+
+### Quality Gate
+
+PR ready for merge after review approval.
+
+---
+
+## Phase 6: COMPLETE
+
+Finalize session and present summary.
+
+### Objective
+
+Complete session tracking and present summary to user.
+
+### Actions
+
+1. **Complete session**
+
+   ```
+   session_complete(
+     sessionId: SESSION_ID,
+     status: "completed",
+     prUrl: PR_URL,
+     prNumber: PR_NUMBER,
+     summary: "Implemented {TASK_COUNT} tasks from {SPEC_FILE}"
+   )
+   ```
+
+2. **Present summary to user**
+
+   ```markdown
+   ## Implementation Complete
+
+   **Specification:** {SPEC_FILE}
+   **PR:** {PR_URL}
+   **Session:** {SESSION_ID}
+
+   ### Summary
+
+   | Metric | Value |
+   |--------|-------|
+   | Tasks completed | {TASK_COUNT}/{TASK_COUNT} |
+   | Tests passing | {TESTS_TOTAL} |
+   | Compliance | {COMPLIANCE}% |
+   | Code reviews | {TASK_COUNT} approved |
+
+   ### Audit Trail
+
+   Location: `.wrangler/sessions/{SESSION_ID}/`
+
+   **Verify execution:**
+   ```bash
+   cat .wrangler/sessions/{SESSION_ID}/audit.jsonl | jq -s '{
+     phases: [.[].phase] | unique,
+     tasks: [.[] | select(.phase == "task")] | length,
+     pr_created: ([.[] | select(.phase == "publish")] | length) > 0
+   }'
    ```
    ```
 
-## Session Recovery
+### Outputs
 
-If a session is interrupted, it can be resumed.
+- Session marked complete
+- PR URL shared with user
+- Audit trail location provided
 
-### Detection
+---
 
-On session start, check for interrupted sessions:
+## Quality Gates Summary
 
-```
-session_get()  // No sessionId = find most recent incomplete
-```
+| Phase | Gate | Required |
+|-------|------|----------|
+| INIT | Worktree created | Yes |
+| PLAN | Issues created | Yes |
+| REVIEW | Coverage >= 95% (or user approval) | Advisory |
+| EXECUTE | All tasks complete | Yes |
+| VERIFY | >= 95% compliance | Yes |
+| VERIFY | All tests passing | Yes |
+| PUBLISH | PR ready | Yes |
 
-If interrupted session found:
-1. Read checkpoint
-2. Present resume option to user
-3. If user confirms, continue from last checkpoint
+**VERIFY phase is mandatory.** You cannot skip from EXECUTE to PUBLISH.
 
-### Resume Flow
+---
 
-1. Call `session_get(sessionId: "{SESSION_ID}")`
-2. Read `checkpoint.resumeInstructions`
-3. Continue from indicated phase/task
-4. All MCP calls use existing sessionId
+## Scripts Reference
 
-## Worktree Isolation
+### generate-pr-description.sh
 
-**CRITICAL:** All subagent operations MUST use worktree context.
+**Purpose:** Generate PR description from template and session data.
+**Usage:** `./scripts/generate-pr-description.sh <phase> <session-data>`
+**Phases:** planning, execution, verification, complete
+**Output:** Markdown PR description
 
-### Context Injection
+### update-pr-description.sh
 
-Every subagent prompt MUST include:
+**Purpose:** Update GitHub PR description via gh CLI with sensitive data sanitization.
+**Usage:** `./scripts/update-pr-description.sh <prNumber> <newDescription>`
+**Output:** Updated PR on GitHub
 
-```markdown
-## CRITICAL: Working Directory Context
+**Note:** analyze-spec.sh has been removed in favor of LLM-based extraction.
 
-**Working directory:** {WORKTREE_ABSOLUTE}
-**Branch:** {BRANCH_NAME}
-
-### MANDATORY: Verify Location First
-
-Before ANY work, run:
-```bash
-cd {WORKTREE_ABSOLUTE} && \
-  echo "Directory: $(pwd)" && \
-  echo "Branch: $(git branch --show-current)" && \
-  test "$(pwd)" = "{WORKTREE_ABSOLUTE}" && echo "VERIFIED" || echo "FAILED"
-```
-
-**If verification fails, STOP immediately.**
-
-### Command Pattern
-
-ALL bash commands MUST use:
-```bash
-cd {WORKTREE_ABSOLUTE} && [command]
-```
-```
-
-### Why This Matters
-
-- Worktree is separate from main repository
-- Without explicit context, subagents may work in wrong directory
-- Commits in wrong directory corrupt main branch
+---
 
 ## Error Handling
 
-### Phase Failures
+**Spec not found:**
+- Verify spec file path is correct
+- Check `.wrangler/specifications/` directory
 
-Each phase has verification gates:
-- **INIT:** Worktree must exist and be on correct branch
-- **PLAN:** Issues must be created successfully
-- **EXECUTE:** All tasks must complete (with escalation for blockers)
-- **VERIFY:** Tests must pass, git must be clean
-- **PUBLISH:** Push and PR creation must succeed
+**Session start failed:**
+- Check MCP server is running
+- Verify git repository is clean
+- Check disk space for worktree
 
-### Recovery Actions
+**PR creation failed:**
+- Ensure `gh` CLI is authenticated (`gh auth status`)
+- Check Git branch is pushed to remote
+- Verify base branch exists
 
-| Error | Recovery |
-|-------|----------|
-| Worktree creation fails | Check disk space, permissions |
-| Planning unclear | Escalate to user for clarification |
-| Task blocked | Escalate via implementing-issues skill |
-| Tests fail | Do not publish, inform user |
-| Push fails | Check git remote, auth |
-| PR creation fails | Check gh auth, permissions |
+**Compliance < 95% in VERIFY:**
+- Review unmet criteria in compliance report
+- Self-healing will attempt to auto-fix test/doc/edge-case gaps
+- Fundamental gaps escalate to user
+- Do NOT skip to PUBLISH phase
 
-### Session States
+**Script execution errors:**
+- Ensure all dependencies installed
+- Check TypeScript compilation if using TS scripts
+- Verify file paths are correct
 
-| State | Meaning | Recovery |
-|-------|---------|----------|
-| `running` | Currently executing | Continue |
-| `paused` | Blocked on something | Resume from checkpoint |
-| `completed` | Successfully finished | No action needed |
-| `failed` | Unrecoverable error | Start new session |
+---
 
-## Example Execution
+## Examples
 
-```
-User: /wrangler:implementing-issues spec-auth-system.md
+See `examples/` directory for detailed examples:
+- `examples/simple-feature.md` - Simple feature (no E2E)
+- `examples/complex-feature.md` - User-facing feature (with E2E)
+- `examples/recovery.md` - Session recovery after interruption
 
-Using Skill: implementing-issues-spec | Implementing spec-auth-system.md with full audit trail
+---
 
-PHASE 1: INIT
--> session_start(specFile: "spec-auth-system.md")
--> Created session: 2025-12-07-abc123-f8d2
--> Worktree: /project/.worktrees/spec-auth-system
--> Branch: wrangler/spec-auth-system/2025-12-07-abc123
--> VERIFIED
+## Compliance Notes
 
-PHASE 2: PLAN
--> Invoking writing-plans skill
--> Created 5 tasks: ISS-000042 through ISS-000046
--> session_checkpoint saved
+- **Always follow TDD:** Tests before implementation (enforced by implementing-issue skill)
+- **Never skip VERIFY:** Mandatory compliance check (>= 95% required)
+- **Use PR as audit trail:** All progress visible in GitHub
+- **Update PR regularly:** Keep stakeholders informed
+- **>= 95% compliance required:** Cannot merge without meeting threshold
 
-PHASE 3: EXECUTE
--> Invoking implementing-issues skill with worktree context
--> Task ISS-000042: Complete (TDD certified, code reviewed)
--> session_checkpoint saved
--> Task ISS-000043: Complete
--> session_checkpoint saved
--> Task ISS-000044: Complete
--> session_checkpoint saved
--> Task ISS-000045: Complete
--> session_checkpoint saved
--> Task ISS-000046: Complete
--> session_checkpoint saved
+---
 
-PHASE 4: VERIFY
--> Running test suite: 42 tests, 42 passing
--> Git status: clean
--> PASSED
+## Integration with Existing Skills
 
-PHASE 5: PUBLISH
--> Pushed branch to origin
--> Created PR: https://github.com/org/repo/pull/123
+**Phase 1 (INIT):**
+- Uses `session_start` MCP tool (from wrangler MCP server)
 
-PHASE 6: REPORT
--> session_complete
+**Phase 2 (PLAN):**
+- Invokes `writing-plans` skill (subagent dispatch)
+- Creates MCP issues (source of truth)
+- Optional plan file for architecture context
 
-## Implementation Complete
+**Phase 3 (REVIEW):**
+- Validates acceptance criteria coverage
+- Auto-creates supplemental tasks if gaps found
+- Advisory gate (user decides on low coverage)
 
-**Specification:** spec-auth-system.md
-**PR:** https://github.com/org/repo/pull/123
-**Session:** 2025-12-07-abc123-f8d2
+**Phase 4 (EXECUTE):**
+- Dispatches subagents per issue directly
+- Each subagent follows `implementing-issue` skill
+- TDD enforcement via `practicing-tdd` skill
+- Code review via `requesting-code-review` skill
+- Checkpoints saved after each issue
 
-| Metric | Value |
-|--------|-------|
-| Tasks completed | 5/5 |
-| Tests passing | 42 |
-| Code reviews | 5 approved |
+**Phase 5 (VERIFY):**
+- LLM-based extraction (intelligent, not brittle)
+- Test suite verification
+- Compliance calculation
+- Self-healing for auto-fixable gaps
 
-Audit trail: .wrangler/sessions/2025-12-07-abc123-f8d2/
-```
+**Phase 6 (PUBLISH):**
+- GitHub PR operations
+- Final summary generation
 
-## Integration with Other Skills
-
-**Required skills:**
-- `implementing-issues` - Task execution with TDD and code review
-- `writing-plans` - Breaking spec into MCP issues
-- `practicing-tdd` - TDD compliance in subagents
-- `requesting-reviewing-code` - Code review for each task
-
-**Optional skills:**
-- `using-git-worktrees` - Manual worktree management (automated here)
-- `finishing-a-development-branch` - PR already created by this skill
-
-## Verification Commands
-
-After completion, verify execution:
-
-```bash
-# Verify all phases completed
-jq -s '[.[].phase] | unique | sort' .wrangler/sessions/{id}/audit.jsonl
-# Expected: ["checkpoint","complete","execute","init","plan","publish","task","verify"]
-
-# Verify all tasks passed
-jq -s '[.[] | select(.phase == "task" and .tests_passed == false)]' audit.jsonl
-# Expected: []
-
-# Verify PR created
-jq -s '.[] | select(.phase == "publish") | .pr_url' audit.jsonl
-# Expected: "https://github.com/..."
-
-# Get session summary
-jq -s '{
-  session_id: .[0].session_id,
-  phases: [.[].phase] | unique,
-  tasks: [.[] | select(.phase == "task")] | length,
-  duration_sec: ((.[length-1].timestamp | fromdateiso8601) - (.[0].timestamp | fromdateiso8601))
-}' audit.jsonl
-```
-
-## Red Flags - Anti-Patterns
-
-**Do NOT:**
-
-- Skip worktree verification (subagents may work in wrong directory)
-- Proceed to publish with failing tests
-- Create PR without complete audit trail
-- Skip checkpoints (recovery becomes impossible)
-- Ignore phase gates
-
-**Do:**
-
-- Always verify worktree location
-- Save checkpoint after each task
-- Use session tools for all phase transitions
-- Halt on verification failures
-- Provide comprehensive PR body
+This modular approach means:
+- Changes to planning logic happen in `writing-plans` (one place)
+- Each issue is implemented by a subagent following `implementing-issue`
+- This skill focuses on orchestration, coordination, and verification
+- No duplication, easier to maintain

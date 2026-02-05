@@ -61,7 +61,7 @@ Skip plan file when:
 ```markdown
 # [Feature Name] Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use /wrangler:implementing-issues to implement this plan task-by-task.
+> **For Claude:** REQUIRED SUB-SKILL: Use /wrangler:implementing-issue to implement this plan task-by-task.
 
 **Goal:** [One sentence describing what this builds]
 
@@ -105,7 +105,7 @@ Skip plan file when:
 - Exact file paths (create/modify/test)
 - Complete code examples (not "add validation")
 - Exact commands with expected output
-- All 5 TDD steps (write test, verify fails, implementing-issues, verify passes, commit)
+- All 5 TDD steps (write test, verify fails, implementing-issue, verify passes, commit)
 - Clear acceptance criteria
 - Dependencies on other tasks
 
@@ -176,7 +176,7 @@ Skip plan file when:
    This mapping will be used to:
    - Add `satisfiesAcceptanceCriteria` metadata to each MCP issue
    - Generate coverage report in plan file (if created)
-   - Enable REVIEW phase validation in implementing-specs-v2 workflow
+   - Enable REVIEW phase validation in implementing-specs workflow
 
 6. Optionally draft plan file for architecture overview (if needed)
 
@@ -288,14 +288,14 @@ After creating issues, offer execution choice:
 
 **Execution options:**
 
-**Ready to implementing-issues?**
+**Ready to implementing-issue?**
 
-Use `/wrangler:implementing-issues` with one of these scopes:
-- `/wrangler:implementing-issues` (auto-infers from plan file in context)
-- `/wrangler:implementing-issues issues 1-N` (specific issue range)
-- `/wrangler:implementing-issues plan-filename.md` (explicit plan file)
+Use `/wrangler:implementing-issue` with one of these scopes:
+- `/wrangler:implementing-issue` (auto-infers from plan file in context)
+- `/wrangler:implementing-issue issues 1-N` (specific issue range)
+- `/wrangler:implementing-issue plan-filename.md` (explicit plan file)
 
-The implementing-issues skill will:
+The implementing-issue skill will:
 - Execute all tasks autonomously via subagents
 - Run code review after each task with automatic fixes
 - Only stop for genuine blockers (unclear requirements, flummoxed agents)

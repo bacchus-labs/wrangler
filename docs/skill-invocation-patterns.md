@@ -471,7 +471,7 @@ Are failures independent?
 - Each subagent investigates one problem domain
 
 **Pattern 3: Implementation**
-- `/wrangler:implementing-issues` dispatches subagents for plan tasks
+- `/wrangler:implement` dispatches subagents for plan tasks
 - Each subagent implements one task with TDD + review
 
 **Compliance checks**:

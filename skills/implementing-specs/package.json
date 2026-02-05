@@ -1,6 +1,6 @@
 {
-  "name": "@wrangler/implement-spec-v2",
-  "version": "2.0.0",
+  "name": "@wrangler/implementing-specs",
+  "version": "3.0.0",
   "description": "GitHub-centric implementation workflow with evolving PR descriptions",
   "private": true,
   "scripts": {

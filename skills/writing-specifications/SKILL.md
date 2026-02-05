@@ -122,7 +122,7 @@ Before creating, verify:
 - [ ] **Complete:** All must-have sections are filled out with sufficient detail
 - [ ] **Clear:** No ambiguous requirements or undefined terms (or clearly marked as open questions)
 - [ ] **Consistent:** No contradictions between sections
-- [ ] **Implementable:** Enough detail for an engineer to implementing-issues without guessing
+- [ ] **Implementable:** Enough detail for an engineer to implementing-issue without guessing
 - [ ] **Testable:** Requirements are specific enough to write tests against
 - [ ] **Bounded:** Scope is clear, non-goals are explicit
 - [ ] **Justified:** Decisions have rationale, trade-offs are documented
@@ -401,7 +401,7 @@ See `assets/workflow-checklist.md` for the complete checklist.
 
 After creating the specification, validate:
 
-1. **Engineer test:** Could a new engineer implementing-issues this without asking questions?
+1. **Engineer test:** Could a new engineer implementing-issue this without asking questions?
 2. **Tester test:** Could QA write comprehensive tests from this spec?
 3. **Completeness test:** Are all requirements, constraints, and decisions captured?
 4. **Clarity test:** Are there any ambiguous terms or undefined concepts?

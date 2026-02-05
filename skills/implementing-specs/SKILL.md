@@ -1,55 +1,65 @@
 ---
 name: implementing-specs
-description: Orchestrates spec-to-PR workflow with session tracking, worktree isolation, and audit trail. Use when implementing specifications that require full lifecycle management from planning through PR creation.
+description: Orchestrates specification implementation through planning, execution, verification, and PR publication phases with session recovery. Use when implementing specifications requiring phased workflow and resumable progress tracking.
 ---
 
-# Implement-Spec Orchestrator
+# Implementing Specs
 
-## Overview
+## Purpose
 
-End-to-end orchestration that takes a specification file and produces a GitHub Pull Request with comprehensive audit trail.
-
-**Core principle:** Single command produces PR with verified implementation, full observability, and recovery capability.
-
-**Entry point:** `/wrangler:implementing-issues [spec-file]`
-
-**Produces:**
-- GitHub Pull Request with comprehensive summary
-- Audit trail in `.wrangler/sessions/{session-id}/`
-- Machine-verifiable execution log
+Orchestrates specification implementation by invoking existing wrangler skills (writing-plans, implementing-issue) rather than reimplementing their logic. Focuses on workflow coordination, subagent dispatch, and compliance verification.
 
 ## When to Use
 
-**Use this skill when:**
-- User says "implementing-issues this spec" and wants a PR
-- You want full audit trail and observability
-- You need session recovery capability
-- You want isolated worktree for implementation
+- Implementing specifications (SPEC-XXXXXX files)
+- User-facing features requiring verification gates
+- Need systematic audit trail through GitHub PR
+- Want to leverage existing planning and implementation skills
 
-**Do NOT use this skill when:**
-- Implementing a single issue (use `implementing-issues` skill directly)
-- User wants manual control over each step
-- Working on existing PR or branch (use `implementing-issues` skill)
+## Prerequisites
+
+- Specification file exists in `.wrangler/specifications/`
+- `gh` CLI installed and authenticated
+- Git worktree configured (session_start will create it)
+- Bash 4.0+ (for scripts)
+- `jq` command-line JSON processor
+
+## Architecture: Skill Orchestration
+
+This skill orchestrates existing wrangler skills rather than reimplementing their logic:
+
+**Phase 1 (INIT)**: Uses `session_start` MCP tool (session tools)
+**Phase 2 (PLAN)**: Invokes `writing-plans` skill to create MCP issues
+**Phase 3 (REVIEW)**: Validates planning coverage before execution
+**Phase 4 (EXECUTE)**: Dispatches subagents per issue following `implementing-issue` skill
+**Phase 5 (VERIFY)**: LLM-based compliance audit
+**Phase 6 (PUBLISH)**: GitHub PR finalization
+
+**Benefits of this approach:**
+- No duplicated planning logic (writing-plans is source of truth)
+- Direct coordination of subagents for each issue
+- Modular and maintainable (changes to planning flow in one place)
+- Testable (each skill can be tested independently)
 
 ## Workflow Phases
 
-The orchestrator executes 6 phases in order:
-
 ```
-INIT -> PLAN -> EXECUTE -> VERIFY -> PUBLISH -> REPORT
+INIT → PLAN → REVIEW → EXECUTE → VERIFY → PUBLISH → COMPLETE
 ```
 
-Each phase is tracked via MCP session tools for full observability.
+---
 
 ## Phase 1: INIT
 
 Initialize session, create worktree, and establish context.
 
-### Steps
+### Objective
 
-1. **Start session**
+Create isolated worktree using MCP session tools and verify environment.
 
-   Call `session_start` MCP tool:
+### Actions
+
+1. **Start session** - Call `session_start` MCP tool
    ```
    session_start(specFile: "{SPEC_FILE}")
    ```
@@ -60,8 +70,7 @@ Initialize session, create worktree, and establish context.
    - `BRANCH_NAME` = response.branchName
    - `AUDIT_PATH` = response.auditPath
 
-2. **Verify worktree**
-
+2. **Verify worktree** - Ensure on correct branch
    ```bash
    cd {WORKTREE_ABSOLUTE} && \
      echo "=== WORKTREE VERIFICATION ===" && \
@@ -74,7 +83,6 @@ Initialize session, create worktree, and establish context.
    **If verification fails, STOP and report error.**
 
 3. **Log phase complete**
-
    ```
    session_phase(
      sessionId: SESSION_ID,
@@ -89,21 +97,30 @@ Initialize session, create worktree, and establish context.
 - Worktree absolute path for subagent context
 - Branch name for PR creation
 
+### Quality Gate
+
+Worktree must exist and be on correct branch.
+
+---
+
 ## Phase 2: PLAN
 
-Create implementation plan with MCP issues.
+Create implementation plan using writing-plans skill.
 
-### Steps
+### Objective
+
+Break specification into implementable tasks tracked as MCP issues.
+
+### Actions
 
 1. **Log phase start**
-
    ```
    session_phase(sessionId: SESSION_ID, phase: "plan", status: "started")
    ```
 
-2. **Invoke writing-plans skill**
+2. **Invoke writing-plans skill on worktree**
 
-   Use the Task tool to dispatch planning subagent:
+   Use Task tool to dispatch planning subagent:
 
    ```markdown
    Tool: Task
@@ -123,22 +140,19 @@ Create implementation plan with MCP issues.
 
      ## Your Job
 
-     1. Read the specification file
-     2. Break down into implementable tasks
-     3. Create MCP issues for each task using issues_create
-     4. Return the list of issue IDs created
+     1. Read the specification file completely
+     2. Invoke the writing-plans skill to break it down into tasks
+     3. The writing-plans skill will:
+        - Create MCP issues for each task (issues_create)
+        - Optionally create plan file if architecture context needed
+        - Return list of issue IDs created
+     4. Return to me:
+        - Total task count
+        - List of issue IDs created (e.g., ["ISS-000042", "ISS-000043"])
+        - Any blockers or clarification needed
 
-     Use the writing-plans skill approach:
-     - Each task should be <250 LOC
-     - Clear acceptance criteria per task
-     - Dependencies between tasks if any
-
-     ## Output Required
-
-     Return:
-     - Total task count
-     - List of issue IDs created (e.g., ["ISS-000042", "ISS-000043"])
-     - Any blockers or clarification needed
+     IMPORTANT: Let writing-plans handle all planning logic. Your job
+     is to invoke it and report back the results.
    ```
 
 3. **Capture issue IDs**
@@ -147,8 +161,23 @@ Create implementation plan with MCP issues.
    - `ISSUE_IDS` = list of created issue IDs
    - `TASK_COUNT` = number of tasks created
 
-4. **Log phase complete**
+4. **Create GitHub PR with overview (not full plan)**
 
+   ```bash
+   cd "{WORKTREE_ABSOLUTE}" && \
+   gh pr create \
+     --title "feat: {SPEC_TITLE}" \
+     --body "Implements {SPEC_FILE}. See .wrangler/issues/ for task details." \
+     --draft \
+     --base main \
+     --head "{BRANCH_NAME}"
+   ```
+
+   Capture:
+   - `PR_URL` = PR URL from output
+   - `PR_NUMBER` = PR number from output
+
+5. **Log phase complete**
    ```
    session_phase(
      sessionId: SESSION_ID,
@@ -156,87 +185,258 @@ Create implementation plan with MCP issues.
      status: "complete",
      metadata: {
        issues_created: ISSUE_IDS,
-       total_tasks: TASK_COUNT
+       total_tasks: TASK_COUNT,
+       pr_url: PR_URL,
+       pr_number: PR_NUMBER
      }
    )
    ```
 
-5. **Save checkpoint**
-
+6. **Save checkpoint**
    ```
    session_checkpoint(
      sessionId: SESSION_ID,
      tasksCompleted: [],
      tasksPending: ISSUE_IDS,
      lastAction: "Created implementation plan with {TASK_COUNT} tasks",
-     resumeInstructions: "Continue with execute phase, implementing-issues issues: {ISSUE_IDS}"
+     resumeInstructions: "Continue with execute phase, issues: {ISSUE_IDS}"
    )
    ```
 
-### Gate
+### Outputs
 
-If planning fails or returns blockers, ESCALATE to user.
+- Wrangler issues created (ISS-XXXXXX files in .wrangler/issues/)
+- Local plan file (if writing-plans created it for architecture context)
+- GitHub PR created (draft mode)
+- Issue IDs list for execution phase
 
-## Phase 3: EXECUTE
+### Quality Gate
 
-Implement all tasks using subagents.
+Planning succeeds and issues are created. If planning fails or returns blockers, ESCALATE to user.
 
-### Steps
+### Key Design Decision
+
+**Why GitHub PR shows overview, not full plan:**
+- PR is for stakeholders/reviewers (high-level context)
+- MCP issues are source of truth (complete implementation details)
+- Optional plan file (if created) provides architecture reference
+- This keeps PR descriptions concise while maintaining full traceability
+
+---
+
+## Phase 3: REVIEW
+
+Validate planning completeness BEFORE execution starts.
+
+### Objective
+
+Catch planning gaps early before wasting time on execution.
+
+### Actions
 
 1. **Log phase start**
+   ```
+   session_phase(sessionId: SESSION_ID, phase: "review", status: "started")
+   ```
 
+2. **Read plan file coverage analysis** (if plan file was created)
+
+   Read `.wrangler/plans/YYYY-MM-DD-PLAN_<spec>.md` and extract:
+   - "Acceptance Criteria Coverage" section
+   - Coverage summary (% covered)
+   - List of AC with no implementing tasks
+
+3. **Validate coverage**
+
+   | Coverage | Status |
+   |----------|--------|
+   | >= 95% | ✅ PASS (automatic approval) |
+   | < 95% | ⚠️ NEEDS ATTENTION (user decision) |
+
+4. **If coverage < 95%:**
+
+   Present coverage report to user:
+
+   ```markdown
+   REVIEW Phase: Planning Coverage Gap Detected
+
+   Coverage: X% (Y/Z acceptance criteria covered)
+
+   Missing AC:
+   - AC-XXX: [description]
+   - AC-YYY: [description]
+   ...
+
+   Options:
+   a) Auto-create missing tasks (Recommended)
+   b) Proceed anyway (risks VERIFY failure)
+   c) Abort and replan from scratch
+
+   Your decision?
+   ```
+
+5. **If auto-create chosen:**
+
+   For each uncovered AC:
+   - Create MCP issue with implementation details
+   - Add `satisfiesAcceptanceCriteria: ["AC-XXX"]` metadata
+   - Add to ISSUE_IDS list
+
+   Update plan file with new tasks and re-calculate coverage.
+
+6. **Update session checkpoint**
+   ```
+   session_checkpoint(
+     sessionId: SESSION_ID,
+     tasksCompleted: [],
+     tasksPending: ISSUE_IDS, // updated list
+     lastAction: "REVIEW phase complete, coverage: X%",
+     resumeInstructions: "Continue with execute phase"
+   )
+   ```
+
+7. **Log phase complete**
+   ```
+   session_phase(
+     sessionId: SESSION_ID,
+     phase: "review",
+     status: "complete",
+     metadata: {
+       coverage_percentage: X,
+       supplemental_tasks_created: N
+     }
+   )
+   ```
+
+### Outputs
+
+- Validated plan with >= 95% AC coverage (or user approval to proceed)
+- Updated ISSUE_IDS list (if supplemental tasks created)
+- Session checkpoint with review results
+
+### Quality Gate
+
+**Advisory gate** - offers to fix gaps, doesn't block arbitrarily:
+- Coverage >= 95%: Automatic PASS → EXECUTE
+- Coverage < 95%: User decision required → EXECUTE or ABORT
+
+### Skip Condition
+
+If spec has no explicit acceptance criteria section:
+- Skip REVIEW phase
+- Proceed directly to EXECUTE
+- Log warning: "Skipping REVIEW (no AC in spec)"
+
+---
+
+## Phase 4: EXECUTE
+
+Implement all tasks by dispatching subagents for each issue.
+
+### Objective
+
+Execute all implementation tasks with TDD and code review, coordinated directly by this orchestrator.
+
+### Actions
+
+1. **Log phase start**
    ```
    session_phase(sessionId: SESSION_ID, phase: "execute", status: "started")
    ```
 
-2. **Invoke implementing-issues skill**
+2. **Execution loop** - For each issue in ISSUE_IDS:
 
-   Use the `implementing-issues` skill with worktree context:
+   **a) Mark issue in progress**
+   ```
+   issues_update(id: ISSUE_ID, status: "in_progress")
+   ```
+
+   **b) Dispatch implementation subagent**
+
+   Use Task tool to dispatch a subagent that follows the `implementing-issue` skill:
 
    ```markdown
-   I'm using the implementing-issues skill to execute all tasks.
+   Tool: Task
+   Description: "Implement {ISSUE_ID}: {issue_title}"
+   Prompt: |
+     You are implementing a single issue.
 
-   ## Context for Implement Skill
+     ## Working Directory Context
 
-   **Scope:** issues {ISSUE_IDS}
-   **Working directory:** {WORKTREE_ABSOLUTE}
-   **Branch:** {BRANCH_NAME}
-   **Session ID:** {SESSION_ID}
+     **Working directory:** {WORKTREE_ABSOLUTE}
+     **Branch:** {BRANCH_NAME}
 
-   ## CRITICAL: Worktree Context
+     ### MANDATORY: Verify Location First
 
-   ALL subagents MUST receive:
-   - Working directory: {WORKTREE_ABSOLUTE}
-   - Branch: {BRANCH_NAME}
+     Before any work, run:
+     ```bash
+     cd {WORKTREE_ABSOLUTE} && \
+       echo "Directory: $(pwd)" && \
+       echo "Branch: $(git branch --show-current)" && \
+       test "$(pwd)" = "{WORKTREE_ABSOLUTE}" && echo "VERIFIED" || echo "FAILED - STOP"
+     ```
 
-   ALL bash commands MUST use:
-   ```bash
-   cd {WORKTREE_ABSOLUTE} && [command]
+     ALL bash commands MUST use: `cd {WORKTREE_ABSOLUTE} && [command]`
+
+     ## Issue
+
+     {ISSUE_ID}: {issue_title}
+
+     Read the full issue with: issues_get(id: "{ISSUE_ID}")
+
+     ## Your Job
+
+     Follow the implementing-issue skill:
+     1. Read the issue and understand requirements
+     2. Follow TDD (practicing-tdd skill) - write failing test, implement, refactor
+     3. Request code review (requesting-code-review skill)
+     4. Fix any Critical/Important issues (2 attempts each)
+     5. Verify all tests pass
+     6. Commit your work
+     7. Report back:
+        - Implementation summary
+        - Test results (all passing)
+        - TDD Compliance Certification
+        - Commit hash
+        - Any blockers encountered
+
+     If requirements are unclear, STOP and report the blocker.
    ```
 
-   ## Checkpoint After Each Task
+   **c) Verify subagent response**
 
-   After each task completes, call:
+   Check for:
+   - Location verification passed (VERIFIED)
+   - Implementation summary provided
+   - All tests passing
+   - TDD Compliance Certification
+   - Work committed
+
+   **d) Handle blockers**
+
+   If subagent reports a blocker:
+   - Unclear requirements: ESCALATE to user immediately
+   - Failed after 2 fix attempts: ESCALATE to user
+   - Git conflicts: ESCALATE to user
+   - Missing dependencies: Try to resolve, escalate if cannot
+
+   **e) Save checkpoint**
    ```
    session_checkpoint(
-     sessionId: {SESSION_ID},
+     sessionId: SESSION_ID,
      tasksCompleted: [...completed_ids],
      tasksPending: [...remaining_ids],
-     lastAction: "Completed task {task_id}: {task_title}",
-     resumeInstructions: "Continue with next task or proceed to verify if all done"
+     lastAction: "Completed {ISSUE_ID}: {issue_title}",
+     resumeInstructions: "Continue with next issue or proceed to VERIFY if all done"
    )
    ```
+
+   **f) Mark issue complete**
+   ```
+   issues_mark_complete(id: ISSUE_ID)
    ```
 
-3. **Track task completion**
-
-   For each completed task:
-   - Record task audit entry via `session_phase` with phase="task"
-   - Save checkpoint via `session_checkpoint`
-
-4. **Log phase complete**
-
-   When all tasks complete:
+3. **Log phase complete**
    ```
    session_phase(
      sessionId: SESSION_ID,
@@ -249,23 +449,56 @@ Implement all tasks using subagents.
    )
    ```
 
-### Gate
+### Outputs
 
-If any task cannot be completed after escalation, session pauses.
+- All issues implemented with TDD
+- Code reviewed for each issue
+- Checkpoints saved after each issue
+- PR description updated with progress
 
-## Phase 4: VERIFY
+### Quality Gate
 
-Fresh test run and requirements check.
+All issues complete. If any issue cannot be completed, escalate to user with blocker details and pause session.
 
-### Steps
+---
+
+## Phase 5: VERIFY
+
+Run compliance audit using LLM-based verification.
+
+### Objective
+
+Verify all acceptance criteria met using intelligent extraction (not brittle scripts).
+
+### Actions
 
 1. **Log phase start**
-
    ```
    session_phase(sessionId: SESSION_ID, phase: "verify", status: "started")
    ```
 
-2. **Run fresh test suite**
+2. **Extract acceptance criteria from spec (LLM-based)**
+
+   Read specification and use LLM to extract:
+   - All acceptance criteria (AC-001, AC-002, etc.)
+   - E2E test requirements
+   - Manual testing checklist items
+
+   **Why LLM not script:**
+   - Handles varied spec formats gracefully
+   - Can infer criteria from prose descriptions
+   - Won't break if spec structure differs slightly
+   - More intelligent than regex parsing
+
+3. **Verify each criterion has evidence**
+
+   For each acceptance criterion:
+   - Search for corresponding test
+   - Search for implementing code
+   - Search for relevant commits
+   - Calculate compliance percentage
+
+4. **Run fresh test suite**
 
    ```bash
    cd "{WORKTREE_ABSOLUTE}" && npm test 2>&1 | tee ".wrangler/sessions/{SESSION_ID}/final-test-output.txt"
@@ -276,7 +509,7 @@ Fresh test run and requirements check.
    - `TESTS_TOTAL` = total test count
    - `TESTS_PASSED` = passing test count
 
-3. **Check git status**
+5. **Check git status**
 
    ```bash
    cd "{WORKTREE_ABSOLUTE}" && git status --short
@@ -285,14 +518,20 @@ Fresh test run and requirements check.
    Capture:
    - `GIT_CLEAN` = true if output is empty
 
-4. **Log phase complete**
+6. **Calculate compliance percentage**
 
+   ```
+   COMPLIANCE = (criteria_met / total_criteria) * 100
+   ```
+
+7. **Log phase complete**
    ```
    session_phase(
      sessionId: SESSION_ID,
      phase: "verify",
      status: "complete",
      metadata: {
+       compliance_percentage: COMPLIANCE,
        tests_exit_code: TEST_EXIT_CODE,
        tests_total: TESTS_TOTAL,
        tests_passed: TESTS_PASSED,
@@ -301,164 +540,138 @@ Fresh test run and requirements check.
    )
    ```
 
-### Gate
+### Outputs
 
-**CRITICAL:** Do NOT proceed to publish if:
-- `TEST_EXIT_CODE != 0` - tests failing
-- `GIT_CLEAN == false` - uncommitted changes
+- Compliance report (X% complete)
+- Test results (all passing or failures documented)
+- Git status (clean or uncommitted changes documented)
 
-If verification fails:
-1. Log error and halt
-2. Inform user of verification failure
-3. Session remains in "paused" state for recovery
+### Quality Gate & Self-Healing
 
-## Phase 5: PUBLISH
+**Goal**: Achieve >= 95% compliance through autonomous remediation.
 
-Push branch and create PR.
+**Self-Healing Workflow**:
 
-### Steps
+1. **Initial Compliance Audit**
+   - Run compliance check
+   - Calculate compliance percentage
+   - Categorize gaps
+
+2. **Gap Categorization**
+
+   For each unmet acceptance criterion, classify:
+
+   - **AUTO_FIX_TEST**: Missing test coverage
+   - **AUTO_FIX_DOC**: Missing documentation
+   - **AUTO_FIX_EDGE**: Missing edge case handling
+   - **SEARCH_RETRY**: Evidence likely exists but not found
+   - **FUNDAMENTAL_GAP**: Core requirement not implemented (planning failure)
+
+3. **Autonomous Remediation** (max 3 iterations)
+
+   For AUTO_FIX_* gaps:
+   - Create supplemental MCP issue with specific requirement
+   - Execute using implementing-issue skill
+   - Commit changes
+   - Re-run compliance audit
+   - Loop until compliance >= 95% OR 3 iterations reached OR no more auto-fixable gaps
+
+   Log each remediation iteration:
+   ```
+   session_phase(
+     sessionId: SESSION_ID,
+     phase: "verify-remediation",
+     status: "started",
+     metadata: {
+       iteration: N,
+       gaps_to_fix: GAP_COUNT,
+       gap_types: ["AUTO_FIX_TEST", ...]
+     }
+   )
+   ```
+
+4. **Quality Gate Decision**
+
+   | Compliance | Behavior |
+   |-----------|----------|
+   | **>= 95%** | ✅ PASS → Document any gaps-fixed in PR, proceed to PUBLISH |
+   | **90-94%** | ⚠️ PASS WITH WARNINGS → Document minor gaps in PR, proceed to PUBLISH |
+   | **< 90%** | ❌ FAIL → Escalate to user with detailed gap analysis |
+
+5. **Escalation Format** (if < 90%)
+
+   ```markdown
+   VERIFY Phase: Compliance Below Threshold
+
+   Current compliance: X%
+   Quality gate: 90% required
+
+   Self-healing attempted:
+   - Created and executed Y supplemental tasks
+   - Fixed Z auto-fixable gaps
+   - Remaining gaps: W
+
+   Gap Analysis:
+   - FUNDAMENTAL_GAP: [list core requirements not implemented]
+   - SEARCH_RETRY failures: [list evidence not found after retries]
+
+   Options:
+   1. Review and approve current implementation (partial delivery)
+   2. Let me create additional tasks for remaining gaps
+   3. Abort session and revisit planning
+
+   Your decision?
+   ```
+
+6. **Document self-healing in PR** (if any remediation occurred)
+
+   Append to PR body:
+
+   ```markdown
+   ### Compliance Self-Healing
+
+   During verification, the following gaps were auto-fixed:
+   - Created ISS-XXXXX: Added missing test for feature X
+   - Created ISS-XXXXX: Added documentation for API Y
+   - Created ISS-XXXXX: Added edge case handling for Z
+
+   Final compliance: 96%
+   ```
+
+**Critical Rules**:
+- NEVER escalate for missing tests/docs/edge cases - auto-fix them
+- ONLY escalate for fundamental requirement gaps or after self-healing exhaustion
+- Document all self-healing activity in PR description
+
+**Also block if:**
+- `TEST_EXIT_CODE != 0` - tests failing (cannot proceed)
+- `GIT_CLEAN == false` - uncommitted changes (cannot proceed)
+
+---
+
+## Phase 6: PUBLISH
+
+Finalize PR and mark ready for review.
+
+### Objective
+
+Update PR with final summary and mark ready for merge.
+
+### Actions
 
 1. **Log phase start**
-
    ```
    session_phase(sessionId: SESSION_ID, phase: "publish", status: "started")
    ```
 
-2. **Push branch**
-
-   ```bash
-   cd "{WORKTREE_ABSOLUTE}" && git push -u origin "{BRANCH_NAME}"
-   ```
-
-3. **Generate PR body**
+2. **Generate final PR description**
 
    Create comprehensive PR body from audit data:
 
    ```markdown
    ## Summary
 
-   Implements specification: `{SPEC_FILE}`
-
-   ### Changes
-
-   {git log main..HEAD --oneline formatted as bullet list}
-
-   ### Test Results
-
-   - All tests passing ({TESTS_TOTAL} tests)
-
-   ### Tasks Completed
-
-   {For each task from session:}
-   - [x] {task_id}: {task_title} ({commit_hash})
-
-   ### Implementation Details
-
-   - TDD compliance: All functions certified
-   - Code review: All tasks approved
-
-   ---
-
-   **Session ID:** `{SESSION_ID}`
-   **Audit trail:** `.wrangler/sessions/{SESSION_ID}/`
-
-   Generated with [Claude Code](https://claude.com/claude-code)
-   ```
-
-4. **Create PR**
-
-   ```bash
-   cd "{WORKTREE_ABSOLUTE}" && gh pr create \
-     --title "feat({SPEC_NAME}): implementing-issues specification" \
-     --body "{PR_BODY}" \
-     --base main \
-     --head "{BRANCH_NAME}"
-   ```
-
-   Capture:
-   - `PR_URL` = PR URL from output
-   - `PR_NUMBER` = PR number from output
-
-5. **Log phase complete**
-
-   ```
-   session_phase(
-     sessionId: SESSION_ID,
-     phase: "publish",
-     status: "complete",
-     metadata: {
-       pr_url: PR_URL,
-       pr_number: PR_NUMBER,
-       branch_pushed: true
-     }
-   )
-   ```
-
-### Gate
-
-If push or PR creation fails:
-1. Log error
-2. Inform user (may need to configure gh auth)
-3. Session pauses but work is preserved
-
-## Phase 6: REPORT
-
-Complete session and present summary.
-
-### Steps
-
-1. **Complete session**
-
-   ```
-   session_complete(
-     sessionId: SESSION_ID,
-     status: "completed",
-     prUrl: PR_URL,
-     prNumber: PR_NUMBER,
-     summary: "Implemented {TASK_COUNT} tasks from {SPEC_FILE}"
-   )
-   ```
-
-2. **Present summary to user**
-
-   ```markdown
-   ## Implementation Complete
-
-   **Specification:** {SPEC_FILE}
-   **PR:** {PR_URL}
-   **Session:** {SESSION_ID}
-
-   ### Summary
-
-   | Metric | Value |
-   |--------|-------|
-   | Tasks completed | {TASK_COUNT}/{TASK_COUNT} |
-   | Tests passing | {TESTS_TOTAL} |
-   | Code reviews | {TASK_COUNT} approved |
-
-   ### Audit Trail
-
-   Location: `.wrangler/sessions/{SESSION_ID}/`
-
-   **Verify execution:**
-   ```bash
-   cat .wrangler/sessions/{SESSION_ID}/audit.jsonl | jq -s '{
-     phases: [.[].phase] | unique,
-     tasks: [.[] | select(.phase == "task")] | length,
-     all_passed: [.[] | select(.phase == "task") | .tests_passed] | all,
-     pr_created: ([.[] | select(.phase == "publish")] | length) > 0
-   }'
-
-
-
-## Workflow Checklist
-
-Copy this checklist to track your progress:
-
-See `assets/workflow-checklist.md` for the complete checklist.
-
 ## References
-
 
 For detailed information, see:
 
