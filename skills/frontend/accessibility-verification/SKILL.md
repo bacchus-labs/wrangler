@@ -1,5 +1,5 @@
 ---
-name: frontend-accessibility-verification
+name: accessibility-verification
 description: Use when implementing any UI - verifies accessibility compliance through automated testing (axe-core), keyboard navigation, screen reader verification, and Lighthouse audits; legally required and ensures inclusive user experience
 ---
 

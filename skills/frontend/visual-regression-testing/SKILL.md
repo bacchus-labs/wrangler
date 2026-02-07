@@ -1,5 +1,5 @@
 ---
-name: frontend-visual-regression-testing
+name: visual-regression-testing
 description: Use when implementing UI components, design systems, or responsive layouts - verifies visual correctness through screenshot comparison and DevTools verification; prevents shipping broken UI
 ---
 

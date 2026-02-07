@@ -1,5 +1,5 @@
 ---
-name: defining-defining-constitution
+name: defining-constitution
 description: Develops project constitutional principles through Socratic questioning. Use when establishing design values, creating project governance, or resolving ambiguous design decisions.
 ---
 
