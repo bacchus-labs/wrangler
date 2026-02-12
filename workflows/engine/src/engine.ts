@@ -28,7 +28,7 @@ import {
   type LoopStep,
   type TaskDefinition,
 } from './schemas/index.js';
-import { aggregateGateResults, type ReviewResult } from './schemas/review.js';
+import { aggregateGateResults, ReviewResultSchema, type ReviewResult } from './schemas/review.js';
 import {
   type QueryFunction,
   type SDKMessage,
@@ -44,6 +44,7 @@ export class WorkflowEngine {
   private handlerRegistry: HandlerRegistry;
   private auditLog: WorkflowAuditEntry[] = [];
   private onAuditEntry?: (entry: WorkflowAuditEntry) => Promise<void>;
+  private activeDefaults: { model: string; permissionMode: string; settingSources: string[] };
 
   constructor(options: {
     config: EngineConfig;
@@ -55,6 +56,18 @@ export class WorkflowEngine {
     this.queryFn = options.queryFn;
     this.handlerRegistry = options.handlerRegistry ?? createDefaultRegistry();
     this.onAuditEntry = options.onAuditEntry;
+    this.activeDefaults = { ...options.config.defaults };
+  }
+
+  /**
+   * Assert that a resolved path is within the workflow base directory.
+   * Prevents path traversal attacks (e.g., agent: "../../etc/passwd").
+   */
+  private assertWithinWorkflowDir(resolvedPath: string): void {
+    const relative = path.relative(this.config.workflowBaseDir, resolvedPath);
+    if (relative.startsWith('..') || path.isAbsolute(relative)) {
+      throw new Error(`Path "${resolvedPath}" escapes workflow directory "${this.config.workflowBaseDir}"`);
+    }
   }
 
   /**
@@ -64,14 +77,12 @@ export class WorkflowEngine {
     const fullDefPath = path.resolve(this.config.workflowBaseDir, definitionPath);
     const definition = await loadWorkflowYaml(fullDefPath);
 
-    // Apply defaults from workflow definition
-    if (definition.defaults) {
-      this.config.defaults = {
-        model: definition.defaults.model ?? this.config.defaults.model,
-        permissionMode: definition.defaults.permissionMode ?? this.config.defaults.permissionMode,
-        settingSources: definition.defaults.settingSources ?? this.config.defaults.settingSources,
-      };
-    }
+    // Apply defaults from workflow definition without mutating this.config.defaults
+    this.activeDefaults = {
+      model: definition.defaults?.model ?? this.config.defaults.model,
+      permissionMode: definition.defaults?.permissionMode ?? this.config.defaults.permissionMode,
+      settingSources: definition.defaults?.settingSources ?? this.config.defaults.settingSources,
+    };
 
     const context = new WorkflowContext({ specPath });
 
@@ -84,6 +95,10 @@ export class WorkflowEngine {
 
         await this.executeStep(phase, context);
         context.markPhaseCompleted(phase.name);
+
+        if (this.config.onPhaseComplete) {
+          await this.config.onPhaseComplete(phase.name, context);
+        }
       }
 
       return context.getResult();
@@ -119,13 +134,12 @@ export class WorkflowEngine {
     const fullDefPath = path.resolve(this.config.workflowBaseDir, definitionPath);
     const definition = await loadWorkflowYaml(fullDefPath);
 
-    if (definition.defaults) {
-      this.config.defaults = {
-        model: definition.defaults.model ?? this.config.defaults.model,
-        permissionMode: definition.defaults.permissionMode ?? this.config.defaults.permissionMode,
-        settingSources: definition.defaults.settingSources ?? this.config.defaults.settingSources,
-      };
-    }
+    // Apply defaults from workflow definition without mutating this.config.defaults
+    this.activeDefaults = {
+      model: definition.defaults?.model ?? this.config.defaults.model,
+      permissionMode: definition.defaults?.permissionMode ?? this.config.defaults.permissionMode,
+      settingSources: definition.defaults?.settingSources ?? this.config.defaults.settingSources,
+    };
 
     const context = WorkflowContext.fromCheckpoint(checkpointData);
 
@@ -141,6 +155,10 @@ export class WorkflowEngine {
         if (this.config.dryRun && phase.name === 'execute') break;
         await this.executeStep(phase, context);
         context.markPhaseCompleted(phase.name);
+
+        if (this.config.onPhaseComplete) {
+          await this.config.onPhaseComplete(phase.name, context);
+        }
       }
 
       return context.getResult();
@@ -217,6 +235,7 @@ export class WorkflowEngine {
     ctx: WorkflowContext
   ): Promise<void> {
     const agentPath = path.resolve(this.config.workflowBaseDir, step.agent);
+    this.assertWithinWorkflowDir(agentPath);
     const agentDef = await loadAgentMarkdown(agentPath);
 
     // Resolve input into template vars
@@ -247,7 +266,7 @@ export class WorkflowEngine {
       }
     }
 
-    const model = step.model ?? agentDef.model ?? this.config.defaults.model;
+    const model = step.model ?? agentDef.model ?? this.activeDefaults.model;
 
     let result: unknown = null;
 
@@ -258,15 +277,15 @@ export class WorkflowEngine {
         outputFormat,
         model,
         cwd: this.config.workingDirectory,
-        permissionMode: this.config.defaults.permissionMode,
-        allowDangerouslySkipPermissions: this.config.defaults.permissionMode === 'bypassPermissions',
+        permissionMode: this.activeDefaults.permissionMode,
+        allowDangerouslySkipPermissions: this.activeDefaults.permissionMode === 'bypassPermissions',
         mcpServers: this.config.mcpServers,
-        settingSources: this.config.defaults.settingSources,
+        settingSources: this.activeDefaults.settingSources,
       },
     });
 
     for await (const message of generator) {
-      if (isResultMessage(message) && message.subtype === 'success' && message.structured_output) {
+      if (isResultMessage(message) && message.subtype === 'success' && message.structured_output != null) {
         result = message.structured_output;
       }
       if (isResultMessage(message) && message.subtype !== 'success') {
@@ -275,7 +294,7 @@ export class WorkflowEngine {
       }
     }
 
-    if (step.output && result) {
+    if (step.output && result != null) {
       ctx.set(step.output, result);
 
       // Track changed files if result has them
@@ -341,6 +360,7 @@ export class WorkflowEngine {
     ctx: WorkflowContext
   ): Promise<void> {
     const gatesDir = path.resolve(this.config.workflowBaseDir, step.gates);
+    this.assertWithinWorkflowDir(gatesDir);
     const gateFiles = await discoverGates(gatesDir);
 
     if (gateFiles.length === 0) {
@@ -391,10 +411,8 @@ export class WorkflowEngine {
     ctx: WorkflowContext
   ): Promise<ReviewResult> {
     const prompt = renderTemplate(gateDef.prompt, ctx.getTemplateVars());
-    const model = gateDef.model ?? this.config.defaults.model;
+    const model = gateDef.model ?? this.activeDefaults.model;
 
-    // Import review schema for output format
-    const { ReviewResultSchema } = await import('./schemas/review.js');
     const jsonSchema = zodToJsonSchema(ReviewResultSchema);
 
     let result: ReviewResult | null = null;
@@ -409,15 +427,15 @@ export class WorkflowEngine {
         },
         model,
         cwd: this.config.workingDirectory,
-        permissionMode: this.config.defaults.permissionMode,
-        allowDangerouslySkipPermissions: this.config.defaults.permissionMode === 'bypassPermissions',
+        permissionMode: this.activeDefaults.permissionMode,
+        allowDangerouslySkipPermissions: this.activeDefaults.permissionMode === 'bypassPermissions',
         mcpServers: this.config.mcpServers,
-        settingSources: this.config.defaults.settingSources,
+        settingSources: this.activeDefaults.settingSources,
       },
     });
 
     for await (const message of generator) {
-      if (isResultMessage(message) && message.subtype === 'success' && message.structured_output) {
+      if (isResultMessage(message) && message.subtype === 'success' && message.structured_output != null) {
         result = ReviewResultSchema.parse(message.structured_output);
       }
     }

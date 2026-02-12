@@ -126,13 +126,20 @@ export function renderTemplate(
     (_match, expr: string) => {
       const value = resolveExpression(expr, vars);
       if (value === undefined || value === null) return '';
-      if (typeof value === 'object') return JSON.stringify(value);
-      return String(value);
+      const stringValue = typeof value === 'object' ? JSON.stringify(value) : String(value);
+      // Escape template syntax in resolved values to prevent injection
+      return stringValue.replace(/\{\{/g, '\\{\\{');
     }
   );
 
   return result;
 }
+
+/**
+ * Set of property names that must never be traversed to prevent
+ * prototype pollution attacks via dot-notation expressions.
+ */
+const DISALLOWED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
 /**
  * Resolve a dot-notation expression against a variables object.
@@ -148,6 +155,7 @@ export function resolveExpression(
   for (const part of parts) {
     if (current === null || current === undefined) return undefined;
     if (typeof current !== 'object') return undefined;
+    if (DISALLOWED_KEYS.has(part)) return undefined;
     current = (current as Record<string, unknown>)[part];
   }
 

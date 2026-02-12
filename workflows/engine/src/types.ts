@@ -75,6 +75,8 @@ export interface EngineConfig {
   dryRun: boolean;
   /** MCP server configuration for agents */
   mcpServers?: Record<string, unknown>;
+  /** Callback invoked after each top-level phase completes */
+  onPhaseComplete?: (phaseName: string, context: import('./state.js').WorkflowContext) => Promise<void>;
 }
 
 /**

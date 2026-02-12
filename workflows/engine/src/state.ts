@@ -4,6 +4,7 @@
  * WorkflowState: State machine tracking workflow progress.
  */
 
+import picomatch from 'picomatch';
 import { resolveExpression } from './loader.js';
 import type { TaskDefinition } from './schemas/index.js';
 
@@ -160,17 +161,12 @@ export class WorkflowContext {
 
   /**
    * Check if changed files match any of the given glob patterns.
-   * Simple implementation: checks if any changed file matches any pattern.
+   * Uses picomatch for robust, ReDoS-safe glob matching.
    */
   changedFilesMatch(patterns: string[]): boolean {
     if (this.changedFiles.length === 0) return false;
-
-    for (const file of this.changedFiles) {
-      for (const pattern of patterns) {
-        if (simpleGlobMatch(file, pattern)) return true;
-      }
-    }
-    return false;
+    const isMatch = picomatch(patterns);
+    return this.changedFiles.some(file => isMatch(file));
   }
 
   /**
@@ -265,42 +261,3 @@ export class WorkflowContext {
   }
 }
 
-/**
- * Simple glob matching for file patterns.
- * Supports ** (any path) and * (any segment).
- */
-function simpleGlobMatch(filePath: string, pattern: string): boolean {
-  // Convert glob pattern to regex
-  // Split on glob wildcards, escape each segment, then rejoin with regex patterns
-  // This avoids escaping our own placeholder characters
-  const segments: string[] = [];
-  let remaining = pattern;
-
-  while (remaining.length > 0) {
-    const doubleStarIdx = remaining.indexOf('**');
-    const singleStarIdx = remaining.indexOf('*');
-
-    if (doubleStarIdx !== -1 && (singleStarIdx === -1 || doubleStarIdx <= singleStarIdx)) {
-      // Found ** first
-      segments.push(escapeRegexChars(remaining.slice(0, doubleStarIdx)));
-      segments.push('.*');
-      remaining = remaining.slice(doubleStarIdx + 2);
-    } else if (singleStarIdx !== -1) {
-      // Found single *
-      segments.push(escapeRegexChars(remaining.slice(0, singleStarIdx)));
-      segments.push('[^/]*');
-      remaining = remaining.slice(singleStarIdx + 1);
-    } else {
-      // No more wildcards
-      segments.push(escapeRegexChars(remaining));
-      remaining = '';
-    }
-  }
-
-  const regex = new RegExp(`^${segments.join('')}$`);
-  return regex.test(filePath);
-}
-
-function escapeRegexChars(str: string): string {
-  return str.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
-}

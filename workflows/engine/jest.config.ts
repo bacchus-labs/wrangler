@@ -10,6 +10,13 @@ export default {
       'ts-jest',
       {
         useESM: true,
+        diagnostics: {
+          // ts-jest compiles files individually (isolatedModules behavior),
+          // so it cannot see cross-method usage of imports within a class.
+          // TS6133 (unused locals) and TS6196 (unused imports) are validated
+          // correctly by tsc at the project level; suppress them here.
+          ignoreCodes: [6133, 6196],
+        },
       },
     ],
   },
@@ -19,7 +26,7 @@ export default {
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/**/*.d.ts',
-    '!src/index.ts',
+    '!src/cli.ts',
   ],
   coverageThreshold: {
     global: {
