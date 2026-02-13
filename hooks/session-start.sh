@@ -15,6 +15,13 @@ if [ ! -f "$MCP_BUNDLE" ]; then
     (cd "$PLUGIN_ROOT" && npm install 2>/dev/null) || true
 fi
 
+# Verify workflow engine is built, rebuild if missing
+ENGINE_CLI="${PLUGIN_ROOT}/workflows/engine/dist/cli.js"
+if [ ! -f "$ENGINE_CLI" ]; then
+    echo "Workflow engine not built, building..." >&2
+    (cd "$PLUGIN_ROOT" && npm run build:engine 2>/dev/null) || true
+fi
+
 # Path to the canonical workspace schema
 SCHEMA_PATH="${PLUGIN_ROOT}/.wrangler/config/workspace-schema.json"
 

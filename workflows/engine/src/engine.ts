@@ -10,7 +10,6 @@
  */
 
 import * as path from 'path';
-import { zodToJsonSchema } from 'zod-to-json-schema';
 import { z } from 'zod';
 import {
   loadWorkflowYaml,
@@ -258,7 +257,7 @@ export class WorkflowEngine {
     if (schemaRef) {
       const zodSchema = await resolveSchemaReference(schemaRef);
       if (zodSchema && zodSchema instanceof z.ZodType) {
-        const jsonSchema = zodToJsonSchema(zodSchema);
+        const jsonSchema = z.toJSONSchema(zodSchema);
         outputFormat = {
           type: 'json_schema',
           schema: jsonSchema as Record<string, unknown>,
@@ -413,7 +412,7 @@ export class WorkflowEngine {
     const prompt = renderTemplate(gateDef.prompt, ctx.getTemplateVars());
     const model = gateDef.model ?? this.activeDefaults.model;
 
-    const jsonSchema = zodToJsonSchema(ReviewResultSchema);
+    const jsonSchema = z.toJSONSchema(ReviewResultSchema);
 
     let result: ReviewResult | null = null;
 

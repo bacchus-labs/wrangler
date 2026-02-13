@@ -7,10 +7,13 @@
   "scripts": {
     "build:mcp": "tsc -p mcp/tsconfig.json",
     "bundle:mcp": "esbuild mcp/bundle-entry.ts --bundle --platform=node --format=cjs --target=node18 --outfile=mcp/dist/bundle.cjs --packages=bundle",
-    "build:all": "npm run build:mcp && npm run bundle:mcp",
+    "build:engine": "cd workflows/engine && npm install --ignore-scripts && npm run build",
+    "build:all": "npm run build:mcp && npm run bundle:mcp && npm run build:engine",
     "watch:mcp": "tsc -p mcp/tsconfig.json --watch",
     "mcp:dev": "npm run build:mcp && WRANGLER_MCP_DEBUG=true node mcp/dist/index.js",
     "test:mcp": "jest mcp/__tests__",
+    "test:engine": "cd workflows/engine && npm test",
+    "test:all": "npm run test:mcp && npm run test:engine",
     "setup:hooks": "ln -sf ../../scripts/pre-commit .git/hooks/pre-commit && echo 'Pre-commit hook installed'",
     "postinstall": "npm run build:all",
     "prepare": "npm run build:all && npm run setup:hooks 2>/dev/null || true"

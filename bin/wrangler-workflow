@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Thin wrapper for the workflow engine CLI.
+# Resolves the engine dist directory relative to this script's location.
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PLUGIN_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+ENGINE_CLI="${PLUGIN_ROOT}/workflows/engine/dist/cli.js"
+
+if [ ! -f "$ENGINE_CLI" ]; then
+    echo "Error: Workflow engine not built. Run: cd ${PLUGIN_ROOT} && npm run build:engine" >&2
+    exit 1
+fi
+
+exec node "$ENGINE_CLI" "$@"
