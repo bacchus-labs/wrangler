@@ -1,6 +1,7 @@
 ---
 name: implementing-specs
 description: Orchestrates specification implementation through planning, execution, verification, and PR publication phases with session recovery. Use when implementing specifications requiring phased workflow and resumable progress tracking.
+disable-model-invocation: true
 ---
 
 # Implementing Specs
@@ -36,6 +37,7 @@ This skill orchestrates existing wrangler skills rather than reimplementing thei
 **Phase 6 (PUBLISH)**: GitHub PR finalization
 
 **Benefits of this approach:**
+
 - No duplicated planning logic (writing-plans is source of truth)
 - Direct coordination of subagents for each issue
 - Modular and maintainable (changes to planning flow in one place)
@@ -60,6 +62,7 @@ Create isolated worktree using MCP session tools and verify environment.
 ### Actions
 
 1. **Start session** - Call `session_start` MCP tool
+
    ```
    session_start(specFile: "{SPEC_FILE}")
    ```
@@ -71,6 +74,7 @@ Create isolated worktree using MCP session tools and verify environment.
    - `AUDIT_PATH` = response.auditPath
 
 2. **Verify worktree** - Ensure on correct branch
+
    ```bash
    cd {WORKTREE_ABSOLUTE} && \
      echo "=== WORKTREE VERIFICATION ===" && \
@@ -114,6 +118,7 @@ Break specification into implementable tasks tracked as MCP issues.
 ### Actions
 
 1. **Log phase start**
+
    ```
    session_phase(sessionId: SESSION_ID, phase: "plan", status: "started")
    ```
@@ -126,33 +131,33 @@ Break specification into implementable tasks tracked as MCP issues.
    Tool: Task
    Description: "Create implementation plan for {SPEC_FILE}"
    Prompt: |
-     You are creating an implementation plan for a specification.
+   You are creating an implementation plan for a specification.
 
-     ## Working Directory Context
+   ## Working Directory Context
 
-     **Working directory:** {WORKTREE_ABSOLUTE}
-     **Branch:** {BRANCH_NAME}
-     **Session ID:** {SESSION_ID}
+   **Working directory:** {WORKTREE_ABSOLUTE}
+   **Branch:** {BRANCH_NAME}
+   **Session ID:** {SESSION_ID}
 
-     ## Specification
+   ## Specification
 
-     Read and analyze: {SPEC_FILE}
+   Read and analyze: {SPEC_FILE}
 
-     ## Your Job
+   ## Your Job
 
-     1. Read the specification file completely
-     2. Invoke the writing-plans skill to break it down into tasks
-     3. The writing-plans skill will:
-        - Create MCP issues for each task (issues_create)
-        - Optionally create plan file if architecture context needed
-        - Return list of issue IDs created
-     4. Return to me:
-        - Total task count
-        - List of issue IDs created (e.g., ["ISS-000042", "ISS-000043"])
-        - Any blockers or clarification needed
+   1. Read the specification file completely
+   2. Invoke the writing-plans skill to break it down into tasks
+   3. The writing-plans skill will:
+      - Create MCP issues for each task (issues_create)
+      - Optionally create plan file if architecture context needed
+      - Return list of issue IDs created
+   4. Return to me:
+      - Total task count
+      - List of issue IDs created (e.g., ["ISS-000042", "ISS-000043"])
+      - Any blockers or clarification needed
 
-     IMPORTANT: Let writing-plans handle all planning logic. Your job
-     is to invoke it and report back the results.
+   IMPORTANT: Let writing-plans handle all planning logic. Your job
+   is to invoke it and report back the results.
    ```
 
 3. **Capture issue IDs**
@@ -178,6 +183,7 @@ Break specification into implementable tasks tracked as MCP issues.
    - `PR_NUMBER` = PR number from output
 
 5. **Log phase complete**
+
    ```
    session_phase(
      sessionId: SESSION_ID,
@@ -217,6 +223,7 @@ Planning succeeds and issues are created. If planning fails or returns blockers,
 ### Key Design Decision
 
 **Why GitHub PR shows overview, not full plan:**
+
 - PR is for stakeholders/reviewers (high-level context)
 - MCP issues are source of truth (complete implementation details)
 - Optional plan file (if created) provides architecture reference
@@ -235,6 +242,7 @@ Catch planning gaps early before wasting time on execution.
 ### Actions
 
 1. **Log phase start**
+
    ```
    session_phase(sessionId: SESSION_ID, phase: "review", status: "started")
    ```
@@ -248,10 +256,10 @@ Catch planning gaps early before wasting time on execution.
 
 3. **Validate coverage**
 
-   | Coverage | Status |
-   |----------|--------|
-   | >= 95% | ✅ PASS (automatic approval) |
-   | < 95% | ⚠️ NEEDS ATTENTION (user decision) |
+   | Coverage | Status                             |
+   | -------- | ---------------------------------- |
+   | >= 95%   | ✅ PASS (automatic approval)       |
+   | < 95%    | ⚠️ NEEDS ATTENTION (user decision) |
 
 4. **If coverage < 95%:**
 
@@ -263,9 +271,10 @@ Catch planning gaps early before wasting time on execution.
    Coverage: X% (Y/Z acceptance criteria covered)
 
    Missing AC:
+
    - AC-XXX: [description]
    - AC-YYY: [description]
-   ...
+     ...
 
    Options:
    a) Auto-create missing tasks (Recommended)
@@ -285,6 +294,7 @@ Catch planning gaps early before wasting time on execution.
    Update plan file with new tasks and re-calculate coverage.
 
 6. **Update session checkpoint**
+
    ```
    session_checkpoint(
      sessionId: SESSION_ID,
@@ -317,12 +327,14 @@ Catch planning gaps early before wasting time on execution.
 ### Quality Gate
 
 **Advisory gate** - offers to fix gaps, doesn't block arbitrarily:
+
 - Coverage >= 95%: Automatic PASS → EXECUTE
 - Coverage < 95%: User decision required → EXECUTE or ABORT
 
 ### Skip Condition
 
 If spec has no explicit acceptance criteria section:
+
 - Skip REVIEW phase
 - Proceed directly to EXECUTE
 - Log warning: "Skipping REVIEW (no AC in spec)"
@@ -340,6 +352,7 @@ Execute all implementation tasks with TDD and code review, coordinated directly 
 ### Actions
 
 1. **Log phase start**
+
    ```
    session_phase(sessionId: SESSION_ID, phase: "execute", status: "started")
    ```
@@ -347,6 +360,7 @@ Execute all implementation tasks with TDD and code review, coordinated directly 
 2. **Execution loop** - For each issue in ISSUE_IDS:
 
    **a) Mark issue in progress**
+
    ```
    issues_update(id: ISSUE_ID, status: "in_progress")
    ```
@@ -355,52 +369,55 @@ Execute all implementation tasks with TDD and code review, coordinated directly 
 
    Use Task tool to dispatch a subagent that follows the `implementing-issue` skill:
 
-   ```markdown
+   ````markdown
    Tool: Task
    Description: "Implement {ISSUE_ID}: {issue_title}"
    Prompt: |
-     You are implementing a single issue.
+   You are implementing a single issue.
 
-     ## Working Directory Context
+   ## Working Directory Context
 
-     **Working directory:** {WORKTREE_ABSOLUTE}
-     **Branch:** {BRANCH_NAME}
+   **Working directory:** {WORKTREE_ABSOLUTE}
+   **Branch:** {BRANCH_NAME}
 
-     ### MANDATORY: Verify Location First
+   ### MANDATORY: Verify Location First
 
-     Before any work, run:
-     ```bash
-     cd {WORKTREE_ABSOLUTE} && \
-       echo "Directory: $(pwd)" && \
-       echo "Branch: $(git branch --show-current)" && \
-       test "$(pwd)" = "{WORKTREE_ABSOLUTE}" && echo "VERIFIED" || echo "FAILED - STOP"
-     ```
+   Before any work, run:
 
-     ALL bash commands MUST use: `cd {WORKTREE_ABSOLUTE} && [command]`
+   ```bash
+   cd {WORKTREE_ABSOLUTE} && \
+     echo "Directory: $(pwd)" && \
+     echo "Branch: $(git branch --show-current)" && \
+     test "$(pwd)" = "{WORKTREE_ABSOLUTE}" && echo "VERIFIED" || echo "FAILED - STOP"
+   ```
+   ````
 
-     ## Issue
+   ALL bash commands MUST use: `cd {WORKTREE_ABSOLUTE} && [command]`
 
-     {ISSUE_ID}: {issue_title}
+   ## Issue
 
-     Read the full issue with: issues_get(id: "{ISSUE_ID}")
+   {ISSUE_ID}: {issue_title}
 
-     ## Your Job
+   Read the full issue with: issues_get(id: "{ISSUE_ID}")
 
-     Follow the implementing-issue skill:
-     1. Read the issue and understand requirements
-     2. Follow TDD (practicing-tdd skill) - write failing test, implement, refactor
-     3. Request code review (requesting-code-review skill)
-     4. Fix any Critical/Important issues (2 attempts each)
-     5. Verify all tests pass
-     6. Commit your work
-     7. Report back:
-        - Implementation summary
-        - Test results (all passing)
-        - TDD Compliance Certification
-        - Commit hash
-        - Any blockers encountered
+   ## Your Job
 
-     If requirements are unclear, STOP and report the blocker.
+   Follow the implementing-issue skill:
+   1. Read the issue and understand requirements
+   2. Follow TDD (practicing-tdd skill) - write failing test, implement, refactor
+   3. Request code review (requesting-code-review skill)
+   4. Fix any Critical/Important issues (2 attempts each)
+   5. Verify all tests pass
+   6. Commit your work
+   7. Report back:
+      - Implementation summary
+      - Test results (all passing)
+      - TDD Compliance Certification
+      - Commit hash
+      - Any blockers encountered
+
+   If requirements are unclear, STOP and report the blocker.
+
    ```
 
    **c) Verify subagent response**
@@ -422,18 +439,24 @@ Execute all implementation tasks with TDD and code review, coordinated directly 
 
    **e) Save checkpoint**
    ```
+
    session_checkpoint(
-     sessionId: SESSION_ID,
-     tasksCompleted: [...completed_ids],
-     tasksPending: [...remaining_ids],
-     lastAction: "Completed {ISSUE_ID}: {issue_title}",
-     resumeInstructions: "Continue with next issue or proceed to VERIFY if all done"
+   sessionId: SESSION_ID,
+   tasksCompleted: [...completed_ids],
+   tasksPending: [...remaining_ids],
+   lastAction: "Completed {ISSUE_ID}: {issue_title}",
+   resumeInstructions: "Continue with next issue or proceed to VERIFY if all done"
    )
+
    ```
 
    **f) Mark issue complete**
    ```
+
    issues_mark_complete(id: ISSUE_ID)
+
+   ```
+
    ```
 
 3. **Log phase complete**
@@ -473,6 +496,7 @@ Verify all acceptance criteria met using intelligent extraction (not brittle scr
 ### Actions
 
 1. **Log phase start**
+
    ```
    session_phase(sessionId: SESSION_ID, phase: "verify", status: "started")
    ```
@@ -560,7 +584,6 @@ Verify all acceptance criteria met using intelligent extraction (not brittle scr
 2. **Gap Categorization**
 
    For each unmet acceptance criterion, classify:
-
    - **AUTO_FIX_TEST**: Missing test coverage
    - **AUTO_FIX_DOC**: Missing documentation
    - **AUTO_FIX_EDGE**: Missing edge case handling
@@ -569,7 +592,7 @@ Verify all acceptance criteria met using intelligent extraction (not brittle scr
 
 3. **Autonomous Remediation** (max 3 iterations)
 
-   For AUTO_FIX_* gaps:
+   For AUTO*FIX*\* gaps:
    - Create supplemental MCP issue with specific requirement
    - Execute using implementing-issue skill
    - Commit changes
@@ -577,6 +600,7 @@ Verify all acceptance criteria met using intelligent extraction (not brittle scr
    - Loop until compliance >= 95% OR 3 iterations reached OR no more auto-fixable gaps
 
    Log each remediation iteration:
+
    ```
    session_phase(
      sessionId: SESSION_ID,
@@ -592,11 +616,11 @@ Verify all acceptance criteria met using intelligent extraction (not brittle scr
 
 4. **Quality Gate Decision**
 
-   | Compliance | Behavior |
-   |-----------|----------|
-   | **>= 95%** | ✅ PASS → Document any gaps-fixed in PR, proceed to PUBLISH |
+   | Compliance | Behavior                                                              |
+   | ---------- | --------------------------------------------------------------------- |
+   | **>= 95%** | ✅ PASS → Document any gaps-fixed in PR, proceed to PUBLISH           |
    | **90-94%** | ⚠️ PASS WITH WARNINGS → Document minor gaps in PR, proceed to PUBLISH |
-   | **< 90%** | ❌ FAIL → Escalate to user with detailed gap analysis |
+   | **< 90%**  | ❌ FAIL → Escalate to user with detailed gap analysis                 |
 
 5. **Escalation Format** (if < 90%)
 
@@ -607,15 +631,18 @@ Verify all acceptance criteria met using intelligent extraction (not brittle scr
    Quality gate: 90% required
 
    Self-healing attempted:
+
    - Created and executed Y supplemental tasks
    - Fixed Z auto-fixable gaps
    - Remaining gaps: W
 
    Gap Analysis:
+
    - FUNDAMENTAL_GAP: [list core requirements not implemented]
    - SEARCH_RETRY failures: [list evidence not found after retries]
 
    Options:
+
    1. Review and approve current implementation (partial delivery)
    2. Let me create additional tasks for remaining gaps
    3. Abort session and revisit planning
@@ -631,6 +658,7 @@ Verify all acceptance criteria met using intelligent extraction (not brittle scr
    ### Compliance Self-Healing
 
    During verification, the following gaps were auto-fixed:
+
    - Created ISS-XXXXX: Added missing test for feature X
    - Created ISS-XXXXX: Added documentation for API Y
    - Created ISS-XXXXX: Added edge case handling for Z
@@ -639,11 +667,13 @@ Verify all acceptance criteria met using intelligent extraction (not brittle scr
    ```
 
 **Critical Rules**:
+
 - NEVER escalate for missing tests/docs/edge cases - auto-fix them
 - ONLY escalate for fundamental requirement gaps or after self-healing exhaustion
 - Document all self-healing activity in PR description
 
 **Also block if:**
+
 - `TEST_EXIT_CODE != 0` - tests failing (cannot proceed)
 - `GIT_CLEAN == false` - uncommitted changes (cannot proceed)
 
@@ -660,6 +690,7 @@ Update PR with final summary and mark ready for merge.
 ### Actions
 
 1. **Log phase start**
+
    ```
    session_phase(sessionId: SESSION_ID, phase: "publish", status: "started")
    ```
@@ -670,6 +701,7 @@ Update PR with final summary and mark ready for merge.
 
    ```markdown
    ## Summary
+   ```
 
 ## References
 
