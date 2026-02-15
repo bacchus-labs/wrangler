@@ -51,7 +51,6 @@ program
       // Import the real query function from the Agent SDK
       let queryFn: QueryFunction;
       try {
-        // @ts-expect-error -- Agent SDK is a runtime dependency, not installed for type-checking
         const sdk = await import('@anthropic-ai/claude-agent-sdk');
         queryFn = sdk.query as unknown as QueryFunction;
       } catch {

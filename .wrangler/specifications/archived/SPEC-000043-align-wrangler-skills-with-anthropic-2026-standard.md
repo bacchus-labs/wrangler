@@ -2,7 +2,7 @@
 id: SPEC-000043
 title: Align Wrangler Skills with Anthropic 2026 Standards
 type: specification
-status: open
+status: closed
 priority: critical
 labels:
   - skills
@@ -11,7 +11,7 @@ labels:
   - refactoring
   - architecture
 createdAt: '2026-02-02T22:09:41.056Z'
-updatedAt: '2026-02-02T22:50:00.000Z'
+updatedAt: '2026-02-13T20:49:54.315Z'
 project: Skills Modernization 2026
 ---
 ## Overview
@@ -825,3 +825,7 @@ create-new-issue → creating-issues
 **Total Effort**: 34-47 hours
 
 **Recommended Approach**: Implement all phases in sequence without prioritization (per user directive)
+
+---
+**Completion Notes (2026-02-13T20:49:54.281Z):**
+Implemented. 45/46 skills renamed to gerund form. Commits ef64330 and 32a31a8 completed the work. Only 'frontend' directory remains non-gerund (duplicate of designing-frontends).

@@ -2,7 +2,7 @@
 id: SPEC-000006
 title: Design MCP workflow orchestration tools to reduce brittleness
 type: specification
-status: open
+status: closed
 priority: high
 labels:
   - mcp
@@ -10,7 +10,7 @@ labels:
   - brittleness-reduction
   - architecture
 createdAt: '2025-11-24T02:37:51.582Z'
-updatedAt: '2025-11-24T02:37:51.582Z'
+updatedAt: '2026-02-13T20:49:56.706Z'
 project: Wrangler v1.1.0
 ---
 ## Problem Statement
@@ -144,3 +144,7 @@ const result = await task_execute({
 
 - Current MCP server: `mcp/` directory (11 issue management tools)
 - Skills affected: `implement`, `code-review`, `verification-before-completion`, `writing-plans`, `dispatching-parallel-agents`, `test-driven-development`
+
+---
+**Completion Notes (2026-02-13T20:49:56.675Z):**
+Superseded by the deterministic workflow engine (SPEC-000044, PR #26). 6 of 7 proposed tools are covered by engine step types: verification_gate (failWhen + VerifyResultSchema), task_execute (per-task + topologicalSort), code_review_structured (gate-group + ReviewIssueSchema), dependency_graph (topologicalSort with cycle detection), tdd_compliance_certifier (TddCertificationSchema), issue_state_tracker (WorkflowContext + audit log + checkpoint). Only parallel_execution_coordinator remains a gap -- tracked separately as a future engine enhancement.
