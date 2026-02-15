@@ -563,6 +563,212 @@ describe('WorkflowSessionManager', () => {
   });
 
   // -----------------------------------------------------------------------
+  // Bug fix: ISS-000114 - phasesCompleted populated in context.json
+  // -----------------------------------------------------------------------
+  describe('phasesCompleted in context.json (ISS-000114)', () => {
+    it('should populate phasesCompleted in context.json on completeSession', async () => {
+      const manager = new WorkflowSessionManager(makeSessionConfig(tmpDir));
+      const sessionId = await manager.createSession();
+
+      const result: WorkflowResult = {
+        status: 'completed',
+        outputs: {},
+        completedPhases: ['analyze', 'plan', 'execute', 'verify'],
+      };
+
+      await manager.completeSession(result);
+
+      const contextPath = path.join(
+        tmpDir, '.wrangler', 'sessions', sessionId, 'context.json'
+      );
+      const context = await readJson(contextPath) as Record<string, unknown>;
+
+      expect(context.phasesCompleted).toEqual(['analyze', 'plan', 'execute', 'verify']);
+    });
+
+    it('should populate phasesCompleted in context.json on saveCheckpoint', async () => {
+      const manager = new WorkflowSessionManager(makeSessionConfig(tmpDir));
+      const sessionId = await manager.createSession();
+
+      await manager.saveCheckpoint({
+        currentPhase: 'execute',
+        variables: {},
+        completedPhases: ['analyze', 'plan'],
+        tasksCompleted: [],
+        tasksPending: [],
+      });
+
+      const contextPath = path.join(
+        tmpDir, '.wrangler', 'sessions', sessionId, 'context.json'
+      );
+      const context = await readJson(contextPath) as Record<string, unknown>;
+
+      expect(context.phasesCompleted).toEqual(['analyze', 'plan']);
+    });
+
+    it('should persist completedPhases and changedFiles through checkpoint round-trip', async () => {
+      const manager = new WorkflowSessionManager(makeSessionConfig(tmpDir));
+      const sessionId = await manager.createSession();
+
+      await manager.saveCheckpoint({
+        currentPhase: 'execute',
+        variables: { someData: 'value' },
+        completedPhases: ['analyze', 'plan'],
+        changedFiles: ['src/foo.ts', 'src/bar.ts'],
+        tasksCompleted: ['t1'],
+        tasksPending: ['t2'],
+      });
+
+      const loaded = await manager.loadCheckpoint(sessionId);
+
+      expect(loaded).not.toBeNull();
+      expect(loaded!.completedPhases).toEqual(['analyze', 'plan']);
+      expect(loaded!.changedFiles).toEqual(['src/foo.ts', 'src/bar.ts']);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // ISS-000112: Filesystem error handling
+  // -----------------------------------------------------------------------
+  describe('filesystem error handling (ISS-000112)', () => {
+    it('should throw a clear error when checkpoint.json contains corrupted JSON', async () => {
+      // Observed behavior: fs-extra's readJson throws a SyntaxError when the
+      // file contains invalid JSON. This is the expected behavior -- callers
+      // should handle or propagate the error rather than getting a null back.
+      const manager = new WorkflowSessionManager(makeSessionConfig(tmpDir));
+      const sessionId = await manager.createSession();
+
+      const checkpointPath = path.join(
+        tmpDir, '.wrangler', 'sessions', sessionId, 'checkpoint.json'
+      );
+      await fs.writeFile(checkpointPath, '{corrupted json!!!', 'utf-8');
+
+      await expect(manager.loadCheckpoint(sessionId)).rejects.toThrow();
+    });
+
+    it('should return null when loading checkpoint for a session ID with no directory', async () => {
+      // Observed behavior: When no session directory exists, pathExists
+      // returns false and loadCheckpoint returns null. This is intentional --
+      // a missing session is not an error, it just means no checkpoint was saved.
+      const manager = new WorkflowSessionManager(makeSessionConfig(tmpDir));
+
+      const loaded = await manager.loadCheckpoint('nonexistent-session-id-abc123');
+      expect(loaded).toBeNull();
+    });
+
+    it('should handle missing audit log file by recreating it on appendAuditEntry', async () => {
+      // Observed behavior: fs.appendFile creates the file if it does not
+      // exist, so deleting the audit log mid-session and appending a new
+      // entry simply recreates the file. This is intentional resilient behavior.
+      const manager = new WorkflowSessionManager(makeSessionConfig(tmpDir));
+      const sessionId = await manager.createSession();
+
+      const auditPath = path.join(
+        tmpDir, '.wrangler', 'sessions', sessionId, 'audit.jsonl'
+      );
+
+      // Verify audit file exists after creation
+      expect(await fileExists(auditPath)).toBe(true);
+
+      // Delete the audit file
+      await fs.unlink(auditPath);
+      expect(await fileExists(auditPath)).toBe(false);
+
+      // Append a new entry -- should not throw
+      await manager.appendAuditEntry({
+        step: 'test-recovery',
+        status: 'started',
+        timestamp: new Date().toISOString(),
+      });
+
+      // File should be recreated
+      expect(await fileExists(auditPath)).toBe(true);
+      const content = await fs.readFile(auditPath, 'utf-8');
+      const entries = content.trim().split('\n').map(l => JSON.parse(l));
+      expect(entries).toHaveLength(1);
+      expect(entries[0].step).toBe('test-recovery');
+    });
+
+    it('should throw when session directory is deleted before saveCheckpoint', async () => {
+      // Observed behavior: When the session directory is removed after
+      // creation, fs-extra's writeJson fails because the parent directory
+      // no longer exists. This surfaces as an ENOENT error. This is the
+      // expected behavior -- the engine should not silently swallow
+      // directory-level filesystem failures.
+      const manager = new WorkflowSessionManager(makeSessionConfig(tmpDir));
+      const sessionId = await manager.createSession();
+
+      // Delete the session directory
+      const sessionDir = path.join(tmpDir, '.wrangler', 'sessions', sessionId);
+      await fs.rm(sessionDir, { recursive: true, force: true });
+
+      // saveCheckpoint should throw because the directory is gone
+      await expect(manager.saveCheckpoint({
+        currentPhase: 'execute',
+        variables: {},
+        tasksCompleted: [],
+        tasksPending: [],
+      })).rejects.toThrow();
+    });
+
+    it('should handle double completeSession calls idempotently', async () => {
+      // Observed behavior: Calling completeSession twice works without
+      // error -- the second call simply overwrites the status in
+      // context.json with the same value. This is intentional -- the
+      // operation is idempotent and does not throw on repeat invocation.
+      const manager = new WorkflowSessionManager(makeSessionConfig(tmpDir));
+      const sessionId = await manager.createSession();
+
+      const result: WorkflowResult = {
+        status: 'completed',
+        outputs: {},
+        completedPhases: ['analyze', 'plan'],
+      };
+
+      // First completion
+      await manager.completeSession(result);
+
+      // Second completion -- should not throw
+      await expect(manager.completeSession(result)).resolves.toBeUndefined();
+
+      // Verify final state is still correct
+      const contextPath = path.join(
+        tmpDir, '.wrangler', 'sessions', sessionId, 'context.json'
+      );
+      const context = await readJson(contextPath) as Record<string, unknown>;
+      expect(context.status).toBe('completed');
+      expect(context.phasesCompleted).toEqual(['analyze', 'plan']);
+
+      // Verify two completion audit entries were appended (one per call)
+      const entries = await manager.getAuditEntries(sessionId);
+      const completeEntries = entries.filter(e => e.step === 'complete');
+      expect(completeEntries).toHaveLength(2);
+    });
+
+    it('should throw a clear error when context.json contains corrupted JSON', async () => {
+      // Observed behavior: When context.json is corrupted, saveCheckpoint
+      // calls readJson on it, which throws a SyntaxError. This is the
+      // expected behavior -- filesystem corruption should surface as an
+      // error, not be silently ignored.
+      const manager = new WorkflowSessionManager(makeSessionConfig(tmpDir));
+      const sessionId = await manager.createSession();
+
+      const contextPath = path.join(
+        tmpDir, '.wrangler', 'sessions', sessionId, 'context.json'
+      );
+      await fs.writeFile(contextPath, 'NOT-VALID-JSON{{{', 'utf-8');
+
+      // saveCheckpoint reads context.json to update it, so it should throw
+      await expect(manager.saveCheckpoint({
+        currentPhase: 'execute',
+        variables: {},
+        tasksCompleted: [],
+        tasksPending: [],
+      })).rejects.toThrow();
+    });
+  });
+
+  // -----------------------------------------------------------------------
   // Session ID format
   // -----------------------------------------------------------------------
   describe('session ID generation', () => {

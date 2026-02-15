@@ -4,10 +4,21 @@
  */
 
 import type { WorkflowContext } from '../state.js';
+import type { QueryFunction, EngineConfig } from '../types.js';
+
+/**
+ * Optional dependencies injected by the engine into handlers.
+ * Allows handlers to dispatch agent queries and read engine config.
+ */
+export interface HandlerDeps {
+  queryFn: QueryFunction;
+  config: EngineConfig;
+}
 
 export type HandlerFunction = (
   ctx: WorkflowContext,
-  input?: unknown
+  input?: unknown,
+  deps?: HandlerDeps
 ) => Promise<void>;
 
 export class HandlerRegistry {

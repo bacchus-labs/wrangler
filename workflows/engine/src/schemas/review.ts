@@ -49,10 +49,39 @@ export const AggregatedReviewResultSchema = z.object({
 export type AggregatedReviewResult = z.infer<typeof AggregatedReviewResultSchema>;
 
 /**
+ * Severity levels ordered from most to least severe.
+ * Used by minSeverity filtering to determine which issues are actionable.
+ */
+const SEVERITY_RANK: Record<string, number> = {
+  critical: 3,
+  important: 2,
+  minor: 1,
+};
+
+/**
+ * Options for aggregating gate results.
+ */
+export interface AggregateGateOptions {
+  /**
+   * Minimum severity level for an issue to be considered actionable.
+   * Issues below this severity are still included in the result but
+   * do not contribute to the hasActionableIssues flag.
+   *
+   * - "critical": only critical issues are actionable
+   * - "important": critical and important issues are actionable (default behavior)
+   * - "minor": all issues are actionable
+   *
+   * When omitted, defaults to "important" (backward-compatible behavior).
+   */
+  minSeverity?: 'critical' | 'important' | 'minor';
+}
+
+/**
  * Aggregate multiple gate results into a unified review result.
  */
 export function aggregateGateResults(
-  gateResults: Array<{ gate: string } & ReviewResult>
+  gateResults: Array<{ gate: string } & ReviewResult>,
+  options?: AggregateGateOptions,
 ): AggregatedReviewResult {
   const allIssues: ReviewIssue[] = [];
   const allStrengths: string[] = [];
@@ -67,8 +96,11 @@ export function aggregateGateResults(
     };
   });
 
+  const minSeverity = options?.minSeverity ?? 'important';
+  const minRank = SEVERITY_RANK[minSeverity];
+
   const hasActionableIssues = allIssues.some(
-    i => i.severity === 'critical' || i.severity === 'important'
+    i => SEVERITY_RANK[i.severity] >= minRank
   );
 
   return {

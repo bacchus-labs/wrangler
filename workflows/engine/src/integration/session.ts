@@ -101,6 +101,8 @@ export class WorkflowSessionManager {
   async saveCheckpoint(data: {
     currentPhase: string;
     variables: Record<string, unknown>;
+    completedPhases?: string[];
+    changedFiles?: string[];
     tasksCompleted: string[];
     tasksPending: string[];
   }): Promise<void> {
@@ -126,6 +128,9 @@ export class WorkflowSessionManager {
       context.currentPhase = data.currentPhase;
       context.tasksCompleted = data.tasksCompleted;
       context.tasksPending = data.tasksPending;
+      if (data.completedPhases) {
+        context.phasesCompleted = data.completedPhases;
+      }
       context.updatedAt = new Date().toISOString();
       await fs.writeJson(contextPath, context, { spaces: 2 });
     }
@@ -137,6 +142,8 @@ export class WorkflowSessionManager {
   async loadCheckpoint(sessionId: string): Promise<{
     currentPhase: string;
     variables: Record<string, unknown>;
+    completedPhases?: string[];
+    changedFiles?: string[];
     tasksCompleted: string[];
     tasksPending: string[];
   } | null> {
@@ -149,6 +156,8 @@ export class WorkflowSessionManager {
     return {
       currentPhase: checkpoint.currentPhase ?? checkpoint.lastAction,
       variables: checkpoint.variables ?? {},
+      completedPhases: checkpoint.completedPhases ?? [],
+      changedFiles: checkpoint.changedFiles ?? [],
       tasksCompleted: checkpoint.tasksCompleted ?? [],
       tasksPending: checkpoint.tasksPending ?? [],
     };
@@ -164,6 +173,7 @@ export class WorkflowSessionManager {
     if (await fs.pathExists(contextPath)) {
       const context = await fs.readJson(contextPath);
       context.status = result.status === 'completed' ? 'completed' : 'failed';
+      context.phasesCompleted = result.completedPhases;
       context.completedAt = new Date().toISOString();
       context.updatedAt = new Date().toISOString();
       await fs.writeJson(contextPath, context, { spaces: 2 });

@@ -99,7 +99,11 @@ program
         console.log(`Resuming from phase: ${checkpoint.currentPhase}`);
         const result = await engine.resume(
           workflowPath,
-          { variables: checkpoint.variables, completedPhases: [], changedFiles: [] },
+          {
+            variables: checkpoint.variables,
+            completedPhases: checkpoint.completedPhases ?? [],
+            changedFiles: checkpoint.changedFiles ?? [],
+          },
           checkpoint.currentPhase
         );
 
@@ -119,8 +123,10 @@ program
         if (result.status === 'paused') {
           await sessionManager.writeBlocker(result.blockerDetails ?? 'Unknown blocker');
           await sessionManager.saveCheckpoint({
-            currentPhase: result.completedPhases[result.completedPhases.length - 1] ?? 'init',
+            currentPhase: result.pausedAtPhase ?? result.completedPhases[result.completedPhases.length - 1] ?? 'init',
             variables: result.outputs,
+            completedPhases: result.completedPhases,
+            changedFiles: result.changedFiles ?? [],
             tasksCompleted: (result.outputs.tasksCompleted as string[]) ?? [],
             tasksPending: (result.outputs.tasksPending as string[]) ?? [],
           });
@@ -138,7 +144,7 @@ program
     }
   });
 
-function printResult(result: WorkflowResult): void {
+export function printResult(result: WorkflowResult): void {
   console.log('\n--- Workflow Complete ---');
   console.log(`Status: ${result.status}`);
   console.log(`Phases completed: ${result.completedPhases.join(', ')}`);
@@ -201,7 +207,7 @@ function printResult(result: WorkflowResult): void {
   }
 }
 
-async function getCurrentBranch(cwd: string): Promise<string> {
+export async function getCurrentBranch(cwd: string): Promise<string> {
   try {
     const { execSync } = await import('child_process');
     return execSync('git rev-parse --abbrev-ref HEAD', { cwd, encoding: 'utf-8' }).trim();
@@ -210,4 +216,8 @@ async function getCurrentBranch(cwd: string): Promise<string> {
   }
 }
 
-program.parse();
+// Only parse when executed directly as a CLI entry point (not when imported for testing).
+const isCLIEntryPoint = process.argv[1]?.replace(/\.ts$/, '.js').endsWith('/cli.js');
+if (isCLIEntryPoint) {
+  program.parse();
+}
