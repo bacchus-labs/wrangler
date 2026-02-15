@@ -225,6 +225,47 @@ describe('Workflow schemas', () => {
         type: 'gate-group',
       })).toThrow(ZodError);
     });
+
+    it('should accept gate-group with minSeverity', () => {
+      const result = GateGroupStepSchema.parse({
+        name: 'review',
+        type: 'gate-group',
+        gates: 'gates/',
+        minSeverity: 'important',
+        output: 'reviewResult',
+      });
+      expect(result.minSeverity).toBe('important');
+    });
+
+    it('should accept gate-group without minSeverity (optional)', () => {
+      const result = GateGroupStepSchema.parse({
+        name: 'review',
+        type: 'gate-group',
+        gates: 'gates/',
+      });
+      expect(result.minSeverity).toBeUndefined();
+    });
+
+    it('should reject gate-group with invalid minSeverity value', () => {
+      expect(() => GateGroupStepSchema.parse({
+        name: 'review',
+        type: 'gate-group',
+        gates: 'gates/',
+        minSeverity: 'low',
+      })).toThrow(ZodError);
+    });
+
+    it('should accept all valid minSeverity levels', () => {
+      for (const sev of ['critical', 'important', 'minor'] as const) {
+        const result = GateGroupStepSchema.parse({
+          name: 'review',
+          type: 'gate-group',
+          gates: 'gates/',
+          minSeverity: sev,
+        });
+        expect(result.minSeverity).toBe(sev);
+      }
+    });
   });
 
   // --- LoopStepPartialSchema ---
@@ -1406,6 +1447,113 @@ describe('Review schemas', () => {
       ]);
       expect(result.gateResults[0].assessment).toBe('needs_revision');
       expect(result.assessment).toBe('needs_revision');
+    });
+
+    // --- minSeverity filtering ---
+
+    it('should ignore minor issues when minSeverity is "important"', () => {
+      const result = aggregateGateResults([
+        {
+          gate: 'style',
+          assessment: 'needs_revision',
+          issues: [
+            { severity: 'minor', description: 'Whitespace issue', fixInstructions: 'Fix whitespace' },
+            { severity: 'minor', description: 'Naming convention', fixInstructions: 'Rename variable' },
+          ],
+          strengths: [],
+          hasActionableIssues: false,
+        },
+      ], { minSeverity: 'important' });
+      expect(result.assessment).toBe('approved');
+      expect(result.hasActionableIssues).toBe(false);
+      // All issues are still included in the result for informational purposes
+      expect(result.issues).toHaveLength(2);
+    });
+
+    it('should count important issues when minSeverity is "important"', () => {
+      const result = aggregateGateResults([
+        {
+          gate: 'code-quality',
+          assessment: 'needs_revision',
+          issues: [
+            { severity: 'important', description: 'Missing error handling', fixInstructions: 'Add try/catch' },
+            { severity: 'minor', description: 'Long line', fixInstructions: 'Break line' },
+          ],
+          strengths: [],
+          hasActionableIssues: true,
+        },
+      ], { minSeverity: 'important' });
+      expect(result.assessment).toBe('needs_revision');
+      expect(result.hasActionableIssues).toBe(true);
+    });
+
+    it('should only count critical issues when minSeverity is "critical"', () => {
+      const result = aggregateGateResults([
+        {
+          gate: 'review',
+          assessment: 'needs_revision',
+          issues: [
+            { severity: 'important', description: 'Missing docs', fixInstructions: 'Add docs' },
+            { severity: 'minor', description: 'Style nit', fixInstructions: 'Fix style' },
+          ],
+          strengths: [],
+          hasActionableIssues: true,
+        },
+      ], { minSeverity: 'critical' });
+      // important + minor issues exist, but minSeverity is critical, so not actionable
+      expect(result.assessment).toBe('approved');
+      expect(result.hasActionableIssues).toBe(false);
+    });
+
+    it('should trigger on critical issues when minSeverity is "critical"', () => {
+      const result = aggregateGateResults([
+        {
+          gate: 'security',
+          assessment: 'needs_revision',
+          issues: [
+            { severity: 'critical', description: 'SQL injection', fixInstructions: 'Use parameterized queries' },
+            { severity: 'minor', description: 'Naming nit', fixInstructions: 'Rename' },
+          ],
+          strengths: [],
+          hasActionableIssues: true,
+        },
+      ], { minSeverity: 'critical' });
+      expect(result.assessment).toBe('needs_revision');
+      expect(result.hasActionableIssues).toBe(true);
+    });
+
+    it('should default to current behavior (minor counts as not actionable) when no minSeverity', () => {
+      // Backward compatibility: without minSeverity, the default behavior
+      // counts critical + important as actionable (minor is not actionable)
+      const result = aggregateGateResults([
+        {
+          gate: 'style',
+          assessment: 'approved',
+          issues: [
+            { severity: 'minor', description: 'Whitespace', fixInstructions: 'Fix' },
+          ],
+          strengths: [],
+          hasActionableIssues: false,
+        },
+      ]);
+      expect(result.assessment).toBe('approved');
+      expect(result.hasActionableIssues).toBe(false);
+    });
+
+    it('should treat minSeverity "minor" as counting all issues as actionable', () => {
+      const result = aggregateGateResults([
+        {
+          gate: 'pedantic',
+          assessment: 'approved',
+          issues: [
+            { severity: 'minor', description: 'Extra space', fixInstructions: 'Remove space' },
+          ],
+          strengths: [],
+          hasActionableIssues: false,
+        },
+      ], { minSeverity: 'minor' });
+      expect(result.assessment).toBe('needs_revision');
+      expect(result.hasActionableIssues).toBe(true);
     });
   });
 });

@@ -9,6 +9,8 @@ import { createIssuesHandler } from '../src/handlers/create-issues.js';
 import { saveCheckpointHandler } from '../src/handlers/save-checkpoint.js';
 import { createDefaultRegistry } from '../src/handlers/index.js';
 import type { AnalysisResult, TaskDefinition } from '../src/schemas/index.js';
+import type { QueryFunction, SDKResultMessage, EngineConfig } from '../src/types.js';
+import type { HandlerDeps } from '../src/handlers/registry.js';
 
 // --- Helper: build a minimal valid AnalysisResult ---
 
@@ -251,6 +253,312 @@ describe('createIssuesHandler', () => {
     expect(taskIds).toHaveLength(20);
     expect(taskIds[0]).toBe('task-001');
     expect(taskIds[19]).toBe('task-020');
+  });
+});
+
+// ================================================================
+// createIssuesHandler - MCP issue creation
+// ================================================================
+
+/**
+ * Helper: create a mock queryFn that returns a result with created issue IDs.
+ */
+function makeMockQueryFn(
+  issueIds: Array<{ taskId: string; issueId: string }>,
+): QueryFunction {
+  return async function* mockQuery() {
+    const result: SDKResultMessage = {
+      type: 'result',
+      subtype: 'success',
+      is_error: false,
+      num_turns: 1,
+      total_cost_usd: 0.01,
+      session_id: 'mock-session',
+      structured_output: { createdIssues: issueIds },
+    };
+    yield result;
+  };
+}
+
+/**
+ * Helper: create a mock queryFn that yields an error result.
+ */
+function makeMockQueryFnError(): QueryFunction {
+  return async function* mockQueryError() {
+    const result: SDKResultMessage = {
+      type: 'result',
+      subtype: 'error_during_execution',
+      is_error: true,
+      num_turns: 1,
+      total_cost_usd: 0.01,
+      session_id: 'mock-session',
+      errors: ['Agent crashed'],
+    };
+    yield result;
+  };
+}
+
+/**
+ * Helper: create a mock queryFn that throws an exception.
+ */
+function makeMockQueryFnThrows(): QueryFunction {
+  return async function* mockQueryThrows() {
+    throw new Error('Network error');
+    // Unreachable but required for generator type
+    yield undefined as never;
+  };
+}
+
+function makeDeps(overrides: Partial<HandlerDeps> = {}): HandlerDeps {
+  return {
+    queryFn: makeMockQueryFn([]),
+    config: {
+      workingDirectory: '/tmp/test',
+      workflowBaseDir: '/tmp/test',
+      defaults: {
+        model: 'claude-sonnet-4-20250514',
+        permissionMode: 'default',
+        settingSources: [],
+      },
+      dryRun: false,
+      mcpServers: { wrangler: { command: 'node', args: ['mcp/dist/index.js'] } },
+    },
+    ...overrides,
+  };
+}
+
+describe('createIssuesHandler - MCP issue creation', () => {
+  it('falls back to stub behavior when no deps provided', async () => {
+    const analysis = makeAnalysis([
+      { id: 'task-a', title: 'Task A' },
+      { id: 'task-b', title: 'Task B' },
+    ]);
+    const ctx = new WorkflowContext();
+    ctx.set('analysis', analysis);
+
+    // No deps passed -- original stub behavior
+    await createIssuesHandler(ctx);
+
+    const updatedAnalysis = ctx.get('analysis') as AnalysisResult;
+    expect(updatedAnalysis.tasks).toHaveLength(2);
+    expect(ctx.get('taskIds')).toEqual(['task-a', 'task-b']);
+    // No mcpIssueIds set when no deps
+    expect(ctx.get('mcpIssueIds')).toBeUndefined();
+  });
+
+  it('falls back to stub behavior when mcpServers not configured', async () => {
+    const analysis = makeAnalysis([{ id: 'task-a', title: 'Task A' }]);
+    const ctx = new WorkflowContext();
+    ctx.set('analysis', analysis);
+
+    const deps = makeDeps({
+      config: {
+        workingDirectory: '/tmp/test',
+        workflowBaseDir: '/tmp/test',
+        defaults: {
+          model: 'claude-sonnet-4-20250514',
+          permissionMode: 'default',
+          settingSources: [],
+        },
+        dryRun: false,
+        // No mcpServers
+      },
+    });
+
+    await createIssuesHandler(ctx, undefined, deps);
+
+    expect(ctx.get('taskIds')).toEqual(['task-a']);
+    expect(ctx.get('mcpIssueIds')).toBeUndefined();
+  });
+
+  it('creates MCP issues when mcpServers is configured', async () => {
+    const analysis = makeAnalysis([
+      { id: 'task-a', title: 'Task A' },
+      { id: 'task-b', title: 'Task B' },
+    ]);
+    const ctx = new WorkflowContext();
+    ctx.set('analysis', analysis);
+
+    const queryFn = makeMockQueryFn([
+      { taskId: 'task-a', issueId: 'ISS-000001' },
+      { taskId: 'task-b', issueId: 'ISS-000002' },
+    ]);
+    const deps = makeDeps({ queryFn });
+
+    await createIssuesHandler(ctx, undefined, deps);
+
+    // Tasks should still be properly stored
+    expect(ctx.get('taskIds')).toEqual(['task-a', 'task-b']);
+    expect(ctx.get('tasksCompleted')).toEqual([]);
+    expect(ctx.get('tasksPending')).toEqual(['task-a', 'task-b']);
+
+    // MCP issue ID map should be stored
+    const issueIds = ctx.get('mcpIssueIds') as Record<string, string>;
+    expect(issueIds).toEqual({
+      'task-a': 'ISS-000001',
+      'task-b': 'ISS-000002',
+    });
+  });
+
+  it('calls queryFn with correct prompt and MCP server config', async () => {
+    const analysis = makeAnalysis([
+      { id: 'task-x', title: 'Implement feature X', description: 'Build feature X with tests' },
+    ]);
+    const ctx = new WorkflowContext();
+    ctx.set('analysis', analysis);
+
+    const calls: Array<{ prompt: string; options: Record<string, unknown> }> = [];
+    const queryFn: QueryFunction = async function* captureQuery(params) {
+      calls.push({ prompt: params.prompt, options: params.options ?? {} });
+      const result: SDKResultMessage = {
+        type: 'result',
+        subtype: 'success',
+        is_error: false,
+        num_turns: 1,
+        total_cost_usd: 0.01,
+        session_id: 'mock-session',
+        structured_output: {
+          createdIssues: [{ taskId: 'task-x', issueId: 'ISS-000099' }],
+        },
+      };
+      yield result;
+    };
+
+    const deps = makeDeps({ queryFn });
+
+    await createIssuesHandler(ctx, undefined, deps);
+
+    expect(calls).toHaveLength(1);
+    // Prompt should mention the tasks
+    expect(calls[0].prompt).toContain('task-x');
+    expect(calls[0].prompt).toContain('Implement feature X');
+    // MCP servers should be passed through
+    expect(calls[0].options).toHaveProperty('mcpServers');
+  });
+
+  it('handles agent error gracefully -- stores tasks without MCP IDs', async () => {
+    const analysis = makeAnalysis([
+      { id: 'task-err', title: 'Task with error' },
+    ]);
+    const ctx = new WorkflowContext();
+    ctx.set('analysis', analysis);
+
+    const queryFn = makeMockQueryFnError();
+    const deps = makeDeps({ queryFn });
+
+    // Should NOT throw
+    await createIssuesHandler(ctx, undefined, deps);
+
+    // Tasks should still be properly stored (fallback behavior)
+    expect(ctx.get('taskIds')).toEqual(['task-err']);
+    expect(ctx.get('tasksCompleted')).toEqual([]);
+    expect(ctx.get('tasksPending')).toEqual(['task-err']);
+    // No MCP issue IDs since agent errored
+    expect(ctx.get('mcpIssueIds')).toBeUndefined();
+  });
+
+  it('handles queryFn throwing an exception gracefully', async () => {
+    const analysis = makeAnalysis([
+      { id: 'task-throw', title: 'Task with throw' },
+    ]);
+    const ctx = new WorkflowContext();
+    ctx.set('analysis', analysis);
+
+    const queryFn = makeMockQueryFnThrows();
+    const deps = makeDeps({ queryFn });
+
+    // Should NOT throw
+    await createIssuesHandler(ctx, undefined, deps);
+
+    // Tasks should still be properly stored
+    expect(ctx.get('taskIds')).toEqual(['task-throw']);
+    expect(ctx.get('tasksCompleted')).toEqual([]);
+    expect(ctx.get('tasksPending')).toEqual(['task-throw']);
+    expect(ctx.get('mcpIssueIds')).toBeUndefined();
+  });
+
+  it('handles partial issue creation -- only stores successfully mapped IDs', async () => {
+    const analysis = makeAnalysis([
+      { id: 'task-1', title: 'Task 1' },
+      { id: 'task-2', title: 'Task 2' },
+      { id: 'task-3', title: 'Task 3' },
+    ]);
+    const ctx = new WorkflowContext();
+    ctx.set('analysis', analysis);
+
+    // Agent only returns IDs for 2 of 3 tasks
+    const queryFn = makeMockQueryFn([
+      { taskId: 'task-1', issueId: 'ISS-000010' },
+      { taskId: 'task-3', issueId: 'ISS-000012' },
+    ]);
+    const deps = makeDeps({ queryFn });
+
+    await createIssuesHandler(ctx, undefined, deps);
+
+    const issueIds = ctx.get('mcpIssueIds') as Record<string, string>;
+    expect(issueIds).toEqual({
+      'task-1': 'ISS-000010',
+      'task-3': 'ISS-000012',
+    });
+    // All tasks still tracked
+    expect(ctx.get('taskIds')).toEqual(['task-1', 'task-2', 'task-3']);
+  });
+
+  it('handles malformed agent response gracefully', async () => {
+    const analysis = makeAnalysis([{ id: 'task-bad', title: 'Bad response' }]);
+    const ctx = new WorkflowContext();
+    ctx.set('analysis', analysis);
+
+    const queryFn: QueryFunction = async function* malformedQuery() {
+      const result: SDKResultMessage = {
+        type: 'result',
+        subtype: 'success',
+        is_error: false,
+        num_turns: 1,
+        total_cost_usd: 0.01,
+        session_id: 'mock-session',
+        structured_output: { unexpected: 'format' },
+      };
+      yield result;
+    };
+    const deps = makeDeps({ queryFn });
+
+    // Should NOT throw
+    await createIssuesHandler(ctx, undefined, deps);
+
+    // Tasks still stored
+    expect(ctx.get('taskIds')).toEqual(['task-bad']);
+    // No MCP IDs since response was malformed
+    expect(ctx.get('mcpIssueIds')).toBeUndefined();
+  });
+
+  it('stores specPath in queryFn prompt when available in context', async () => {
+    const analysis = makeAnalysis([{ id: 'task-s', title: 'Spec task' }]);
+    const ctx = new WorkflowContext();
+    ctx.set('analysis', analysis);
+    ctx.set('specPath', '/path/to/SPEC-000045.md');
+
+    const calls: string[] = [];
+    const queryFn: QueryFunction = async function* capturePrompt(params) {
+      calls.push(params.prompt);
+      const result: SDKResultMessage = {
+        type: 'result',
+        subtype: 'success',
+        is_error: false,
+        num_turns: 1,
+        total_cost_usd: 0.01,
+        session_id: 'mock-session',
+        structured_output: {
+          createdIssues: [{ taskId: 'task-s', issueId: 'ISS-000050' }],
+        },
+      };
+      yield result;
+    };
+    const deps = makeDeps({ queryFn });
+
+    await createIssuesHandler(ctx, undefined, deps);
+
+    expect(calls[0]).toContain('SPEC-000045');
   });
 });
 

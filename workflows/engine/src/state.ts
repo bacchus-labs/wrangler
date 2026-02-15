@@ -23,6 +23,8 @@ export interface WorkflowResult {
   status: WorkflowStatus;
   outputs: Record<string, unknown>;
   completedPhases: string[];
+  changedFiles?: string[];
+  pausedAtPhase?: string;
   error?: string;
   blockerDetails?: string;
 }
@@ -39,12 +41,14 @@ export class WorkflowContext {
   private completedPhases: string[];
   private currentTaskId: string | null;
   private changedFiles: string[];
+  private currentPhase: string | null;
 
   constructor(initialVars: Record<string, unknown> = {}) {
     this.variables = { ...initialVars };
     this.completedPhases = [];
     this.currentTaskId = null;
     this.changedFiles = [];
+    this.currentPhase = null;
   }
 
   /**
@@ -136,6 +140,7 @@ export class WorkflowContext {
     child.completedPhases = [...this.completedPhases];
     child.currentTaskId = task.id;
     child.changedFiles = [...this.changedFiles];
+    child.currentPhase = this.currentPhase;
     return child;
   }
 
@@ -190,6 +195,20 @@ export class WorkflowContext {
   }
 
   /**
+   * Set the currently executing top-level phase.
+   */
+  setCurrentPhase(phaseName: string): void {
+    this.currentPhase = phaseName;
+  }
+
+  /**
+   * Get the currently executing top-level phase.
+   */
+  getCurrentPhase(): string | null {
+    return this.currentPhase;
+  }
+
+  /**
    * Mark a phase as completed.
    */
   markPhaseCompleted(phaseName: string): void {
@@ -234,6 +253,7 @@ export class WorkflowContext {
       status: 'completed',
       outputs: { ...this.variables },
       completedPhases: [...this.completedPhases],
+      changedFiles: [...this.changedFiles],
     };
   }
 
@@ -246,6 +266,7 @@ export class WorkflowContext {
       completedPhases: this.completedPhases,
       currentTaskId: this.currentTaskId,
       changedFiles: this.changedFiles,
+      currentPhase: this.currentPhase,
     };
   }
 
@@ -257,6 +278,7 @@ export class WorkflowContext {
     ctx.completedPhases = (data.completedPhases as string[]) ?? [];
     ctx.currentTaskId = (data.currentTaskId as string) ?? null;
     ctx.changedFiles = (data.changedFiles as string[]) ?? [];
+    ctx.currentPhase = (data.currentPhase as string) ?? null;
     return ctx;
   }
 }

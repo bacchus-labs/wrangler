@@ -10,6 +10,7 @@ export default {
       'ts-jest',
       {
         useESM: true,
+        tsconfig: 'tsconfig.test.json',
         diagnostics: {
           // ts-jest compiles files individually (isolatedModules behavior),
           // so it cannot see cross-method usage of imports within a class.
@@ -26,7 +27,6 @@ export default {
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/**/*.d.ts',
-    '!src/cli.ts',
   ],
   coverageThreshold: {
     global: {

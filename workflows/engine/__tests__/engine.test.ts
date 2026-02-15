@@ -20,6 +20,13 @@ import {
   type WorkflowAuditEntry,
 } from '../src/types.js';
 import type { TaskDefinition } from '../src/schemas/index.js';
+import {
+  createSDKSimulator,
+  createAgentSequence,
+  createEmptySequence,
+  createNullOutputSequence,
+  createMultiResultSequence,
+} from './fixtures/sdk-simulator.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -820,6 +827,186 @@ phases:
 
       expect(callLog).toHaveLength(0);
       expect(result.status).toBe('completed');
+    });
+
+    it('should filter issues by minSeverity when specified on gate-group step', async () => {
+      // Gate returns minor-only issues, but minSeverity is "important",
+      // so the aggregated result should be approved (not actionable).
+      await writeGateMarkdown(tmpDir, 'style-review.md', {
+        name: 'style-review',
+        description: 'Style review',
+        tools: [],
+        runCondition: 'always',
+        enabled: true,
+      }, 'Check style.');
+
+      await writeWorkflowYaml(tmpDir, 'workflow.yaml', `
+name: test-workflow
+version: 1
+phases:
+  - name: review
+    type: gate-group
+    gates: gates
+    minSeverity: important
+    output: reviewResult
+`);
+
+      const reviewResult = {
+        assessment: 'needs_revision',
+        issues: [
+          { severity: 'minor', description: 'Whitespace', fixInstructions: 'Fix whitespace' },
+          { severity: 'minor', description: 'Long line', fixInstructions: 'Break line' },
+        ],
+        strengths: ['Good tests'],
+        hasActionableIssues: false,
+      };
+
+      const queryFn = createMockQuery(new Map([['default', reviewResult]]));
+      const engine = new WorkflowEngine({
+        config: makeConfig(tmpDir),
+        queryFn,
+      });
+
+      const result = await engine.run('workflow.yaml', '/tmp/spec.md');
+      expect(result.status).toBe('completed');
+
+      const review = result.outputs.reviewResult as Record<string, unknown>;
+      expect(review.assessment).toBe('approved');
+      expect(review.hasActionableIssues).toBe(false);
+      // Issues are still present for informational purposes
+      expect((review.issues as unknown[]).length).toBe(2);
+    });
+
+    it('should trigger on important issues when minSeverity is "important"', async () => {
+      await writeGateMarkdown(tmpDir, 'code-review.md', {
+        name: 'code-review',
+        description: 'Code review',
+        tools: [],
+        runCondition: 'always',
+        enabled: true,
+      }, 'Check code quality.');
+
+      await writeWorkflowYaml(tmpDir, 'workflow.yaml', `
+name: test-workflow
+version: 1
+phases:
+  - name: review
+    type: gate-group
+    gates: gates
+    minSeverity: important
+    output: reviewResult
+`);
+
+      const reviewResult = {
+        assessment: 'needs_revision',
+        issues: [
+          { severity: 'important', description: 'Missing error handling', fixInstructions: 'Add try/catch' },
+          { severity: 'minor', description: 'Naming convention', fixInstructions: 'Rename' },
+        ],
+        strengths: [],
+        hasActionableIssues: true,
+      };
+
+      const queryFn = createMockQuery(new Map([['default', reviewResult]]));
+      const engine = new WorkflowEngine({
+        config: makeConfig(tmpDir),
+        queryFn,
+      });
+
+      const result = await engine.run('workflow.yaml', '/tmp/spec.md');
+      expect(result.status).toBe('completed');
+
+      const review = result.outputs.reviewResult as Record<string, unknown>;
+      expect(review.assessment).toBe('needs_revision');
+      expect(review.hasActionableIssues).toBe(true);
+    });
+
+    it('should use default behavior (important+critical actionable) when no minSeverity specified', async () => {
+      // Backward compatibility: gate-group without minSeverity uses the existing default
+      await writeGateMarkdown(tmpDir, 'review.md', {
+        name: 'review',
+        description: 'Review',
+        tools: [],
+        runCondition: 'always',
+        enabled: true,
+      }, 'Review code.');
+
+      await writeWorkflowYaml(tmpDir, 'workflow.yaml', `
+name: test-workflow
+version: 1
+phases:
+  - name: review
+    type: gate-group
+    gates: gates
+    output: reviewResult
+`);
+
+      const reviewResult = {
+        assessment: 'approved',
+        issues: [
+          { severity: 'minor', description: 'Whitespace', fixInstructions: 'Fix' },
+        ],
+        strengths: ['Clean code'],
+        hasActionableIssues: false,
+      };
+
+      const queryFn = createMockQuery(new Map([['default', reviewResult]]));
+      const engine = new WorkflowEngine({
+        config: makeConfig(tmpDir),
+        queryFn,
+      });
+
+      const result = await engine.run('workflow.yaml', '/tmp/spec.md');
+      expect(result.status).toBe('completed');
+
+      const review = result.outputs.reviewResult as Record<string, unknown>;
+      expect(review.assessment).toBe('approved');
+      expect(review.hasActionableIssues).toBe(false);
+    });
+
+    it('should only trigger on critical when minSeverity is "critical"', async () => {
+      await writeGateMarkdown(tmpDir, 'security.md', {
+        name: 'security',
+        description: 'Security review',
+        tools: [],
+        runCondition: 'always',
+        enabled: true,
+      }, 'Check security.');
+
+      await writeWorkflowYaml(tmpDir, 'workflow.yaml', `
+name: test-workflow
+version: 1
+phases:
+  - name: review
+    type: gate-group
+    gates: gates
+    minSeverity: critical
+    output: reviewResult
+`);
+
+      const reviewResult = {
+        assessment: 'needs_revision',
+        issues: [
+          { severity: 'important', description: 'Missing validation', fixInstructions: 'Add validation' },
+          { severity: 'minor', description: 'Long method', fixInstructions: 'Refactor' },
+        ],
+        strengths: [],
+        hasActionableIssues: true,
+      };
+
+      const queryFn = createMockQuery(new Map([['default', reviewResult]]));
+      const engine = new WorkflowEngine({
+        config: makeConfig(tmpDir),
+        queryFn,
+      });
+
+      const result = await engine.run('workflow.yaml', '/tmp/spec.md');
+      expect(result.status).toBe('completed');
+
+      const review = result.outputs.reviewResult as Record<string, unknown>;
+      // important + minor issues exist, but minSeverity is critical, so not actionable
+      expect(review.assessment).toBe('approved');
+      expect(review.hasActionableIssues).toBe(false);
     });
   });
 
@@ -3802,6 +3989,918 @@ phases:
       expect(callLog[1].options?.model).toBe('agent-level-model');
       // Workflow default wins over engine config
       expect(callLog[2].options?.model).toBe('workflow-default-model');
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Bug fix: ISS-000115 - pausedAtPhase in result when workflow pauses
+  // -----------------------------------------------------------------------
+  describe('pausedAtPhase in result (ISS-000115)', () => {
+    it('should include pausedAtPhase in result when a phase escalates via loop', async () => {
+      await writeAgentMarkdown(tmpDir, 'fixer.md', {
+        name: 'fixer',
+        description: 'Fixes issues',
+        tools: [],
+      }, 'Fix issues.');
+
+      const registry = new HandlerRegistry();
+      registry.register('setup', async (ctx) => {
+        ctx.set('review', { hasActionableIssues: true });
+      });
+
+      await writeWorkflowYaml(tmpDir, 'workflow.yaml', `
+name: test-workflow
+version: 1
+phases:
+  - name: analyze
+    type: code
+    handler: setup
+  - name: execute
+    type: loop
+    condition: review.hasActionableIssues
+    maxRetries: 1
+    onExhausted: escalate
+    steps:
+      - name: fix
+        type: agent
+        agent: fixer.md
+`);
+
+      const queryFn = createMockQuery(new Map([['default', {}]]));
+
+      const engine = new WorkflowEngine({
+        config: makeConfig(tmpDir),
+        queryFn,
+        handlerRegistry: registry,
+      });
+
+      const result = await engine.run('workflow.yaml', '/tmp/spec.md');
+
+      expect(result.status).toBe('paused');
+      expect(result.pausedAtPhase).toBe('execute');
+      expect(result.completedPhases).toEqual(['analyze']);
+    });
+
+    it('should include pausedAtPhase when per-task step pauses', async () => {
+      await writeAgentMarkdown(tmpDir, 'implementer.md', {
+        name: 'implementer',
+        description: 'Implements',
+        tools: [],
+      }, 'Implement {{task.title}}.');
+
+      await writeAgentMarkdown(tmpDir, 'fixer.md', {
+        name: 'fixer',
+        description: 'Fixes',
+        tools: [],
+      }, 'Fix issues.');
+
+      const tasks: TaskDefinition[] = [
+        { id: 't1', title: 'Task 1', description: 'D1', requirements: [], dependencies: [], estimatedComplexity: 'low', filePaths: [] },
+      ];
+
+      const registry = new HandlerRegistry();
+      registry.register('setup', async (ctx) => {
+        ctx.set('analysis', { tasks });
+        ctx.set('review', { hasActionableIssues: true });
+      });
+
+      await writeWorkflowYaml(tmpDir, 'workflow.yaml', `
+name: test-workflow
+version: 1
+phases:
+  - name: plan
+    type: code
+    handler: setup
+  - name: execute
+    type: per-task
+    source: analysis.tasks
+    steps:
+      - name: implement
+        type: agent
+        agent: implementer.md
+      - name: fix-loop
+        type: loop
+        condition: review.hasActionableIssues
+        maxRetries: 1
+        onExhausted: escalate
+        steps:
+          - name: fix
+            type: agent
+            agent: fixer.md
+`);
+
+      const queryFn = createMockQuery(new Map([['default', {}]]));
+
+      const engine = new WorkflowEngine({
+        config: makeConfig(tmpDir),
+        queryFn,
+        handlerRegistry: registry,
+      });
+
+      const result = await engine.run('workflow.yaml', '/tmp/spec.md');
+
+      expect(result.status).toBe('paused');
+      expect(result.pausedAtPhase).toBe('execute');
+      expect(result.completedPhases).toEqual(['plan']);
+    });
+
+    it('should include changedFiles in paused result', async () => {
+      await writeAgentMarkdown(tmpDir, 'impl.md', {
+        name: 'impl',
+        description: 'Implements',
+        tools: [],
+      }, 'Implement.');
+
+      const registry = new HandlerRegistry();
+      registry.register('setup', async (ctx) => {
+        ctx.addChangedFile('src/foo.ts');
+        ctx.set('review', { hasActionableIssues: true });
+      });
+
+      await writeWorkflowYaml(tmpDir, 'workflow.yaml', `
+name: test-workflow
+version: 1
+phases:
+  - name: setup
+    type: code
+    handler: setup
+  - name: fix-loop
+    type: loop
+    condition: review.hasActionableIssues
+    maxRetries: 1
+    onExhausted: escalate
+    steps:
+      - name: fix
+        type: agent
+        agent: impl.md
+`);
+
+      const queryFn = createMockQuery(new Map([['default', {}]]));
+
+      const engine = new WorkflowEngine({
+        config: makeConfig(tmpDir),
+        queryFn,
+        handlerRegistry: registry,
+      });
+
+      const result = await engine.run('workflow.yaml', '/tmp/spec.md');
+
+      expect(result.status).toBe('paused');
+      expect(result.changedFiles).toEqual(['src/foo.ts']);
+    });
+
+    it('should include changedFiles in failed result', async () => {
+      await writeAgentMarkdown(tmpDir, 'agent.md', {
+        name: 'agent',
+        description: 'Agent',
+        tools: [],
+      }, 'Do something.');
+
+      const registry = new HandlerRegistry();
+      registry.register('setup', async (ctx) => {
+        ctx.addChangedFile('src/bar.ts');
+        ctx.set('review', { hasActionableIssues: true });
+      });
+
+      await writeWorkflowYaml(tmpDir, 'workflow.yaml', `
+name: test-workflow
+version: 1
+phases:
+  - name: setup
+    type: code
+    handler: setup
+  - name: fix-loop
+    type: loop
+    condition: review.hasActionableIssues
+    maxRetries: 1
+    onExhausted: fail
+    steps:
+      - name: fix
+        type: agent
+        agent: agent.md
+`);
+
+      const queryFn = createMockQuery(new Map([['default', {}]]));
+
+      const engine = new WorkflowEngine({
+        config: makeConfig(tmpDir),
+        queryFn,
+        handlerRegistry: registry,
+      });
+
+      const result = await engine.run('workflow.yaml', '/tmp/spec.md');
+
+      expect(result.status).toBe('failed');
+      expect(result.changedFiles).toEqual(['src/bar.ts']);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Bug fix: ISS-000116 - per-task checkpoint on loop exhaustion
+  // -----------------------------------------------------------------------
+  describe('per-task checkpoint on loop exhaustion (ISS-000116)', () => {
+    it('should save task checkpoint data when loop exhausts and escalates', async () => {
+      await writeAgentMarkdown(tmpDir, 'implementer.md', {
+        name: 'implementer',
+        description: 'Implements',
+        tools: [],
+      }, 'Implement {{task.title}}.');
+
+      await writeAgentMarkdown(tmpDir, 'fixer.md', {
+        name: 'fixer',
+        description: 'Fixes',
+        tools: [],
+      }, 'Fix issues.');
+
+      const tasks: TaskDefinition[] = [
+        { id: 't1', title: 'Task 1', description: 'D1', requirements: [], dependencies: [], estimatedComplexity: 'low', filePaths: [] },
+      ];
+
+      const registry = new HandlerRegistry();
+      registry.register('setup', async (ctx) => {
+        ctx.set('analysis', { tasks });
+        ctx.set('tasksCompleted', []);
+        ctx.set('tasksPending', ['t1']);
+        ctx.set('review', { hasActionableIssues: true });
+      });
+
+      await writeWorkflowYaml(tmpDir, 'workflow.yaml', `
+name: test-workflow
+version: 1
+phases:
+  - name: plan
+    type: code
+    handler: setup
+  - name: execute
+    type: per-task
+    source: analysis.tasks
+    steps:
+      - name: implement
+        type: agent
+        agent: implementer.md
+      - name: fix-loop
+        type: loop
+        condition: review.hasActionableIssues
+        maxRetries: 1
+        onExhausted: escalate
+        steps:
+          - name: fix
+            type: agent
+            agent: fixer.md
+      - name: checkpoint
+        type: code
+        handler: save-checkpoint
+`);
+
+      // Register the real save-checkpoint handler
+      const { saveCheckpointHandler } = await import('../src/handlers/save-checkpoint.js');
+      registry.register('save-checkpoint', saveCheckpointHandler);
+
+      const queryFn = createMockQuery(new Map([['default', {}]]));
+
+      const engine = new WorkflowEngine({
+        config: makeConfig(tmpDir),
+        queryFn,
+        handlerRegistry: registry,
+      });
+
+      const result = await engine.run('workflow.yaml', '/tmp/spec.md');
+
+      expect(result.status).toBe('paused');
+      // The task checkpoint data should have been saved even though the
+      // checkpoint step never ran (because the loop exhausted first).
+      // The engine's runPerTask catch block captures this.
+      expect(result.outputs.tasksCompleted).toContain('t1');
+      expect(result.outputs.tasksPending).toEqual([]);
+    });
+
+    it('should merge task context back to parent even when loop exhausts', async () => {
+      await writeAgentMarkdown(tmpDir, 'implementer.md', {
+        name: 'implementer',
+        description: 'Implements',
+        tools: [],
+      }, 'Implement {{task.title}}.');
+
+      await writeAgentMarkdown(tmpDir, 'fixer.md', {
+        name: 'fixer',
+        description: 'Fixes',
+        tools: [],
+      }, 'Fix issues.');
+
+      const tasks: TaskDefinition[] = [
+        { id: 't1', title: 'Task 1', description: 'D1', requirements: [], dependencies: [], estimatedComplexity: 'low', filePaths: [] },
+      ];
+
+      const registry = new HandlerRegistry();
+      registry.register('setup', async (ctx) => {
+        ctx.set('analysis', { tasks });
+        ctx.set('review', { hasActionableIssues: true });
+      });
+
+      await writeWorkflowYaml(tmpDir, 'workflow.yaml', `
+name: test-workflow
+version: 1
+phases:
+  - name: plan
+    type: code
+    handler: setup
+  - name: execute
+    type: per-task
+    source: analysis.tasks
+    steps:
+      - name: implement
+        type: agent
+        agent: implementer.md
+        output: implementation
+      - name: fix-loop
+        type: loop
+        condition: review.hasActionableIssues
+        maxRetries: 1
+        onExhausted: escalate
+        steps:
+          - name: fix
+            type: agent
+            agent: fixer.md
+`);
+
+      const implResult = {
+        filesChanged: [{ path: 'src/task1.ts' }],
+      };
+
+      const resultsMap = new Map<string, unknown>([
+        ['Implement', implResult],
+        ['Fix', {}],
+      ]);
+      const queryFn = createMockQuery(resultsMap);
+
+      const engine = new WorkflowEngine({
+        config: makeConfig(tmpDir),
+        queryFn,
+        handlerRegistry: registry,
+      });
+
+      const result = await engine.run('workflow.yaml', '/tmp/spec.md');
+
+      expect(result.status).toBe('paused');
+      // Changed files from the implementation should have been merged
+      expect(result.changedFiles).toContain('src/task1.ts');
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Bug fix: ISS-000120 - resume restores completedPhases from checkpoint
+  // -----------------------------------------------------------------------
+  describe('resume restores checkpoint state (ISS-000120)', () => {
+    it('should restore completedPhases from checkpoint data on resume', async () => {
+      const registry = new HandlerRegistry();
+      registry.register('noop', async () => {});
+
+      await writeWorkflowYaml(tmpDir, 'workflow.yaml', `
+name: test-workflow
+version: 1
+phases:
+  - name: analyze
+    type: code
+    handler: noop
+  - name: plan
+    type: code
+    handler: noop
+  - name: execute
+    type: code
+    handler: noop
+`);
+
+      const queryFn = createMockQuery(new Map());
+      const engine = new WorkflowEngine({
+        config: makeConfig(tmpDir),
+        queryFn,
+        handlerRegistry: registry,
+      });
+
+      // Simulate resume from execute with analyze and plan already done
+      const result = await engine.resume(
+        'workflow.yaml',
+        {
+          variables: { someData: 'preserved' },
+          completedPhases: ['analyze', 'plan'],
+          currentTaskId: null,
+          changedFiles: ['src/existing.ts'],
+        },
+        'execute'
+      );
+
+      expect(result.status).toBe('completed');
+      // Should include BOTH the restored phases AND the newly completed one
+      expect(result.completedPhases).toEqual(['analyze', 'plan', 'execute']);
+      // Changed files should be preserved
+      expect(result.changedFiles).toContain('src/existing.ts');
+      // Variables should be preserved
+      expect(result.outputs.someData).toBe('preserved');
+    });
+
+    it('should restore changedFiles from checkpoint data on resume', async () => {
+      await writeAgentMarkdown(tmpDir, 'agent.md', {
+        name: 'agent',
+        description: 'Agent',
+        tools: [],
+      }, 'Do something.');
+
+      await writeWorkflowYaml(tmpDir, 'workflow.yaml', `
+name: test-workflow
+version: 1
+phases:
+  - name: verify
+    type: agent
+    agent: agent.md
+    output: verification
+`);
+
+      const queryFn = createMockQuery(new Map([
+        ['default', { testSuite: { exitCode: 0 } }],
+      ]));
+
+      const engine = new WorkflowEngine({
+        config: makeConfig(tmpDir),
+        queryFn,
+      });
+
+      const result = await engine.resume(
+        'workflow.yaml',
+        {
+          variables: {},
+          completedPhases: ['analyze', 'plan', 'execute'],
+          currentTaskId: null,
+          changedFiles: ['src/auth.ts', 'src/api.ts'],
+        },
+        'verify'
+      );
+
+      expect(result.status).toBe('completed');
+      expect(result.changedFiles).toContain('src/auth.ts');
+      expect(result.changedFiles).toContain('src/api.ts');
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Silent default behaviors
+  // -----------------------------------------------------------------------
+  describe('silent default behaviors', () => {
+    /**
+     * These tests explicitly document cases where the engine silently
+     * succeeds despite receiving unexpected or missing data from agent
+     * queries. Each test includes a comment explaining whether the
+     * behavior is intentional and why.
+     */
+
+    it('should silently skip output storage when agent produces no result message', async () => {
+      // Intentional: agent completes without result message, output silently not stored.
+      // The engine's for-await loop finishes without encountering a result message.
+      // Since `result` stays at its initial value of `null` and the storage guard is
+      // `if (step.output && result != null)`, the output key is never written.
+      const { queryFn, calls } = createSDKSimulator({
+        responses: new Map(),
+        defaultResponse: createEmptySequence(),
+      });
+
+      await writeAgentMarkdown(tmpDir, 'quiet-agent.md', {
+        name: 'quiet-agent',
+        description: 'Agent that produces no result',
+        tools: [],
+      }, 'Do something.');
+
+      // Two-phase workflow: quiet-agent stores to "analysis", then a second step checks
+      await writeAgentMarkdown(tmpDir, 'followup.md', {
+        name: 'followup',
+        description: 'Followup step',
+        tools: [],
+      }, 'Followup step.');
+
+      await writeWorkflowYaml(tmpDir, 'workflow.yaml', `
+name: test-silent-no-result
+version: 1
+phases:
+  - name: analyze
+    type: agent
+    agent: quiet-agent.md
+    output: analysis
+  - name: followup
+    type: agent
+    agent: followup.md
+`);
+
+      const engine = new WorkflowEngine({
+        config: makeConfig(tmpDir),
+        queryFn,
+      });
+
+      const result = await engine.run('workflow.yaml', '/tmp/spec.md');
+
+      // Engine should NOT throw -- it silently continues
+      expect(result.status).toBe('completed');
+      // The output key should NOT be stored in outputs
+      expect(result.outputs.analysis).toBeUndefined();
+      // Both steps should have been called
+      expect(calls).toHaveLength(2);
+    });
+
+    it('should silently skip output storage when agent returns null structured_output', async () => {
+      // Intentional: null structured_output is treated as "no output" by the engine.
+      // The guard `message.structured_output != null` filters out null values,
+      // so `result` remains at its initial value of `null`, and the storage
+      // guard `if (step.output && result != null)` prevents writing.
+      const { queryFn } = createSDKSimulator({
+        responses: new Map(),
+        defaultResponse: createNullOutputSequence(),
+      });
+
+      await writeAgentMarkdown(tmpDir, 'null-agent.md', {
+        name: 'null-agent',
+        description: 'Agent that returns null output',
+        tools: [],
+      }, 'Produce nothing.');
+
+      await writeWorkflowYaml(tmpDir, 'workflow.yaml', `
+name: test-silent-null-output
+version: 1
+phases:
+  - name: step1
+    type: agent
+    agent: null-agent.md
+    output: someKey
+`);
+
+      const engine = new WorkflowEngine({
+        config: makeConfig(tmpDir),
+        queryFn,
+      });
+
+      const result = await engine.run('workflow.yaml', '/tmp/spec.md');
+
+      // Engine completes without error
+      expect(result.status).toBe('completed');
+      // Output key is NOT stored (null output treated as no output)
+      expect(result.outputs.someKey).toBeUndefined();
+    });
+
+    it('should default gate to approved when query returns no result message', async () => {
+      // Intentional fail-open: gate with no result defaults to approved.
+      // In runSingleGate, when the generator yields no result message,
+      // `result` stays null, and the fallback is:
+      //   return result ?? { assessment: 'approved', issues: [], strengths: [], hasActionableIssues: false }
+      // This is a deliberate fail-open design -- a gate that produces no output
+      // is treated as passing. This avoids blocking the workflow on agent failures.
+      const { queryFn, calls } = createSDKSimulator({
+        responses: new Map(),
+        defaultResponse: createEmptySequence(),
+      });
+
+      await writeGateMarkdown(tmpDir, 'silent-gate.md', {
+        name: 'silent-gate',
+        description: 'Gate that returns no result',
+        tools: [],
+        runCondition: 'always',
+        enabled: true,
+      }, 'Review the code.');
+
+      await writeWorkflowYaml(tmpDir, 'workflow.yaml', `
+name: test-silent-gate
+version: 1
+phases:
+  - name: review
+    type: gate-group
+    gates: gates
+    output: reviewResult
+`);
+
+      const engine = new WorkflowEngine({
+        config: makeConfig(tmpDir),
+        queryFn,
+      });
+
+      const result = await engine.run('workflow.yaml', '/tmp/spec.md');
+
+      expect(result.status).toBe('completed');
+      expect(calls).toHaveLength(1);
+
+      const review = result.outputs.reviewResult as Record<string, unknown>;
+      // Gate defaults to approved when no result is returned
+      expect(review.assessment).toBe('approved');
+      expect(review.hasActionableIssues).toBe(false);
+      // The aggregated result includes a gate summary for the silent gate
+      const gateResults = review.gateResults as Array<Record<string, unknown>>;
+      expect(gateResults).toHaveLength(1);
+      expect(gateResults[0].gate).toBe('silent-gate');
+      expect(gateResults[0].assessment).toBe('approved');
+    });
+
+    it('should use last result message when multiple results are received (last-wins)', async () => {
+      // Intentional: last result message wins when multiple are received.
+      // The engine's for-await loop overwrites `result` on each successful
+      // result message with non-null structured_output. This means if the
+      // agent yields multiple result messages, only the last one is kept.
+      const { queryFn } = createSDKSimulator({
+        responses: new Map(),
+        defaultResponse: createMultiResultSequence(
+          { first: true, value: 'initial' },
+          { second: true, value: 'revised' },
+        ),
+      });
+
+      await writeAgentMarkdown(tmpDir, 'multi-result.md', {
+        name: 'multi-result',
+        description: 'Agent that yields multiple results',
+        tools: [],
+      }, 'Produce multiple results.');
+
+      await writeWorkflowYaml(tmpDir, 'workflow.yaml', `
+name: test-last-wins
+version: 1
+phases:
+  - name: step1
+    type: agent
+    agent: multi-result.md
+    output: data
+`);
+
+      const engine = new WorkflowEngine({
+        config: makeConfig(tmpDir),
+        queryFn,
+      });
+
+      const result = await engine.run('workflow.yaml', '/tmp/spec.md');
+
+      expect(result.status).toBe('completed');
+      // The SECOND output should be stored, not the first
+      expect(result.outputs.data).toEqual({ second: true, value: 'revised' });
+      expect((result.outputs.data as Record<string, unknown>).first).toBeUndefined();
+    });
+
+    it('should propagate error and record in audit trail when query throws mid-stream', async () => {
+      // When the agent's async generator throws mid-stream (after yielding
+      // some messages), the error propagates from the for-await loop in
+      // runAgent, is caught by executeStep, recorded via auditStepFailed,
+      // and then re-thrown.
+      const auditEntries: WorkflowAuditEntry[] = [];
+
+      // Create a custom queryFn that throws after yielding an assistant message
+      const throwingQueryFn: QueryFunction = async function* (
+        _params: QueryOptions,
+      ): AsyncGenerator<SDKMessage, void> {
+        yield { type: 'assistant', content: 'Starting work...' };
+        // Simulate a mid-stream error (e.g., network failure, SDK crash)
+        throw new Error('SDK connection lost mid-stream');
+      };
+
+      await writeAgentMarkdown(tmpDir, 'failing-agent.md', {
+        name: 'failing-agent',
+        description: 'Agent whose query throws',
+        tools: [],
+      }, 'Do work that will crash.');
+
+      await writeWorkflowYaml(tmpDir, 'workflow.yaml', `
+name: test-throw-mid-stream
+version: 1
+phases:
+  - name: step1
+    type: agent
+    agent: failing-agent.md
+    output: data
+`);
+
+      const engine = new WorkflowEngine({
+        config: makeConfig(tmpDir),
+        queryFn: throwingQueryFn,
+        onAuditEntry: async (entry) => {
+          auditEntries.push(entry);
+        },
+      });
+
+      // The error should propagate
+      await expect(engine.run('workflow.yaml', '/tmp/spec.md')).rejects.toThrow(
+        'SDK connection lost mid-stream'
+      );
+
+      // Verify the audit trail recorded the failure
+      const failedEntry = auditEntries.find(
+        e => e.step === 'step1' && e.status === 'failed'
+      );
+      expect(failedEntry).toBeDefined();
+      expect(failedEntry!.metadata?.error).toBe('SDK connection lost mid-stream');
+    });
+
+    it('should throw ZodError when gate returns malformed ReviewResult data', async () => {
+      // When a gate returns structured_output that doesn't match ReviewResultSchema,
+      // the Zod parse in runSingleGate throws a ZodError. This error propagates
+      // through executeStep (which records it via auditStepFailed) and ultimately
+      // causes the workflow to fail. This is NOT a silent behavior -- malformed
+      // gate data is treated as a hard error, not silently handled.
+      const auditEntries: WorkflowAuditEntry[] = [];
+
+      // Malformed result: missing required 'assessment' field, wrong types
+      const malformedData = {
+        // 'assessment' is MISSING (required by ReviewResultSchema)
+        issues: 'not-an-array',    // should be an array
+        strengths: 42,              // should be an array
+        hasActionableIssues: 'yes', // should be a boolean
+      };
+
+      const { queryFn } = createSDKSimulator({
+        responses: new Map(),
+        defaultResponse: createAgentSequence(malformedData),
+      });
+
+      await writeGateMarkdown(tmpDir, 'malformed-gate.md', {
+        name: 'malformed-gate',
+        description: 'Gate with bad output',
+        tools: [],
+        runCondition: 'always',
+        enabled: true,
+      }, 'Review with bad schema.');
+
+      await writeWorkflowYaml(tmpDir, 'workflow.yaml', `
+name: test-malformed-gate
+version: 1
+phases:
+  - name: review
+    type: gate-group
+    gates: gates
+    output: reviewResult
+`);
+
+      const engine = new WorkflowEngine({
+        config: makeConfig(tmpDir),
+        queryFn,
+        onAuditEntry: async (entry) => {
+          auditEntries.push(entry);
+        },
+      });
+
+      // Should throw due to Zod validation failure in ReviewResultSchema.parse()
+      await expect(engine.run('workflow.yaml', '/tmp/spec.md')).rejects.toThrow();
+
+      // Verify the error was captured in the audit trail
+      const failedEntry = auditEntries.find(
+        e => e.step === 'review' && e.status === 'failed'
+      );
+      expect(failedEntry).toBeDefined();
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // ISS-000113: onPhaseComplete callback error handling
+  // -----------------------------------------------------------------------
+  describe('onPhaseComplete callback error handling (ISS-000113)', () => {
+    it('should propagate error when onPhaseComplete throws on the first phase', async () => {
+      // Observed behavior: When onPhaseComplete throws, the error propagates
+      // out of engine.run() as an unhandled error (not caught by
+      // WorkflowFailure/WorkflowPaused handlers). This is intentional --
+      // callback errors are considered unrecoverable infrastructure failures,
+      // not workflow-level failures. The phase IS marked completed in context
+      // before the callback fires (line 97: markPhaseCompleted before line 99).
+      await writeAgentMarkdown(tmpDir, 'agent.md', {
+        name: 'agent',
+        description: 'Simple agent',
+        tools: [],
+      }, 'Do something.');
+
+      await writeWorkflowYaml(tmpDir, 'workflow.yaml', `
+name: test-workflow
+version: 1
+phases:
+  - name: analyze
+    type: agent
+    agent: agent.md
+    output: analysis
+`);
+
+      const queryFn = createMockQuery(new Map([
+        ['default', { result: 'ok' }],
+      ]));
+
+      const callbackError = new Error('Callback infrastructure failure');
+
+      const engine = new WorkflowEngine({
+        config: makeConfig(tmpDir, {
+          onPhaseComplete: async (_phaseName, _context) => {
+            throw callbackError;
+          },
+        }),
+        queryFn,
+      });
+
+      // The error should propagate (not be swallowed or wrapped)
+      await expect(engine.run('workflow.yaml', '/tmp/spec.md')).rejects.toThrow(
+        'Callback infrastructure failure'
+      );
+    });
+
+    it('should preserve first phase output when onPhaseComplete throws on second phase', async () => {
+      // Observed behavior: The first phase completes successfully and its
+      // callback succeeds. The second phase completes and its callback throws.
+      // The error propagates, but the first phase's output was already stored
+      // in context. Since the error is unhandled (not WorkflowFailure), it
+      // propagates as a raw throw, so there is no WorkflowResult to inspect.
+      // We verify the callback received the correct phase names and context.
+      await writeAgentMarkdown(tmpDir, 'agent1.md', {
+        name: 'agent1',
+        description: 'First agent',
+        tools: [],
+      }, 'Phase 1 work.');
+
+      await writeAgentMarkdown(tmpDir, 'agent2.md', {
+        name: 'agent2',
+        description: 'Second agent',
+        tools: [],
+      }, 'Phase 2 work.');
+
+      await writeWorkflowYaml(tmpDir, 'workflow.yaml', `
+name: test-workflow
+version: 1
+phases:
+  - name: analyze
+    type: agent
+    agent: agent1.md
+    output: analysis
+  - name: plan
+    type: agent
+    agent: agent2.md
+    output: plan
+`);
+
+      const queryFn = createMockQuery(new Map([
+        ['Phase 1', { analysisData: 'important' }],
+        ['Phase 2', { planData: 'detailed' }],
+      ]));
+
+      const callbackInvocations: Array<{ phase: string; completedPhases: string[] }> = [];
+
+      const engine = new WorkflowEngine({
+        config: makeConfig(tmpDir, {
+          onPhaseComplete: async (phaseName, context) => {
+            callbackInvocations.push({
+              phase: phaseName,
+              completedPhases: context.getCompletedPhases(),
+            });
+            if (phaseName === 'plan') {
+              throw new Error('Second phase callback failure');
+            }
+          },
+        }),
+        queryFn,
+      });
+
+      await expect(engine.run('workflow.yaml', '/tmp/spec.md')).rejects.toThrow(
+        'Second phase callback failure'
+      );
+
+      // Verify first callback succeeded and second was called
+      expect(callbackInvocations).toHaveLength(2);
+      expect(callbackInvocations[0].phase).toBe('analyze');
+      expect(callbackInvocations[0].completedPhases).toEqual(['analyze']);
+      expect(callbackInvocations[1].phase).toBe('plan');
+      // Both phases are marked completed BEFORE callback fires
+      expect(callbackInvocations[1].completedPhases).toEqual(['analyze', 'plan']);
+    });
+
+    it('should handle async rejected promise from onPhaseComplete identically to sync throw', async () => {
+      // Observed behavior: Since onPhaseComplete is awaited (line 100:
+      // "await this.config.onPhaseComplete(...)"), a rejected promise
+      // propagates identically to a synchronous throw. Both surface as
+      // an unhandled error that escapes engine.run(). This is intentional.
+      await writeAgentMarkdown(tmpDir, 'agent.md', {
+        name: 'agent',
+        description: 'Agent',
+        tools: [],
+      }, 'Do work.');
+
+      await writeWorkflowYaml(tmpDir, 'workflow.yaml', `
+name: test-workflow
+version: 1
+phases:
+  - name: step1
+    type: agent
+    agent: agent.md
+    output: result
+`);
+
+      const queryFn = createMockQuery(new Map([
+        ['default', { done: true }],
+      ]));
+
+      const engine = new WorkflowEngine({
+        config: makeConfig(tmpDir, {
+          onPhaseComplete: async (_phaseName, _context) => {
+            // Return a rejected promise (as opposed to using throw)
+            return Promise.reject(new Error('Async rejection in callback'));
+          },
+        }),
+        queryFn,
+      });
+
+      // Should behave identically to a synchronous throw
+      await expect(engine.run('workflow.yaml', '/tmp/spec.md')).rejects.toThrow(
+        'Async rejection in callback'
+      );
     });
   });
 });

@@ -736,12 +736,14 @@ describe('WorkflowContext - toCheckpoint() and fromCheckpoint()', () => {
     const ctx = new WorkflowContext({ x: 1 });
     ctx.markPhaseCompleted('plan');
     ctx.addChangedFile('foo.ts');
+    ctx.setCurrentPhase('execute');
     const cp = ctx.toCheckpoint();
 
     expect(cp).toHaveProperty('variables');
     expect(cp).toHaveProperty('completedPhases');
     expect(cp).toHaveProperty('currentTaskId');
     expect(cp).toHaveProperty('changedFiles');
+    expect(cp).toHaveProperty('currentPhase');
   });
 
   it('restores from empty checkpoint data gracefully', () => {
@@ -804,6 +806,20 @@ describe('WorkflowContext - getResult()', () => {
     expect(ctx.getCompletedPhases()).toEqual(['plan']);
   });
 
+  it('includes changed files', () => {
+    const ctx = new WorkflowContext();
+    ctx.addChangedFile('src/foo.ts');
+    ctx.addChangedFile('src/bar.ts');
+    const result = ctx.getResult();
+    expect(result.changedFiles).toEqual(['src/foo.ts', 'src/bar.ts']);
+  });
+
+  it('returns empty changed files by default', () => {
+    const ctx = new WorkflowContext();
+    const result = ctx.getResult();
+    expect(result.changedFiles).toEqual([]);
+  });
+
   it('does not include error or blockerDetails by default', () => {
     const ctx = new WorkflowContext();
     const result = ctx.getResult();
@@ -826,6 +842,49 @@ describe('WorkflowContext - getCurrentTaskId()', () => {
     const parent = new WorkflowContext();
     const child = parent.withTask(makeTask({ id: 'task-abc' }));
     expect(child.getCurrentTaskId()).toBe('task-abc');
+  });
+});
+
+// ================================================================
+// setCurrentPhase() and getCurrentPhase()
+// ================================================================
+
+describe('WorkflowContext - setCurrentPhase() and getCurrentPhase()', () => {
+  it('returns null for a fresh context', () => {
+    const ctx = new WorkflowContext();
+    expect(ctx.getCurrentPhase()).toBeNull();
+  });
+
+  it('sets and gets the current phase', () => {
+    const ctx = new WorkflowContext();
+    ctx.setCurrentPhase('execute');
+    expect(ctx.getCurrentPhase()).toBe('execute');
+  });
+
+  it('overwrites previous phase', () => {
+    const ctx = new WorkflowContext();
+    ctx.setCurrentPhase('analyze');
+    ctx.setCurrentPhase('execute');
+    expect(ctx.getCurrentPhase()).toBe('execute');
+  });
+
+  it('is propagated to child task context', () => {
+    const parent = new WorkflowContext();
+    parent.setCurrentPhase('execute');
+    const child = parent.withTask(makeTask());
+    expect(child.getCurrentPhase()).toBe('execute');
+  });
+
+  it('round-trips through checkpoint', () => {
+    const ctx = new WorkflowContext();
+    ctx.setCurrentPhase('verify');
+    const restored = WorkflowContext.fromCheckpoint(ctx.toCheckpoint());
+    expect(restored.getCurrentPhase()).toBe('verify');
+  });
+
+  it('restores as null from empty checkpoint', () => {
+    const restored = WorkflowContext.fromCheckpoint({});
+    expect(restored.getCurrentPhase()).toBeNull();
   });
 });
 

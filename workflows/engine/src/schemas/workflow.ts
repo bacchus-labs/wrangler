@@ -29,6 +29,7 @@ export const CodeStepSchema = BaseStepSchema.extend({
 export const GateGroupStepSchema = BaseStepSchema.extend({
   type: z.literal('gate-group'),
   gates: z.string().min(1),
+  minSeverity: z.enum(['critical', 'important', 'minor']).optional(),
 });
 
 // Forward-declare for recursive types

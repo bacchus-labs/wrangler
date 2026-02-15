@@ -2,7 +2,7 @@
  * Built-in handlers and registry setup.
  */
 
-export { HandlerRegistry, type HandlerFunction } from './registry.js';
+export { HandlerRegistry, type HandlerFunction, type HandlerDeps } from './registry.js';
 export { createIssuesHandler } from './create-issues.js';
 export { saveCheckpointHandler } from './save-checkpoint.js';
 

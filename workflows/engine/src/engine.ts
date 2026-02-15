@@ -92,6 +92,7 @@ export class WorkflowEngine {
           break;
         }
 
+        context.setCurrentPhase(phase.name);
         await this.executeStep(phase, context);
         context.markPhaseCompleted(phase.name);
 
@@ -107,6 +108,8 @@ export class WorkflowEngine {
           status: 'paused',
           outputs: context.getTemplateVars(),
           completedPhases: context.getCompletedPhases(),
+          changedFiles: context.getChangedFiles(),
+          pausedAtPhase: context.getCurrentPhase() ?? undefined,
           blockerDetails: error.blockerDetails,
         };
       }
@@ -115,6 +118,7 @@ export class WorkflowEngine {
           status: 'failed',
           outputs: context.getTemplateVars(),
           completedPhases: context.getCompletedPhases(),
+          changedFiles: context.getChangedFiles(),
           error: error.message,
         };
       }
@@ -152,6 +156,7 @@ export class WorkflowEngine {
       for (let i = startIdx; i < definition.phases.length; i++) {
         const phase = definition.phases[i];
         if (this.config.dryRun && phase.name === 'execute') break;
+        context.setCurrentPhase(phase.name);
         await this.executeStep(phase, context);
         context.markPhaseCompleted(phase.name);
 
@@ -167,6 +172,8 @@ export class WorkflowEngine {
           status: 'paused',
           outputs: context.getTemplateVars(),
           completedPhases: context.getCompletedPhases(),
+          changedFiles: context.getChangedFiles(),
+          pausedAtPhase: context.getCurrentPhase() ?? undefined,
           blockerDetails: error.blockerDetails,
         };
       }
@@ -175,6 +182,7 @@ export class WorkflowEngine {
           status: 'failed',
           outputs: context.getTemplateVars(),
           completedPhases: context.getCompletedPhases(),
+          changedFiles: context.getChangedFiles(),
           error: error.message,
         };
       }
@@ -322,7 +330,7 @@ export class WorkflowEngine {
       input = ctx.resolve(step.input);
     }
 
-    await handler(ctx, input);
+    await handler(ctx, input, { queryFn: this.queryFn, config: this.config });
   }
 
   /**
@@ -342,8 +350,24 @@ export class WorkflowEngine {
     for (const item of sorted) {
       const taskCtx = ctx.withTask(item);
 
-      for (const childStep of step.steps) {
-        await this.executeStep(childStep, taskCtx);
+      try {
+        for (const childStep of step.steps) {
+          await this.executeStep(childStep, taskCtx);
+        }
+      } catch (error) {
+        if (error instanceof WorkflowPaused) {
+          // Before propagating the pause, ensure the current task's
+          // checkpoint data is captured on the PARENT context
+          // (ISS-000116: checkpoint step never runs when a loop
+          // exhausts and escalates). We save on the parent because
+          // mergeTaskResults won't overwrite existing parent variables.
+          this.saveTaskCheckpointData(ctx, item.id);
+          ctx.mergeTaskResults(taskCtx);
+          throw error;
+        }
+        // For other errors, still merge what we have and re-throw
+        ctx.mergeTaskResults(taskCtx);
+        throw error;
       }
 
       // Merge task results back to parent
@@ -355,7 +379,7 @@ export class WorkflowEngine {
    * Execute a gate-group step: discover gates, run each, aggregate results.
    */
   private async runGateGroup(
-    step: StepDefinition & { gates: string; output?: string },
+    step: StepDefinition & { gates: string; output?: string; minSeverity?: 'critical' | 'important' | 'minor' },
     ctx: WorkflowContext
   ): Promise<void> {
     const gatesDir = path.resolve(this.config.workflowBaseDir, step.gates);
@@ -394,8 +418,10 @@ export class WorkflowEngine {
       gateResults.push({ gate: gateDef.name, ...result });
     }
 
-    // Aggregate results
-    const aggregated = aggregateGateResults(gateResults);
+    // Aggregate results with optional severity threshold
+    const aggregated = aggregateGateResults(gateResults, {
+      minSeverity: step.minSeverity,
+    });
 
     if (step.output) {
       ctx.set(step.output, aggregated);
@@ -543,6 +569,26 @@ export class WorkflowEngine {
     }
 
     return result;
+  }
+
+  /**
+   * Save checkpoint data for a per-task context when the workflow pauses.
+   * Replicates what the save-checkpoint handler does: moves the given
+   * task from pending to completed. Operates on the parent context
+   * directly because mergeTaskResults does not overwrite existing keys.
+   */
+  private saveTaskCheckpointData(ctx: WorkflowContext, taskId: string): void {
+    const completed = (ctx.get('tasksCompleted') as string[]) ?? [];
+    const pending = (ctx.get('tasksPending') as string[]) ?? [];
+
+    if (!completed.includes(taskId)) {
+      completed.push(taskId);
+    }
+
+    const updatedPending = pending.filter(id => id !== taskId);
+
+    ctx.set('tasksCompleted', completed);
+    ctx.set('tasksPending', updatedPending);
   }
 
   // --- Audit logging ---
