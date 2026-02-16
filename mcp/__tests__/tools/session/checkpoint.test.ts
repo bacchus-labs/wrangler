@@ -82,6 +82,39 @@ describe('sessionCheckpointTool', () => {
       expect(result.success).toBe(false);
     });
 
+    it('should validate params with stepResults', () => {
+      const params = {
+        sessionId: 'test-session-001',
+        tasksCompleted: ['task-1'],
+        tasksPending: ['task-2'],
+        lastAction: 'Completed task-1',
+        resumeInstructions: 'Continue with task-2',
+        stepResults: [
+          { stepName: 'plan', status: 'passed', outputSummary: 'Created 3 issues' },
+          { stepName: 'implement', status: 'failed', outputSummary: 'Build error' },
+        ],
+      };
+
+      const result = sessionCheckpointSchema.safeParse(params);
+      expect(result.success).toBe(true);
+    });
+
+    it('should reject stepResults with invalid status', () => {
+      const params = {
+        sessionId: 'test-session-001',
+        tasksCompleted: [],
+        tasksPending: [],
+        lastAction: 'Test',
+        resumeInstructions: 'Continue',
+        stepResults: [
+          { stepName: 'plan', status: 'invalid_status' },
+        ],
+      };
+
+      const result = sessionCheckpointSchema.safeParse(params);
+      expect(result.success).toBe(false);
+    });
+
     it('should allow empty arrays for tasks', () => {
       const params: SessionCheckpointParams = {
         sessionId: 'test-session-001',
@@ -260,6 +293,85 @@ describe('sessionCheckpointTool', () => {
       expect(result.isError).toBe(false);
       expect(result.content[0].text).toContain('Tasks completed: 0');
       expect(result.content[0].text).toContain('Tasks pending: 0');
+    });
+
+    it('should include stepResults in checkpoint', async () => {
+      const session = createTestSession({
+        id: 'session-123',
+        currentPhase: 'execute',
+      });
+      mockProvider.addSession(session);
+
+      const params: SessionCheckpointParams = {
+        sessionId: 'session-123',
+        tasksCompleted: ['task-1'],
+        tasksPending: ['task-2'],
+        lastAction: 'Completed planning',
+        resumeInstructions: 'Continue with execution',
+        stepResults: [
+          { stepName: 'plan', status: 'passed', outputSummary: 'Created 3 issues' },
+          { stepName: 'review-gate', status: 'skipped', outputSummary: 'Skipped by config' },
+        ],
+      };
+
+      const result = await sessionCheckpointTool(params, mockProvider);
+
+      expect(result.isError).toBe(false);
+
+      const checkpoint = await mockProvider.getCheckpoint('session-123');
+      expect(checkpoint?.stepResults).toHaveLength(2);
+      expect(checkpoint?.stepResults?.[0]).toEqual({
+        stepName: 'plan',
+        status: 'passed',
+        outputSummary: 'Created 3 issues',
+      });
+      expect(checkpoint?.stepResults?.[1].status).toBe('skipped');
+    });
+
+    it('should include stepResults count in response text', async () => {
+      const session = createTestSession({
+        id: 'session-123',
+        currentPhase: 'execute',
+      });
+      mockProvider.addSession(session);
+
+      const params: SessionCheckpointParams = {
+        sessionId: 'session-123',
+        tasksCompleted: ['task-1'],
+        tasksPending: ['task-2'],
+        lastAction: 'Completed planning',
+        resumeInstructions: 'Continue with execution',
+        stepResults: [
+          { stepName: 'plan', status: 'passed' },
+        ],
+      };
+
+      const result = await sessionCheckpointTool(params, mockProvider);
+
+      expect(result.isError).toBe(false);
+      expect(result.content[0].text).toContain('Steps reported: 1');
+    });
+
+    it('should work without stepResults (backward compatible)', async () => {
+      const session = createTestSession({
+        id: 'session-123',
+        currentPhase: 'execute',
+      });
+      mockProvider.addSession(session);
+
+      const params: SessionCheckpointParams = {
+        sessionId: 'session-123',
+        tasksCompleted: ['task-1'],
+        tasksPending: ['task-2'],
+        lastAction: 'Completed task',
+        resumeInstructions: 'Continue',
+      };
+
+      const result = await sessionCheckpointTool(params, mockProvider);
+
+      expect(result.isError).toBe(false);
+      const checkpoint = await mockProvider.getCheckpoint('session-123');
+      expect(checkpoint?.stepResults).toBeUndefined();
     });
 
     it('should preserve lastAction and resumeInstructions', async () => {

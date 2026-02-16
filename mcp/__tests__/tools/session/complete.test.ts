@@ -77,6 +77,42 @@ describe('sessionCompleteTool', () => {
       expect(result.success).toBe(false);
     });
 
+    it('should validate params with stepExecutionSummary', () => {
+      const params = {
+        sessionId: 'test-session-001',
+        status: 'completed',
+        stepExecutionSummary: {
+          totalSteps: 5,
+          executed: 4,
+          skipped: 1,
+          skippedSteps: ['lint'],
+          stepDetails: [
+            { stepName: 'plan', status: 'passed', agent: 'planner', prompt: 'plan-spec' },
+            { stepName: 'implement', status: 'passed', agent: 'implementer', prompt: 'implement-task' },
+          ],
+        },
+      };
+
+      const result = sessionCompleteSchema.safeParse(params);
+      expect(result.success).toBe(true);
+    });
+
+    it('should validate stepExecutionSummary without stepDetails', () => {
+      const params = {
+        sessionId: 'test-session-001',
+        status: 'completed',
+        stepExecutionSummary: {
+          totalSteps: 3,
+          executed: 3,
+          skipped: 0,
+          skippedSteps: [],
+        },
+      };
+
+      const result = sessionCompleteSchema.safeParse(params);
+      expect(result.success).toBe(true);
+    });
+
     it('should reject negative PR number', () => {
       const params = {
         sessionId: 'test-session-001',
@@ -264,6 +300,86 @@ describe('sessionCompleteTool', () => {
       expect(result.isError).toBe(false);
       expect(result.content[0].text).toContain('Duration:');
       expect(result.content[0].text).toContain('minutes');
+    });
+
+    it('should include stepExecutionSummary in metadata when provided', async () => {
+      const session = createTestSession({
+        id: 'session-123',
+        status: 'running',
+        tasksCompleted: ['task-1', 'task-2'],
+      });
+      mockProvider.addSession(session);
+
+      const stepExecutionSummary = {
+        totalSteps: 5,
+        executed: 4,
+        skipped: 1,
+        skippedSteps: ['lint'],
+        stepDetails: [
+          { stepName: 'plan', status: 'passed' as const, agent: 'planner', prompt: 'plan-spec' },
+          { stepName: 'implement', status: 'passed' as const },
+        ],
+      };
+
+      const params: SessionCompleteParams = {
+        sessionId: 'session-123',
+        status: 'completed',
+        stepExecutionSummary,
+      };
+
+      const result = await sessionCompleteTool(params, mockProvider);
+
+      expect(result.isError).toBe(false);
+      expect((result.metadata as any)?.stepExecutionSummary).toBeDefined();
+      expect((result.metadata as any)?.stepExecutionSummary.totalSteps).toBe(5);
+      expect((result.metadata as any)?.stepExecutionSummary.executed).toBe(4);
+      expect((result.metadata as any)?.stepExecutionSummary.skipped).toBe(1);
+      expect((result.metadata as any)?.stepExecutionSummary.skippedSteps).toEqual(['lint']);
+    });
+
+    it('should include step summary in response text', async () => {
+      const session = createTestSession({
+        id: 'session-123',
+        status: 'running',
+        tasksCompleted: ['task-1'],
+      });
+      mockProvider.addSession(session);
+
+      const params: SessionCompleteParams = {
+        sessionId: 'session-123',
+        status: 'completed',
+        stepExecutionSummary: {
+          totalSteps: 5,
+          executed: 4,
+          skipped: 1,
+          skippedSteps: ['lint'],
+        },
+      };
+
+      const result = await sessionCompleteTool(params, mockProvider);
+
+      expect(result.isError).toBe(false);
+      expect(result.content[0].text).toContain('Steps: 4/5 executed');
+      expect(result.content[0].text).toContain('1 skipped');
+    });
+
+    it('should work without stepExecutionSummary (backward compatible)', async () => {
+      const session = createTestSession({
+        id: 'session-123',
+        status: 'running',
+        tasksCompleted: ['task-1'],
+      });
+      mockProvider.addSession(session);
+
+      const params: SessionCompleteParams = {
+        sessionId: 'session-123',
+        status: 'completed',
+      };
+
+      const result = await sessionCompleteTool(params, mockProvider);
+
+      expect(result.isError).toBe(false);
+      expect((result.metadata as any)?.stepExecutionSummary).toBeUndefined();
     });
 
     it('should return error for non-existent session', async () => {

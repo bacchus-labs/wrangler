@@ -49,6 +49,48 @@ describe('sessionStartTool', () => {
       expect(result.success).toBe(true);
     });
 
+    it('should validate params with workflow name', () => {
+      const params: SessionStartParams = {
+        specFile: 'my-spec.md',
+        workflow: 'custom-workflow',
+      };
+
+      const result = sessionStartSchema.safeParse(params);
+      expect(result.success).toBe(true);
+    });
+
+    it('should validate params with skipChecks', () => {
+      const params: SessionStartParams = {
+        specFile: 'my-spec.md',
+        skipChecks: true,
+      };
+
+      const result = sessionStartSchema.safeParse(params);
+      expect(result.success).toBe(true);
+    });
+
+    it('should validate params with skipStepNames', () => {
+      const params: SessionStartParams = {
+        specFile: 'my-spec.md',
+        skipStepNames: ['lint', 'format'],
+      };
+
+      const result = sessionStartSchema.safeParse(params);
+      expect(result.success).toBe(true);
+    });
+
+    it('should validate params with all workflow options', () => {
+      const params: SessionStartParams = {
+        specFile: 'my-spec.md',
+        workflow: 'custom-workflow',
+        skipChecks: false,
+        skipStepNames: ['lint'],
+      };
+
+      const result = sessionStartSchema.safeParse(params);
+      expect(result.success).toBe(true);
+    });
+
     it('should reject empty specFile', () => {
       const params = {
         specFile: '',
@@ -195,6 +237,76 @@ describe('sessionStartTool', () => {
       expect(session?.status).toBe('running');
       expect(session?.currentPhase).toBe('init');
       expect(session?.phasesCompleted).toContain('init');
+    });
+
+    it('should store workflow name in session context', async () => {
+      const specPath = await createMockSpecFile(tempDir, 'test-spec.md');
+      const params: SessionStartParams = {
+        specFile: specPath,
+        workingDirectory: tempDir,
+        workflow: 'custom-workflow',
+      };
+
+      const result = await sessionStartTool(params, storageProvider);
+
+      expect(result.isError).toBe(false);
+      const sessionId = result.metadata?.sessionId as string;
+      expect(result.metadata?.workflow).toBe('custom-workflow');
+
+      // Verify persisted
+      const session = await storageProvider.getSession(sessionId);
+      expect(session?.workflow).toBe('custom-workflow');
+    });
+
+    it('should default workflow to spec-implementation when not provided', async () => {
+      const specPath = await createMockSpecFile(tempDir, 'test-spec.md');
+      const params: SessionStartParams = {
+        specFile: specPath,
+        workingDirectory: tempDir,
+      };
+
+      const result = await sessionStartTool(params, storageProvider);
+
+      expect(result.isError).toBe(false);
+      const sessionId = result.metadata?.sessionId as string;
+      expect(result.metadata?.workflow).toBe('spec-implementation');
+
+      const session = await storageProvider.getSession(sessionId);
+      expect(session?.workflow).toBe('spec-implementation');
+    });
+
+    it('should store skipChecks in session context', async () => {
+      const specPath = await createMockSpecFile(tempDir, 'test-spec.md');
+      const params: SessionStartParams = {
+        specFile: specPath,
+        workingDirectory: tempDir,
+        skipChecks: true,
+      };
+
+      const result = await sessionStartTool(params, storageProvider);
+
+      expect(result.isError).toBe(false);
+      const sessionId = result.metadata?.sessionId as string;
+
+      const session = await storageProvider.getSession(sessionId);
+      expect(session?.skipChecks).toBe(true);
+    });
+
+    it('should store skipStepNames in session context', async () => {
+      const specPath = await createMockSpecFile(tempDir, 'test-spec.md');
+      const params: SessionStartParams = {
+        specFile: specPath,
+        workingDirectory: tempDir,
+        skipStepNames: ['lint', 'format'],
+      };
+
+      const result = await sessionStartTool(params, storageProvider);
+
+      expect(result.isError).toBe(false);
+      const sessionId = result.metadata?.sessionId as string;
+
+      const session = await storageProvider.getSession(sessionId);
+      expect(session?.skipStepNames).toEqual(['lint', 'format']);
     });
 
     it('should create audit log with init entry', async () => {

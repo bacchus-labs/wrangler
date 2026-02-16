@@ -23,6 +23,39 @@ export type AuditPhase =
 export type PhaseStatus = 'started' | 'complete' | 'failed';
 
 /**
+ * Step result from workflow execution
+ */
+export interface StepResult {
+  /** Step name */
+  stepName: string;
+  /** Step execution status */
+  status: 'passed' | 'failed' | 'skipped';
+  /** Summary of output or reason */
+  outputSummary?: string;
+}
+
+/**
+ * Step execution summary for session completion
+ */
+export interface StepExecutionSummary {
+  /** Total number of steps in the workflow */
+  totalSteps: number;
+  /** Number of steps that were executed */
+  executed: number;
+  /** Number of steps that were skipped */
+  skipped: number;
+  /** Names of steps that were skipped */
+  skippedSteps: string[];
+  /** Per-step details including agent and prompt used */
+  stepDetails?: Array<{
+    stepName: string;
+    status: 'passed' | 'failed' | 'skipped';
+    agent?: string;
+    prompt?: string;
+  }>;
+}
+
+/**
  * Main session state interface
  */
 export interface Session {
@@ -40,6 +73,14 @@ export interface Session {
   worktreePath: string;
   /** Git branch name */
   branchName: string;
+
+  // Workflow context
+  /** Workflow name (e.g., "spec-implementation") */
+  workflow?: string;
+  /** Whether to skip pre/post checks */
+  skipChecks?: boolean;
+  /** Step names to skip */
+  skipStepNames?: string[];
 
   // Tracking
   /** Phases that have completed */
@@ -90,6 +131,8 @@ export interface SessionCheckpoint {
   lastAction: string;
   /** Instructions for how to continue */
   resumeInstructions: string;
+  /** Step results since last checkpoint */
+  stepResults?: StepResult[];
 }
 
 /**
@@ -253,9 +296,31 @@ export const SessionCheckpointSchema = z.object({
 
 // Tool parameter schemas
 
+export const StepResultSchema = z.object({
+  stepName: z.string().min(1).describe('Step name'),
+  status: z.enum(['passed', 'failed', 'skipped']).describe('Step execution status'),
+  outputSummary: z.string().optional().describe('Summary of output or reason'),
+});
+
+export const StepExecutionSummarySchema = z.object({
+  totalSteps: z.number().int().min(0).describe('Total number of steps in the workflow'),
+  executed: z.number().int().min(0).describe('Number of steps that were executed'),
+  skipped: z.number().int().min(0).describe('Number of steps that were skipped'),
+  skippedSteps: z.array(z.string()).describe('Names of steps that were skipped'),
+  stepDetails: z.array(z.object({
+    stepName: z.string().min(1),
+    status: z.enum(['passed', 'failed', 'skipped']),
+    agent: z.string().optional(),
+    prompt: z.string().optional(),
+  })).optional().describe('Per-step details including agent and prompt used'),
+});
+
 export const SessionStartParamsSchema = z.object({
   specFile: z.string().min(1).describe('Path to spec file'),
   workingDirectory: z.string().optional().describe('Override working directory'),
+  workflow: z.string().optional().describe('Workflow name (defaults to "spec-implementation")'),
+  skipChecks: z.boolean().optional().describe('Whether to skip pre/post checks'),
+  skipStepNames: z.array(z.string()).optional().describe('Step names to skip'),
 });
 
 export const SessionPhaseParamsSchema = z.object({
@@ -272,6 +337,7 @@ export const SessionCheckpointParamsSchema = z.object({
   lastAction: z.string().describe('What was just done'),
   resumeInstructions: z.string().describe('How to continue if interrupted'),
   variables: z.record(z.unknown()).optional().describe('Variables to preserve'),
+  stepResults: z.array(StepResultSchema).optional().describe('Step results since last checkpoint'),
 });
 
 export const SessionCompleteParamsSchema = z.object({
@@ -280,6 +346,7 @@ export const SessionCompleteParamsSchema = z.object({
   prUrl: z.string().optional().describe('PR URL if created'),
   prNumber: z.number().int().positive().optional().describe('PR number if created'),
   summary: z.string().optional().describe('Completion summary'),
+  stepExecutionSummary: StepExecutionSummarySchema.optional().describe('Step execution summary'),
 });
 
 export const SessionGetParamsSchema = z.object({
