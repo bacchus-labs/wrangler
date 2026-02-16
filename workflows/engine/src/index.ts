@@ -13,4 +13,4 @@ export { buildMcpConfig } from './integration/mcp.js';
 export { createDefaultRegistry, HandlerRegistry } from './handlers/index.js';
 export * from './schemas/index.js';
 export * from './types.js';
-export { loadWorkflowYaml, loadAgentMarkdown, loadGateMarkdown, discoverGates, renderTemplate } from './loader.js';
+export { loadWorkflowYaml, loadAgentMarkdown, renderTemplate } from './loader.js';

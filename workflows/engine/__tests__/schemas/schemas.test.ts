@@ -24,7 +24,6 @@ import {
   WorkflowSafetySchema,
   WorkflowDefinitionSchema,
   AgentDefinitionSchema,
-  GateDefinitionSchema,
   validateStep,
   validateWorkflowDefinition,
 } from '../../src/schemas/workflow.js';

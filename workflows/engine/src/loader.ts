@@ -1,20 +1,16 @@
 /**
- * Loader for YAML workflow definitions and markdown agent/gate definitions.
+ * Loader for YAML workflow definitions and markdown agent definitions.
  * Handles parsing, frontmatter extraction, and template rendering.
  */
 
 import * as fs from 'fs/promises';
-import * as path from 'path';
 import { parse as parseYaml } from 'yaml';
 import matter from 'gray-matter';
-import fg from 'fast-glob';
 import {
   validateWorkflowDefinition,
   AgentDefinitionSchema,
-  GateDefinitionSchema,
   type WorkflowDefinition,
   type AgentDefinition,
-  type GateDefinition,
 } from './schemas/index.js';
 
 /**
@@ -40,32 +36,6 @@ export async function loadAgentMarkdown(filePath: string): Promise<AgentDefiniti
     prompt: body.trim(),
     filePath,
   };
-}
-
-/**
- * Load and validate a markdown gate definition file.
- */
-export async function loadGateMarkdown(filePath: string): Promise<GateDefinition> {
-  const content = await fs.readFile(filePath, 'utf-8');
-  const { data, content: body } = matter(content);
-
-  const frontmatter = GateDefinitionSchema.parse(data);
-
-  return {
-    ...frontmatter,
-    prompt: body.trim(),
-    filePath,
-  };
-}
-
-/**
- * Discover all gate definition files in a directory.
- * Returns sorted list of .md file paths (excluding .disabled files).
- */
-export async function discoverGates(gatesDir: string): Promise<string[]> {
-  const pattern = path.join(gatesDir, '*.md');
-  const files = await fg(pattern, { absolute: true });
-  return files.sort();
 }
 
 /**

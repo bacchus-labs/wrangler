@@ -166,23 +166,6 @@ export interface AgentDefinition extends AgentDefinitionFrontmatter {
   filePath: string;
 }
 
-// --- Gate Definition (extends agent definition) ---
-
-export const GateDefinitionSchema = AgentDefinitionSchema.extend({
-  runCondition: z.enum(['always', 'changed-files-match', 'manual']).default('always'),
-  filePatterns: z.array(z.string()).optional(),
-  enabled: z.boolean().default(true),
-});
-
-export type GateDefinitionFrontmatter = z.infer<typeof GateDefinitionSchema>;
-
-export interface GateDefinition extends GateDefinitionFrontmatter {
-  /** The markdown body (prompt template) */
-  prompt: string;
-  /** Original file path */
-  filePath: string;
-}
-
 // --- Backward compatibility aliases ---
 // These are kept so existing code importing the old names still compiles.
 
