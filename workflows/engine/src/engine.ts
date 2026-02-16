@@ -69,7 +69,8 @@ export class WorkflowEngine {
    */
   private assertWithinWorkflowDir(resolvedPath: string): void {
     const relative = path.relative(this.config.workflowBaseDir, resolvedPath);
-    if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    const normalized = relative.split(path.sep).join('/');
+    if (normalized.startsWith('..') || path.isAbsolute(relative)) {
       throw new Error(`Path "${resolvedPath}" escapes workflow directory "${this.config.workflowBaseDir}"`);
     }
   }
@@ -244,6 +245,45 @@ export class WorkflowEngine {
   }
 
   /**
+   * Resolve step.input into a template vars object for rendering prompts.
+   * Merges context template vars with any step-level input overrides.
+   *
+   * - If input is absent, returns the raw context template vars.
+   * - If input is a string, resolves it from context and adds the leaf key.
+   * - If input is an object, resolves each string value from context and
+   *   passes non-string values through directly.
+   */
+  private resolveStepInput(
+    step: { input?: string | Record<string, unknown> },
+    ctx: WorkflowContext
+  ): Record<string, unknown> {
+    const templateVars = ctx.getTemplateVars();
+    if (!step.input) return templateVars;
+
+    if (typeof step.input === 'string') {
+      const inputValue = ctx.resolve(step.input);
+      if (inputValue !== undefined) {
+        const inputParts = step.input.split('.');
+        const leafKey = inputParts[inputParts.length - 1];
+        templateVars[leafKey] = inputValue;
+      }
+    } else {
+      for (const [key, val] of Object.entries(step.input)) {
+        if (typeof val === 'string') {
+          const resolved = ctx.resolve(val);
+          if (resolved !== undefined) {
+            templateVars[key] = resolved;
+          }
+        } else {
+          templateVars[key] = val;
+        }
+      }
+    }
+
+    return templateVars;
+  }
+
+  /**
    * Recursively execute a step based on its type.
    */
   async executeStep(
@@ -266,7 +306,7 @@ export class WorkflowEngine {
         // Check if this is a new-style composed step (has prompt field) or legacy agent step
         const stepAny = step as Record<string, unknown>;
         if (stepAny.prompt && this.resolver) {
-          await this.runComposedAgent(step as StepDefinition & { agent?: string; prompt: string; model?: string; output?: string; failWhen?: string }, ctx);
+          await this.runComposedAgent(step as StepDefinition & { agent?: string; prompt: string; model?: string; output?: string }, ctx);
         } else {
           // Legacy agent step (agent field is a file path)
           await this.runAgent(step as StepDefinition & { agent: string }, ctx);
@@ -305,38 +345,14 @@ export class WorkflowEngine {
    * Execute an agent step: load markdown definition, render template, call query().
    */
   private async runAgent(
-    step: StepDefinition & { agent: string; model?: string; input?: string | Record<string, unknown>; failWhen?: string; output?: string },
+    step: StepDefinition & { agent: string; model?: string; input?: string | Record<string, unknown>; output?: string },
     ctx: WorkflowContext
   ): Promise<void> {
     const agentPath = path.resolve(this.config.workflowBaseDir, step.agent);
     this.assertWithinWorkflowDir(agentPath);
     const agentDef = await loadAgentMarkdown(agentPath);
 
-    // Resolve input into template vars
-    const templateVars = ctx.getTemplateVars();
-    if (step.input) {
-      if (typeof step.input === 'string') {
-        const inputValue = ctx.resolve(step.input);
-        if (inputValue !== undefined) {
-          // Make the input available directly in template vars
-          const inputParts = step.input.split('.');
-          const leafKey = inputParts[inputParts.length - 1];
-          templateVars[leafKey] = inputValue;
-        }
-      } else {
-        // Object input - resolve each value and merge into template vars
-        for (const [key, val] of Object.entries(step.input)) {
-          if (typeof val === 'string') {
-            const resolved = ctx.resolve(val);
-            if (resolved !== undefined) {
-              templateVars[key] = resolved;
-            }
-          } else {
-            templateVars[key] = val;
-          }
-        }
-      }
-    }
+    const templateVars = this.resolveStepInput(step, ctx);
 
     const prompt = renderTemplate(agentDef.prompt, templateVars);
 
@@ -391,10 +407,6 @@ export class WorkflowEngine {
       }
     }
 
-    // Check failWhen condition
-    if (step.failWhen && ctx.evaluate(step.failWhen)) {
-      throw new WorkflowFailure(step.name, step.failWhen);
-    }
   }
 
 
@@ -405,7 +417,7 @@ export class WorkflowEngine {
    * via queryFn with the agent's systemPrompt as the system prompt.
    */
   private async runComposedAgent(
-    step: StepDefinition & { agent?: string; prompt: string; model?: string; output?: string; failWhen?: string; input?: string | Record<string, unknown> },
+    step: StepDefinition & { agent?: string; prompt: string; model?: string; output?: string; input?: string | Record<string, unknown> },
     ctx: WorkflowContext
   ): Promise<void> {
     if (!this.resolver) {
@@ -428,29 +440,7 @@ export class WorkflowEngine {
     const promptResolved = await this.resolver.resolvePrompt(step.prompt);
     const promptDef = await loadPromptFile(promptResolved.path);
 
-    // Build template vars and resolve input
-    const templateVars = ctx.getTemplateVars();
-    if (step.input) {
-      if (typeof step.input === 'string') {
-        const inputValue = ctx.resolve(step.input);
-        if (inputValue !== undefined) {
-          const inputParts = step.input.split('.');
-          const leafKey = inputParts[inputParts.length - 1];
-          templateVars[leafKey] = inputValue;
-        }
-      } else {
-        for (const [key, val] of Object.entries(step.input)) {
-          if (typeof val === 'string') {
-            const resolved = ctx.resolve(val);
-            if (resolved !== undefined) {
-              templateVars[key] = resolved;
-            }
-          } else {
-            templateVars[key] = val;
-          }
-        }
-      }
-    }
+    const templateVars = this.resolveStepInput(step, ctx);
 
     // Render prompt body with template variables
     const renderedPrompt = renderTemplate(promptDef.body, templateVars);
@@ -495,11 +485,6 @@ export class WorkflowEngine {
 
     // Record composition metadata for audit trail
     await this.auditComposedStep(step.name, agentResolved.path, promptResolved.path);
-
-    // Check failWhen condition
-    if (step.failWhen && ctx.evaluate(step.failWhen)) {
-      throw new WorkflowFailure(step.name, step.failWhen);
-    }
   }
 
   /**
@@ -589,6 +574,18 @@ export class WorkflowEngine {
     step: ParallelStep,
     ctx: WorkflowContext
   ): Promise<void> {
+    // Detect duplicate output variables
+    const outputs = step.steps
+      .filter(s => 'output' in s && s.output)
+      .map(s => (s as any).output as string);
+    const duplicates = outputs.filter((v, i) => outputs.indexOf(v) !== i);
+    if (duplicates.length > 0) {
+      throw new Error(
+        `Parallel step "${step.name}" has duplicate output variables: ${[...new Set(duplicates)].join(', ')}. ` +
+        `Each parallel child must write to a unique output.`
+      );
+    }
+
     // Run all nested steps in parallel
     await Promise.all(
       step.steps.map(nestedStep => this.executeStep(nestedStep, ctx))
@@ -746,6 +743,9 @@ export class WorkflowEngine {
   }
 
   private async auditStepFailed(stepName: string, error: unknown): Promise<void> {
+    // Clean up any composed step metadata for the failed step
+    this.composedStepMeta.delete(stepName);
+
     const entry: WorkflowAuditEntry = {
       step: stepName,
       status: 'failed',
