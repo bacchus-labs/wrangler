@@ -18,7 +18,7 @@ import {
   renderTemplate,
   resolveSchemaReference,
 } from './loader.js';
-import { WorkflowContext, type WorkflowResult } from './state.js';
+import { WorkflowContext, type WorkflowResult, type ExecutionSummary, type StepExecution } from './state.js';
 import { type HandlerRegistry, createDefaultRegistry } from './handlers/index.js';
 import {
   type StepDefinition,
@@ -47,6 +47,13 @@ export class WorkflowEngine {
   private onAuditEntry?: (entry: WorkflowAuditEntry) => Promise<void>;
   private activeDefaults: { model: string; permissionMode: string; settingSources: string[] };
   private activeDefaultAgent?: string;
+  /** Tracks loop iteration metadata keyed by step name */
+  private loopMeta: Map<string, {
+    iterations: number;
+    condition: string;
+    maxRetries: number;
+    exitReason: 'condition-cleared' | 'exhausted' | 'error';
+  }> = new Map();
 
   constructor(options: {
     config: EngineConfig;
@@ -108,7 +115,9 @@ export class WorkflowEngine {
         }
       }
 
-      return context.getResult();
+      const result = context.getResult();
+      result.executionSummary = this.buildExecutionSummary();
+      return result;
     } catch (error) {
       if (error instanceof WorkflowPaused) {
         return {
@@ -118,6 +127,7 @@ export class WorkflowEngine {
           changedFiles: context.getChangedFiles(),
           pausedAtPhase: context.getCurrentPhase() ?? undefined,
           blockerDetails: error.blockerDetails,
+          executionSummary: this.buildExecutionSummary(),
         };
       }
       if (error instanceof WorkflowFailure) {
@@ -127,6 +137,7 @@ export class WorkflowEngine {
           completedPhases: context.getCompletedPhases(),
           changedFiles: context.getChangedFiles(),
           error: error.message,
+          executionSummary: this.buildExecutionSummary(),
         };
       }
       throw error;
@@ -173,7 +184,9 @@ export class WorkflowEngine {
         }
       }
 
-      return context.getResult();
+      const result = context.getResult();
+      result.executionSummary = this.buildExecutionSummary();
+      return result;
     } catch (error) {
       if (error instanceof WorkflowPaused) {
         return {
@@ -183,6 +196,7 @@ export class WorkflowEngine {
           changedFiles: context.getChangedFiles(),
           pausedAtPhase: context.getCurrentPhase() ?? undefined,
           blockerDetails: error.blockerDetails,
+          executionSummary: this.buildExecutionSummary(),
         };
       }
       if (error instanceof WorkflowFailure) {
@@ -192,6 +206,7 @@ export class WorkflowEngine {
           completedPhases: context.getCompletedPhases(),
           changedFiles: context.getChangedFiles(),
           error: error.message,
+          executionSummary: this.buildExecutionSummary(),
         };
       }
       throw error;
@@ -600,11 +615,16 @@ export class WorkflowEngine {
     step: LoopStep,
     ctx: WorkflowContext
   ): Promise<void> {
+    let iterationsRun = 0;
+    let exitReason: 'condition-cleared' | 'exhausted' | 'error' = 'condition-cleared';
+
     for (let attempt = 0; attempt < step.maxRetries; attempt++) {
       // Check condition BEFORE running steps (after first iteration)
       if (attempt > 0 && !ctx.evaluate(step.condition)) {
         break; // condition cleared
       }
+
+      iterationsRun++;
 
       for (const childStep of step.steps) {
         await this.executeStep(childStep, ctx);
@@ -618,7 +638,22 @@ export class WorkflowEngine {
 
     // If condition is still true after all retries, handle exhaustion
     if (ctx.evaluate(step.condition)) {
+      exitReason = 'exhausted';
+      // Record loop metadata before handleExhausted may throw
+      this.loopMeta.set(step.name, {
+        iterations: iterationsRun,
+        condition: step.condition,
+        maxRetries: step.maxRetries,
+        exitReason,
+      });
       await this.handleExhausted(step, ctx);
+    } else {
+      this.loopMeta.set(step.name, {
+        iterations: iterationsRun,
+        condition: step.condition,
+        maxRetries: step.maxRetries,
+        exitReason,
+      });
     }
   }
 
@@ -774,6 +809,137 @@ export class WorkflowEngine {
    */
   getAuditLog(): WorkflowAuditEntry[] {
     return [...this.auditLog];
+  }
+
+  /**
+   * Build an ExecutionSummary from the audit log and loop metadata.
+   *
+   * Pairs start/complete/failed/skipped audit entries to compute per-step
+   * timing, includes composed step metadata (agent/prompt sources),
+   * nests children for parallel/per-task steps, and aggregates counts.
+   */
+  buildExecutionSummary(): ExecutionSummary {
+    const steps: StepExecution[] = [];
+    const skippedSteps: Array<{ name: string; reason: string }> = [];
+    const loopDetails: Array<{
+      name: string;
+      condition: string;
+      iterations: number;
+      maxRetries: number;
+      exitReason: 'condition-cleared' | 'exhausted' | 'error';
+    }> = [];
+
+    // Index audit entries by step name for pairing
+    const startTimes = new Map<string, string>();
+    const entries = this.auditLog;
+
+    // Track steps that already have a terminal entry to avoid duplicates
+    // (e.g. loop onExhausted:warn writes a completed entry, then executeStep
+    // writes another completed entry for the same step).
+    const processedSteps = new Set<string>();
+
+    let workflowStartTime: string | undefined;
+    let workflowEndTime: string | undefined;
+
+    for (const entry of entries) {
+      if (!workflowStartTime || entry.timestamp < workflowStartTime) {
+        workflowStartTime = entry.timestamp;
+      }
+      if (!workflowEndTime || entry.timestamp > workflowEndTime) {
+        workflowEndTime = entry.timestamp;
+      }
+
+      if (entry.status === 'started') {
+        startTimes.set(entry.step, entry.timestamp);
+        continue;
+      }
+
+      if (entry.status === 'skipped') {
+        if (processedSteps.has(entry.step)) continue;
+        processedSteps.add(entry.step);
+        const reason = (entry.metadata?.reason as string) ?? 'unknown';
+        skippedSteps.push({ name: entry.step, reason });
+        steps.push({
+          name: entry.step,
+          status: 'skipped',
+          durationMs: 0,
+          skipReason: reason,
+        });
+        continue;
+      }
+
+      if (entry.status === 'completed' || entry.status === 'failed') {
+        // Skip duplicate terminal entries for the same step
+        if (processedSteps.has(entry.step)) continue;
+        processedSteps.add(entry.step);
+
+        const startTime = startTimes.get(entry.step);
+        const durationMs = startTime
+          ? new Date(entry.timestamp).getTime() - new Date(startTime).getTime()
+          : 0;
+
+        const stepExec: StepExecution = {
+          name: entry.step,
+          status: entry.status === 'completed' ? 'completed' : 'failed',
+          durationMs,
+        };
+
+        // Add composed step metadata if available
+        if (entry.metadata?.agentSource) {
+          stepExec.agentSource = entry.metadata.agentSource as string;
+          stepExec.promptSource = entry.metadata.promptSource as string;
+        }
+
+        // Add error info for failed steps
+        if (entry.status === 'failed' && entry.metadata?.error) {
+          stepExec.error = entry.metadata.error as string;
+        }
+
+        // Add loop metadata if this is a loop step
+        const loop = this.loopMeta.get(entry.step);
+        if (loop) {
+          stepExec.type = 'loop';
+          stepExec.loopIterations = loop.iterations;
+          stepExec.loopCondition = loop.condition;
+          stepExec.loopExitReason = loop.exitReason;
+          stepExec.loopMaxRetries = loop.maxRetries;
+
+          loopDetails.push({
+            name: entry.step,
+            condition: loop.condition,
+            iterations: loop.iterations,
+            maxRetries: loop.maxRetries,
+            exitReason: loop.exitReason,
+          });
+        }
+
+        // Add warning metadata if present
+        if (entry.metadata?.warning) {
+          stepExec.error = entry.metadata.warning as string;
+        }
+
+        steps.push(stepExec);
+      }
+    }
+
+    const totalDurationMs = workflowStartTime && workflowEndTime
+      ? new Date(workflowEndTime).getTime() - new Date(workflowStartTime).getTime()
+      : 0;
+
+    const counts = {
+      total: steps.length,
+      completed: steps.filter(s => s.status === 'completed').length,
+      failed: steps.filter(s => s.status === 'failed').length,
+      skipped: steps.filter(s => s.status === 'skipped').length,
+    };
+
+    return {
+      totalDurationMs,
+      steps,
+      counts,
+      skippedSteps,
+      loopDetails,
+    };
   }
 }
 

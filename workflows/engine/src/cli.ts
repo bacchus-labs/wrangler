@@ -165,6 +165,56 @@ export function printResult(result: WorkflowResult): void {
     console.log(`Blocker: ${result.blockerDetails}`);
   }
 
+  // Print execution summary if available
+  const summary = result.executionSummary;
+  if (summary) {
+    const totalSec = (summary.totalDurationMs / 1000).toFixed(1);
+    console.log(`\n--- Execution Summary (${totalSec}s) ---`);
+    console.log(`Steps: ${summary.counts.total} total, ${summary.counts.completed} completed, ${summary.counts.failed} failed, ${summary.counts.skipped} skipped`);
+
+    // Step-by-step breakdown
+    for (const step of summary.steps) {
+      const dur = step.durationMs > 0 ? ` (${(step.durationMs / 1000).toFixed(1)}s)` : '';
+      const status = step.status === 'completed' ? 'OK' : step.status === 'failed' ? 'FAIL' : 'SKIP';
+      let detail = `  [${status}] ${step.name}${dur}`;
+
+      if (step.agentSource) {
+        const agent = path.basename(step.agentSource, '.md');
+        const prompt = step.promptSource ? path.basename(step.promptSource, '.md') : '';
+        detail += ` agent=${agent}`;
+        if (prompt) detail += ` prompt=${prompt}`;
+      }
+
+      if (step.skipReason) {
+        detail += ` reason="${step.skipReason}"`;
+      }
+
+      if (step.error) {
+        detail += ` error="${step.error}"`;
+      }
+
+      console.log(detail);
+    }
+
+    // Loop details
+    if (summary.loopDetails.length > 0) {
+      console.log('\nLoop steps:');
+      for (const loop of summary.loopDetails) {
+        const exitLabel = loop.exitReason === 'condition-cleared' ? 'resolved'
+          : loop.exitReason === 'exhausted' ? 'EXHAUSTED' : 'ERROR';
+        console.log(`  ${loop.name}: ${loop.iterations}/${loop.maxRetries} iterations [${exitLabel}] condition="${loop.condition}"`);
+      }
+    }
+
+    // Skipped steps
+    if (summary.skippedSteps.length > 0) {
+      console.log('\nSkipped steps:');
+      for (const s of summary.skippedSteps) {
+        console.log(`  ${s.name}: ${s.reason}`);
+      }
+    }
+  }
+
   // Extract verification results if available
   const verification = result.outputs?.verification as Record<string, unknown> | undefined;
   if (verification?.testSuite) {

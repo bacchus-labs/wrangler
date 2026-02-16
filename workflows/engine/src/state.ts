@@ -27,6 +27,52 @@ export interface WorkflowResult {
   pausedAtPhase?: string;
   error?: string;
   blockerDetails?: string;
+  executionSummary?: ExecutionSummary;
+}
+
+// --- Execution Summary ---
+
+export interface StepExecution {
+  name: string;
+  status: 'completed' | 'failed' | 'skipped';
+  durationMs: number;
+  type?: 'agent' | 'code' | 'parallel' | 'per-task' | 'loop';
+  agentSource?: string;
+  promptSource?: string;
+  skipReason?: string;
+  /** For loop steps: how many iterations actually ran */
+  loopIterations?: number;
+  /** For loop steps: the condition expression */
+  loopCondition?: string;
+  /** For loop steps: how the loop exited */
+  loopExitReason?: 'condition-cleared' | 'exhausted' | 'error';
+  /** For loop steps: max retries configured */
+  loopMaxRetries?: number;
+  /** For parallel/per-task steps: child step summaries */
+  children?: StepExecution[];
+  /** Error message if failed */
+  error?: string;
+}
+
+export interface ExecutionSummary {
+  totalDurationMs: number;
+  steps: StepExecution[];
+  counts: {
+    total: number;
+    completed: number;
+    failed: number;
+    skipped: number;
+  };
+  /** Steps that were skipped with their reasons */
+  skippedSteps: Array<{ name: string; reason: string }>;
+  /** Loop steps with their iteration details */
+  loopDetails: Array<{
+    name: string;
+    condition: string;
+    iterations: number;
+    maxRetries: number;
+    exitReason: 'condition-cleared' | 'exhausted' | 'error';
+  }>;
 }
 
 // --- Condition Validation ---

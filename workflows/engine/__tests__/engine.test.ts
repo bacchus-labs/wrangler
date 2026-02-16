@@ -4345,4 +4345,215 @@ phases:
       );
     });
   });
+
+  // -----------------------------------------------------------------------
+  // Execution Summary
+  // -----------------------------------------------------------------------
+  describe('execution summary', () => {
+    it('should include executionSummary in completed result', async () => {
+      const registry = new HandlerRegistry();
+      registry.register('noop', async () => {});
+
+      await writeWorkflowYaml(tmpDir, 'workflow.yaml', `
+name: test-workflow
+version: 1
+phases:
+  - name: step1
+    type: code
+    handler: noop
+  - name: step2
+    type: code
+    handler: noop
+`);
+
+      const queryFn = createMockQuery(new Map());
+      const engine = new WorkflowEngine({
+        config: makeConfig(tmpDir),
+        queryFn,
+        handlerRegistry: registry,
+      });
+
+      const result = await engine.run('workflow.yaml', '/tmp/spec.md');
+
+      expect(result.executionSummary).toBeDefined();
+      const summary = result.executionSummary!;
+      expect(summary.counts.total).toBe(2);
+      expect(summary.counts.completed).toBe(2);
+      expect(summary.counts.failed).toBe(0);
+      expect(summary.counts.skipped).toBe(0);
+      expect(summary.steps).toHaveLength(2);
+      expect(summary.steps[0].name).toBe('step1');
+      expect(summary.steps[0].status).toBe('completed');
+      expect(summary.steps[0].durationMs).toBeGreaterThanOrEqual(0);
+      expect(summary.steps[1].name).toBe('step2');
+      expect(summary.totalDurationMs).toBeGreaterThanOrEqual(0);
+    });
+
+    it('should include executionSummary in failed result', async () => {
+      const registry = new HandlerRegistry();
+      registry.register('noop', async () => {});
+      registry.register('fail-handler', async () => {
+        throw new WorkflowFailure('fail-step', 'test failure');
+      });
+
+      await writeWorkflowYaml(tmpDir, 'workflow.yaml', `
+name: test-workflow
+version: 1
+phases:
+  - name: good-step
+    type: code
+    handler: noop
+  - name: fail-step
+    type: code
+    handler: fail-handler
+`);
+
+      const queryFn = createMockQuery(new Map());
+      const engine = new WorkflowEngine({
+        config: makeConfig(tmpDir),
+        queryFn,
+        handlerRegistry: registry,
+      });
+
+      const result = await engine.run('workflow.yaml', '/tmp/spec.md');
+
+      expect(result.status).toBe('failed');
+      expect(result.executionSummary).toBeDefined();
+      const summary = result.executionSummary!;
+      expect(summary.counts.completed).toBe(1);
+      expect(summary.counts.failed).toBe(1);
+      expect(summary.steps.find(s => s.name === 'fail-step')?.status).toBe('failed');
+    });
+
+    it('should track skipped steps in summary', async () => {
+      const registry = new HandlerRegistry();
+      registry.register('noop', async () => {});
+
+      await writeWorkflowYaml(tmpDir, 'workflow.yaml', `
+name: test-workflow
+version: 1
+phases:
+  - name: run-step
+    type: code
+    handler: noop
+  - name: skip-me
+    type: code
+    handler: noop
+`);
+
+      const queryFn = createMockQuery(new Map());
+      const engine = new WorkflowEngine({
+        config: { ...makeConfig(tmpDir), skipStepNames: ['skip-me'] },
+        queryFn,
+        handlerRegistry: registry,
+      });
+
+      const result = await engine.run('workflow.yaml', '/tmp/spec.md');
+
+      expect(result.executionSummary).toBeDefined();
+      const summary = result.executionSummary!;
+      expect(summary.counts.completed).toBe(1);
+      expect(summary.counts.skipped).toBe(1);
+      expect(summary.skippedSteps).toHaveLength(1);
+      expect(summary.skippedSteps[0].name).toBe('skip-me');
+      expect(summary.skippedSteps[0].reason).toBe('--skip-step=skip-me');
+    });
+
+    it('should track loop metadata in summary', async () => {
+      let callCount = 0;
+      const registry = new HandlerRegistry();
+      registry.register('set-condition', async (ctx) => {
+        ctx.set('needsRetry', true);
+      });
+      registry.register('attempt-fix', async (ctx) => {
+        callCount++;
+        if (callCount >= 2) {
+          ctx.set('needsRetry', false);
+        }
+      });
+
+      await writeWorkflowYaml(tmpDir, 'workflow.yaml', `
+name: test-workflow
+version: 1
+phases:
+  - name: setup
+    type: code
+    handler: set-condition
+  - name: fix-loop
+    type: loop
+    condition: needsRetry
+    maxRetries: 5
+    onExhausted: fail
+    steps:
+      - name: fix-attempt
+        type: code
+        handler: attempt-fix
+`);
+
+      const queryFn = createMockQuery(new Map());
+      const engine = new WorkflowEngine({
+        config: makeConfig(tmpDir),
+        queryFn,
+        handlerRegistry: registry,
+      });
+
+      const result = await engine.run('workflow.yaml', '/tmp/spec.md');
+
+      expect(result.executionSummary).toBeDefined();
+      const summary = result.executionSummary!;
+      expect(summary.loopDetails).toHaveLength(1);
+      expect(summary.loopDetails[0]).toMatchObject({
+        name: 'fix-loop',
+        condition: 'needsRetry',
+        iterations: 2,
+        maxRetries: 5,
+        exitReason: 'condition-cleared',
+      });
+    });
+
+    it('should track exhausted loop in summary', async () => {
+      const registry = new HandlerRegistry();
+      registry.register('set-condition', async (ctx) => {
+        ctx.set('alwaysTrue', true);
+      });
+      registry.register('noop', async () => {});
+
+      await writeWorkflowYaml(tmpDir, 'workflow.yaml', `
+name: test-workflow
+version: 1
+phases:
+  - name: setup
+    type: code
+    handler: set-condition
+  - name: stuck-loop
+    type: loop
+    condition: alwaysTrue
+    maxRetries: 3
+    onExhausted: warn
+    steps:
+      - name: try-fix
+        type: code
+        handler: noop
+`);
+
+      const queryFn = createMockQuery(new Map());
+      const engine = new WorkflowEngine({
+        config: makeConfig(tmpDir),
+        queryFn,
+        handlerRegistry: registry,
+      });
+
+      const result = await engine.run('workflow.yaml', '/tmp/spec.md');
+
+      expect(result.executionSummary).toBeDefined();
+      const summary = result.executionSummary!;
+      expect(summary.loopDetails).toHaveLength(1);
+      expect(summary.loopDetails[0]).toMatchObject({
+        name: 'stuck-loop',
+        exitReason: 'exhausted',
+        iterations: 3,
+        maxRetries: 3,
+      });
+    });
+  });
 });
