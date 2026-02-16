@@ -66,6 +66,7 @@ export interface InitWorkspaceResult {
   config: {
     created: boolean;
     schemaUpdated: boolean;
+    wranglerConfigCreated: boolean;
   };
   gitignore: {
     patternsAdded: string[];
@@ -391,54 +392,135 @@ function applyGitignore(
   fs.writeFileSync(gitignorePath, content);
 }
 
-// ─── Schema Copy ─────────────────────────────────────────────────────
+// ─── Config File Management ─────────────────────────────────────────
 
 interface ConfigPlan {
   created: boolean;
   schemaUpdated: boolean;
+  wranglerConfigCreated: boolean;
+}
+
+/**
+ * Parse a semver version string into numeric components.
+ * Returns [major, minor, patch] or [0, 0, 0] for invalid/missing versions.
+ */
+export function parseSemver(version: string | undefined): [number, number, number] {
+  if (!version) return [0, 0, 0];
+  const match = version.match(/^(\d+)\.(\d+)\.(\d+)/);
+  if (!match) return [0, 0, 0];
+  return [parseInt(match[1], 10), parseInt(match[2], 10), parseInt(match[3], 10)];
+}
+
+/**
+ * Compare two semver versions.
+ * Returns positive if a > b, negative if a < b, 0 if equal.
+ */
+export function compareSemver(a: string | undefined, b: string | undefined): number {
+  const [aMajor, aMinor, aPatch] = parseSemver(a);
+  const [bMajor, bMinor, bPatch] = parseSemver(b);
+
+  if (aMajor !== bMajor) return aMajor - bMajor;
+  if (aMinor !== bMinor) return aMinor - bMinor;
+  return aPatch - bPatch;
 }
 
 /**
  * Plan config file operations.
+ *
+ * FR-007: Plans wrangler.json generation with default configuration
+ * FR-011: Copies workspace-schema.json if missing or if plugin version is newer
+ * FR-012: Checks for existing files to avoid overwriting
  */
 function planConfig(
-  _pluginRoot: string,
+  pluginRoot: string,
   projectRoot: string
 ): ConfigPlan {
   const destSchemaPath = path.join(projectRoot, '.wrangler', 'config', 'workspace-schema.json');
+  const destWranglerConfigPath = path.join(projectRoot, '.wrangler', 'config', 'wrangler.json');
 
   const schemaExists = fs.existsSync(destSchemaPath);
+  const wranglerConfigExists = fs.existsSync(destWranglerConfigPath);
+
+  // FR-011: Determine if schema needs to be copied or updated
+  let schemaUpdated = false;
+  if (!schemaExists) {
+    // Schema doesn't exist at destination - needs to be created
+    schemaUpdated = true;
+  } else {
+    // Schema exists - check if plugin version is newer
+    try {
+      const pluginSchemaPath = path.join(pluginRoot, '.wrangler', 'config', 'workspace-schema.json');
+      if (fs.existsSync(pluginSchemaPath)) {
+        const destContent = JSON.parse(fs.readFileSync(destSchemaPath, 'utf-8'));
+        const pluginContent = JSON.parse(fs.readFileSync(pluginSchemaPath, 'utf-8'));
+
+        if (compareSemver(pluginContent.version, destContent.version) > 0) {
+          schemaUpdated = true;
+        }
+      }
+    } catch {
+      // If we can't read/parse either file, don't update
+    }
+  }
 
   return {
     created: !schemaExists,
-    schemaUpdated: !schemaExists,
+    schemaUpdated,
+    wranglerConfigCreated: !wranglerConfigExists,
   };
 }
 
 /**
  * Apply config file operations to disk.
+ *
+ * FR-007: Generates wrangler.json with version and workspace directories
+ * FR-012: Only creates files that don't already exist
  */
 function applyConfig(
   plan: ConfigPlan,
   pluginRoot: string,
-  projectRoot: string
+  projectRoot: string,
+  schema: WorkspaceSchema
 ): void {
-  if (!plan.schemaUpdated) {
-    return;
+  const destConfigDir = path.join(projectRoot, '.wrangler', 'config');
+
+  if (plan.schemaUpdated || plan.wranglerConfigCreated) {
+    fs.mkdirSync(destConfigDir, { recursive: true });
   }
 
-  const srcSchemaPath = path.join(pluginRoot, '.wrangler', 'config', 'workspace-schema.json');
-  const destConfigDir = path.join(projectRoot, '.wrangler', 'config');
-  const destSchemaPath = path.join(destConfigDir, 'workspace-schema.json');
+  // Copy workspace-schema.json if needed
+  if (plan.schemaUpdated) {
+    const srcSchemaPath = path.join(pluginRoot, '.wrangler', 'config', 'workspace-schema.json');
+    const destSchemaPath = path.join(destConfigDir, 'workspace-schema.json');
 
-  fs.mkdirSync(destConfigDir, { recursive: true });
+    if (fs.existsSync(srcSchemaPath)) {
+      fs.copyFileSync(srcSchemaPath, destSchemaPath);
+    } else {
+      // Write default schema
+      const defaultSchema = getDefaultSchema();
+      fs.writeFileSync(destSchemaPath, JSON.stringify(defaultSchema, null, 2));
+    }
+  }
 
-  if (fs.existsSync(srcSchemaPath)) {
-    fs.copyFileSync(srcSchemaPath, destSchemaPath);
-  } else {
-    // Write default schema
-    const defaultSchema = getDefaultSchema();
-    fs.writeFileSync(destSchemaPath, JSON.stringify(defaultSchema, null, 2));
+  // FR-007: Generate wrangler.json with default configuration
+  if (plan.wranglerConfigCreated) {
+    const destWranglerConfigPath = path.join(destConfigDir, 'wrangler.json');
+
+    // Build directory map from schema
+    const directories: Record<string, string> = {};
+    for (const [key, dir] of Object.entries(schema.directories)) {
+      directories[key] = dir.path;
+    }
+
+    const wranglerConfig = {
+      version: schema.version || '1.0.0',
+      workspace: {
+        root: schema.workspace?.root || '.wrangler',
+        directories,
+      },
+    };
+
+    fs.writeFileSync(destWranglerConfigPath, JSON.stringify(wranglerConfig, null, 2));
   }
 }
 
@@ -488,7 +570,8 @@ export async function initWorkspaceTool(
       promptsPlan.copied.length > 0 ||
       workflowsPlan.copied.length > 0 ||
       gitignorePlan.patternsAdded.length > 0 ||
-      configPlan.schemaUpdated;
+      configPlan.schemaUpdated ||
+      configPlan.wranglerConfigCreated;
 
     let status: InitWorkspaceResult['status'];
     if (!hasChanges) {
@@ -508,7 +591,7 @@ export async function initWorkspaceTool(
         workflows: workflowsPlan,
       });
       applyGitignore(gitignorePlan, projectRoot, schema);
-      applyConfig(configPlan, pluginRoot, projectRoot);
+      applyConfig(configPlan, pluginRoot, projectRoot, schema);
     }
 
     // Build result

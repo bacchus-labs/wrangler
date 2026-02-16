@@ -18,7 +18,74 @@ import {
   InitWorkspaceResult,
   resolvePluginRoot,
   resolveProjectRoot,
+  parseSemver,
+  compareSemver,
 } from '../../../tools/workspace/init';
+
+// ─── Unit Tests for Semver Helpers ──────────────────────────────────
+
+describe('parseSemver', () => {
+  it('should parse valid semver strings', () => {
+    expect(parseSemver('1.2.3')).toEqual([1, 2, 3]);
+    expect(parseSemver('0.0.0')).toEqual([0, 0, 0]);
+    expect(parseSemver('10.20.30')).toEqual([10, 20, 30]);
+  });
+
+  it('should return [0,0,0] for undefined', () => {
+    expect(parseSemver(undefined)).toEqual([0, 0, 0]);
+  });
+
+  it('should return [0,0,0] for empty string', () => {
+    expect(parseSemver('')).toEqual([0, 0, 0]);
+  });
+
+  it('should return [0,0,0] for non-semver strings', () => {
+    expect(parseSemver('not-a-version')).toEqual([0, 0, 0]);
+    expect(parseSemver('abc')).toEqual([0, 0, 0]);
+    expect(parseSemver('1.2')).toEqual([0, 0, 0]);
+    expect(parseSemver('v1.2.3')).toEqual([0, 0, 0]);
+  });
+
+  it('should handle versions with pre-release suffixes by ignoring suffix', () => {
+    expect(parseSemver('1.2.3-beta')).toEqual([1, 2, 3]);
+    expect(parseSemver('2.0.0-rc.1')).toEqual([2, 0, 0]);
+  });
+});
+
+describe('compareSemver', () => {
+  it('should return 0 for equal versions', () => {
+    expect(compareSemver('1.2.3', '1.2.3')).toBe(0);
+    expect(compareSemver('0.0.0', '0.0.0')).toBe(0);
+  });
+
+  it('should return positive when first version is greater', () => {
+    expect(compareSemver('2.0.0', '1.0.0')).toBeGreaterThan(0);
+    expect(compareSemver('1.1.0', '1.0.0')).toBeGreaterThan(0);
+    expect(compareSemver('1.0.1', '1.0.0')).toBeGreaterThan(0);
+  });
+
+  it('should return negative when first version is lesser', () => {
+    expect(compareSemver('1.0.0', '2.0.0')).toBeLessThan(0);
+    expect(compareSemver('1.0.0', '1.1.0')).toBeLessThan(0);
+    expect(compareSemver('1.0.0', '1.0.1')).toBeLessThan(0);
+  });
+
+  it('should handle multi-digit version components correctly (1.10.0 > 1.9.0)', () => {
+    expect(compareSemver('1.10.0', '1.9.0')).toBeGreaterThan(0);
+    expect(compareSemver('1.9.0', '1.10.0')).toBeLessThan(0);
+  });
+
+  it('should handle undefined versions (treated as 0.0.0)', () => {
+    expect(compareSemver(undefined, '1.0.0')).toBeLessThan(0);
+    expect(compareSemver('1.0.0', undefined)).toBeGreaterThan(0);
+    expect(compareSemver(undefined, undefined)).toBe(0);
+  });
+
+  it('should handle malformed versions (treated as 0.0.0)', () => {
+    expect(compareSemver('not-a-version', '1.0.0')).toBeLessThan(0);
+    expect(compareSemver('1.0.0', 'not-a-version')).toBeGreaterThan(0);
+  });
+});
 
 describe('initWorkspaceTool', () => {
   let tmpDir: string;
@@ -498,6 +565,324 @@ describe('initWorkspaceTool', () => {
       const report = result.metadata as InitWorkspaceResult;
       expect(report.config).toBeDefined();
       expect(typeof report.config.schemaUpdated).toBe('boolean');
+    });
+  });
+
+  // ─── FR-011: Schema Version Comparison & Copy ──────────────────────
+
+  describe('FR-011: schema version comparison and copy', () => {
+    it('should copy schema when destination does not exist (fresh project)', async () => {
+      const result = await initWorkspaceTool({ fix: true, projectRoot, pluginRoot });
+
+      const destSchema = path.join(projectRoot, '.wrangler', 'config', 'workspace-schema.json');
+      expect(fs.existsSync(destSchema)).toBe(true);
+
+      const report = result.metadata as InitWorkspaceResult;
+      expect(report.config.schemaUpdated).toBe(true);
+    });
+
+    it('should update schema when plugin version is newer than project version', async () => {
+      // Pre-create an older version schema in the project
+      const configDir = path.join(projectRoot, '.wrangler', 'config');
+      fs.mkdirSync(configDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(configDir, 'workspace-schema.json'),
+        JSON.stringify({ version: '1.0.0', description: 'Old schema', workspace: { root: '.wrangler' }, directories: {}, governanceFiles: {}, readmeFiles: {}, gitignorePatterns: [], artifactTypes: {}, mcpConfiguration: {} })
+      );
+
+      // Plugin has version 1.2.0 (newer)
+      const result = await initWorkspaceTool({ fix: true, projectRoot, pluginRoot });
+
+      const report = result.metadata as InitWorkspaceResult;
+      expect(report.config.schemaUpdated).toBe(true);
+
+      // Verify the schema was actually updated with the plugin's version
+      const content = JSON.parse(
+        fs.readFileSync(path.join(configDir, 'workspace-schema.json'), 'utf-8')
+      );
+      expect(content.version).toBe('1.2.0');
+    });
+
+    it('should NOT update schema when project version matches plugin version', async () => {
+      // Pre-create a schema with the same version as plugin (1.2.0)
+      const configDir = path.join(projectRoot, '.wrangler', 'config');
+      fs.mkdirSync(configDir, { recursive: true });
+      const existingSchema = {
+        version: '1.2.0',
+        description: 'Project-customized schema',
+        workspace: { root: '.wrangler' },
+        directories: {},
+        governanceFiles: {},
+        readmeFiles: {},
+        gitignorePatterns: [],
+        artifactTypes: {},
+        mcpConfiguration: {},
+      };
+      fs.writeFileSync(
+        path.join(configDir, 'workspace-schema.json'),
+        JSON.stringify(existingSchema)
+      );
+
+      const result = await initWorkspaceTool({ fix: true, projectRoot, pluginRoot });
+
+      const report = result.metadata as InitWorkspaceResult;
+      expect(report.config.schemaUpdated).toBe(false);
+
+      // Content should remain unchanged
+      const content = JSON.parse(
+        fs.readFileSync(path.join(configDir, 'workspace-schema.json'), 'utf-8')
+      );
+      expect(content.description).toBe('Project-customized schema');
+    });
+
+    it('should NOT update schema when project version is newer than plugin version', async () => {
+      // Pre-create a schema with a NEWER version than plugin
+      const configDir = path.join(projectRoot, '.wrangler', 'config');
+      fs.mkdirSync(configDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(configDir, 'workspace-schema.json'),
+        JSON.stringify({ version: '2.0.0', description: 'Future schema', workspace: { root: '.wrangler' }, directories: {}, governanceFiles: {}, readmeFiles: {}, gitignorePatterns: [], artifactTypes: {}, mcpConfiguration: {} })
+      );
+
+      const result = await initWorkspaceTool({ fix: true, projectRoot, pluginRoot });
+
+      const report = result.metadata as InitWorkspaceResult;
+      expect(report.config.schemaUpdated).toBe(false);
+
+      // Version should NOT be downgraded
+      const content = JSON.parse(
+        fs.readFileSync(path.join(configDir, 'workspace-schema.json'), 'utf-8')
+      );
+      expect(content.version).toBe('2.0.0');
+    });
+
+    it('should handle missing version field in project schema (treat as 0.0.0)', async () => {
+      // Pre-create a schema WITHOUT a version field
+      const configDir = path.join(projectRoot, '.wrangler', 'config');
+      fs.mkdirSync(configDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(configDir, 'workspace-schema.json'),
+        JSON.stringify({ description: 'No version', workspace: { root: '.wrangler' }, directories: {}, governanceFiles: {}, readmeFiles: {}, gitignorePatterns: [], artifactTypes: {}, mcpConfiguration: {} })
+      );
+
+      const result = await initWorkspaceTool({ fix: true, projectRoot, pluginRoot });
+
+      const report = result.metadata as InitWorkspaceResult;
+      // Should update since no version is treated as 0.0.0
+      expect(report.config.schemaUpdated).toBe(true);
+    });
+
+    it('should handle malformed version in project schema gracefully', async () => {
+      // Pre-create a schema with an invalid version string
+      const configDir = path.join(projectRoot, '.wrangler', 'config');
+      fs.mkdirSync(configDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(configDir, 'workspace-schema.json'),
+        JSON.stringify({ version: 'not-a-version', description: 'Bad version', workspace: { root: '.wrangler' }, directories: {}, governanceFiles: {}, readmeFiles: {}, gitignorePatterns: [], artifactTypes: {}, mcpConfiguration: {} })
+      );
+
+      const result = await initWorkspaceTool({ fix: true, projectRoot, pluginRoot });
+
+      const report = result.metadata as InitWorkspaceResult;
+      // Malformed version should be treated as 0.0.0, so plugin (1.2.0) is newer
+      expect(report.config.schemaUpdated).toBe(true);
+    });
+
+    it('should detect schema update needed in report-only mode (fix: false)', async () => {
+      // Pre-create an older version schema
+      const configDir = path.join(projectRoot, '.wrangler', 'config');
+      fs.mkdirSync(configDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(configDir, 'workspace-schema.json'),
+        JSON.stringify({ version: '1.0.0', workspace: { root: '.wrangler' }, directories: {}, governanceFiles: {}, readmeFiles: {}, gitignorePatterns: [], artifactTypes: {}, mcpConfiguration: {} })
+      );
+
+      const result = await initWorkspaceTool({ fix: false, projectRoot, pluginRoot });
+
+      const report = result.metadata as InitWorkspaceResult;
+      expect(report.config.schemaUpdated).toBe(true);
+      expect(report.status).toBe('changes_needed');
+
+      // But should NOT have actually updated the file
+      const content = JSON.parse(
+        fs.readFileSync(path.join(configDir, 'workspace-schema.json'), 'utf-8')
+      );
+      expect(content.version).toBe('1.0.0');
+    });
+
+    it('should compare versions using semver logic (1.10.0 > 1.9.0)', async () => {
+      // Write a plugin schema with version 1.10.0
+      fs.writeFileSync(
+        path.join(pluginRoot, '.wrangler', 'config', 'workspace-schema.json'),
+        JSON.stringify({
+          version: '1.10.0',
+          description: 'Newer plugin schema',
+          workspace: { root: '.wrangler' },
+          directories: {
+            issues: { path: '.wrangler/issues', description: 'Issues', gitTracked: true },
+            cache: { path: '.wrangler/cache', description: 'Cache', gitTracked: false },
+            config: { path: '.wrangler/config', description: 'Config', gitTracked: true },
+          },
+          governanceFiles: {},
+          readmeFiles: {},
+          gitignorePatterns: ['cache/', 'logs/', 'sessions/'],
+          artifactTypes: {},
+          mcpConfiguration: {
+            issuesDirectory: '.wrangler/issues',
+            specificationsDirectory: '.wrangler/specifications',
+            ideasDirectory: '.wrangler/ideas',
+          },
+        })
+      );
+
+      // Project has version 1.9.0
+      const configDir = path.join(projectRoot, '.wrangler', 'config');
+      fs.mkdirSync(configDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(configDir, 'workspace-schema.json'),
+        JSON.stringify({ version: '1.9.0', workspace: { root: '.wrangler' }, directories: {}, governanceFiles: {}, readmeFiles: {}, gitignorePatterns: [], artifactTypes: {}, mcpConfiguration: {} })
+      );
+
+      const result = await initWorkspaceTool({ fix: true, projectRoot, pluginRoot });
+
+      const report = result.metadata as InitWorkspaceResult;
+      // 1.10.0 > 1.9.0, so schema should be updated
+      expect(report.config.schemaUpdated).toBe(true);
+    });
+  });
+
+  // ─── FR-007: wrangler.json Config File Generation ──────────────────
+
+  describe('wrangler.json config file generation (FR-007)', () => {
+    it('should generate .wrangler/config/wrangler.json on fresh project', async () => {
+      await initWorkspaceTool({ fix: true, projectRoot, pluginRoot });
+
+      const wranglerJsonPath = path.join(projectRoot, '.wrangler', 'config', 'wrangler.json');
+      expect(fs.existsSync(wranglerJsonPath)).toBe(true);
+    });
+
+    it('should include version field in wrangler.json', async () => {
+      await initWorkspaceTool({ fix: true, projectRoot, pluginRoot });
+
+      const wranglerJsonPath = path.join(projectRoot, '.wrangler', 'config', 'wrangler.json');
+      const content = JSON.parse(fs.readFileSync(wranglerJsonPath, 'utf-8'));
+      expect(content.version).toBeDefined();
+      expect(typeof content.version).toBe('string');
+    });
+
+    it('should include workspace directories in wrangler.json', async () => {
+      await initWorkspaceTool({ fix: true, projectRoot, pluginRoot });
+
+      const wranglerJsonPath = path.join(projectRoot, '.wrangler', 'config', 'wrangler.json');
+      const content = JSON.parse(fs.readFileSync(wranglerJsonPath, 'utf-8'));
+      expect(content.workspace).toBeDefined();
+      expect(content.workspace.root).toBe('.wrangler');
+      expect(content.workspace.directories).toBeDefined();
+      // Should contain the key directories from schema
+      expect(content.workspace.directories.issues).toBe('.wrangler/issues');
+      expect(content.workspace.directories.cache).toBe('.wrangler/cache');
+      expect(content.workspace.directories.config).toBe('.wrangler/config');
+    });
+
+    it('should not create wrangler.json in report-only mode', async () => {
+      await initWorkspaceTool({ fix: false, projectRoot, pluginRoot });
+
+      const wranglerJsonPath = path.join(projectRoot, '.wrangler', 'config', 'wrangler.json');
+      expect(fs.existsSync(wranglerJsonPath)).toBe(false);
+    });
+
+    it('should not overwrite existing wrangler.json (FR-012)', async () => {
+      // Pre-create a custom wrangler.json
+      const configDir = path.join(projectRoot, '.wrangler', 'config');
+      fs.mkdirSync(configDir, { recursive: true });
+      const customConfig = { version: '99.0.0', custom: true, workspace: { root: '.custom' } };
+      fs.writeFileSync(
+        path.join(configDir, 'wrangler.json'),
+        JSON.stringify(customConfig, null, 2)
+      );
+
+      await initWorkspaceTool({ fix: true, projectRoot, pluginRoot });
+
+      const content = JSON.parse(
+        fs.readFileSync(path.join(configDir, 'wrangler.json'), 'utf-8')
+      );
+      // Should preserve the custom content
+      expect(content.version).toBe('99.0.0');
+      expect(content.custom).toBe(true);
+    });
+
+    it('should report wranglerConfig creation status in result metadata', async () => {
+      const result = await initWorkspaceTool({ fix: true, projectRoot, pluginRoot });
+
+      const report = result.metadata as InitWorkspaceResult;
+      expect(report.config.wranglerConfigCreated).toBe(true);
+    });
+
+    it('should report wranglerConfigCreated as false when file already exists', async () => {
+      // Pre-create wrangler.json
+      const configDir = path.join(projectRoot, '.wrangler', 'config');
+      fs.mkdirSync(configDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(configDir, 'wrangler.json'),
+        JSON.stringify({ version: '1.0.0' })
+      );
+
+      const result = await initWorkspaceTool({ fix: true, projectRoot, pluginRoot });
+
+      const report = result.metadata as InitWorkspaceResult;
+      expect(report.config.wranglerConfigCreated).toBe(false);
+    });
+
+    it('should include wrangler.json creation in changes_needed detection', async () => {
+      // Pre-create everything EXCEPT wrangler.json:
+      // First, initialize fully
+      await initWorkspaceTool({ fix: true, projectRoot, pluginRoot });
+
+      // Remove only wrangler.json
+      const wranglerJsonPath = path.join(projectRoot, '.wrangler', 'config', 'wrangler.json');
+      fs.unlinkSync(wranglerJsonPath);
+
+      // Now check report - should detect the missing wrangler.json
+      const result = await initWorkspaceTool({ fix: false, projectRoot, pluginRoot });
+      const report = result.metadata as InitWorkspaceResult;
+      expect(report.status).toBe('changes_needed');
+      expect(report.config.wranglerConfigCreated).toBe(true);
+    });
+
+    it('should produce valid JSON in wrangler.json', async () => {
+      await initWorkspaceTool({ fix: true, projectRoot, pluginRoot });
+
+      const wranglerJsonPath = path.join(projectRoot, '.wrangler', 'config', 'wrangler.json');
+      const rawContent = fs.readFileSync(wranglerJsonPath, 'utf-8');
+      // Should not throw
+      expect(() => JSON.parse(rawContent)).not.toThrow();
+      // Should be pretty-printed (indented)
+      expect(rawContent).toContain('\n');
+    });
+
+    it('should be idempotent: second run does not recreate wrangler.json', async () => {
+      // First run creates it
+      await initWorkspaceTool({ fix: true, projectRoot, pluginRoot });
+
+      const wranglerJsonPath = path.join(projectRoot, '.wrangler', 'config', 'wrangler.json');
+      const firstContent = fs.readFileSync(wranglerJsonPath, 'utf-8');
+
+      // Second run should not modify it
+      const result = await initWorkspaceTool({ fix: true, projectRoot, pluginRoot });
+      const report = result.metadata as InitWorkspaceResult;
+      expect(report.config.wranglerConfigCreated).toBe(false);
+
+      const secondContent = fs.readFileSync(wranglerJsonPath, 'utf-8');
+      expect(secondContent).toBe(firstContent);
+    });
+
+    it('should derive version from workspace schema version', async () => {
+      await initWorkspaceTool({ fix: true, projectRoot, pluginRoot });
+
+      const wranglerJsonPath = path.join(projectRoot, '.wrangler', 'config', 'wrangler.json');
+      const content = JSON.parse(fs.readFileSync(wranglerJsonPath, 'utf-8'));
+      // Version should match the schema version
+      expect(content.version).toBe('1.2.0');
     });
   });
 
