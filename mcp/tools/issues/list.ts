@@ -6,6 +6,9 @@ import { z } from 'zod';
 import { ProviderFactory } from '../../providers/factory.js';
 import { IssueFilters, Issue } from '../../types/issues.js';
 
+/** Response format controlling verbosity of issue data */
+export type IssueListFormat = 'full' | 'summary' | 'minimal';
+
 export const listIssuesSchema = z.object({
   status: z.array(z.enum(['open', 'in_progress', 'closed', 'cancelled'])).optional().describe('Filter by status'),
   priority: z.array(z.enum(['low', 'medium', 'high', 'critical'])).optional().describe('Filter by priority'),
@@ -16,7 +19,8 @@ export const listIssuesSchema = z.object({
   types: z.array(z.enum(['issue', 'specification', 'idea'])).optional().describe('Filter by artifact types'),
   type: z.enum(['issue', 'specification', 'idea']).optional().describe('Filter by a single artifact type'),
   limit: z.number().int().positive().max(1000).optional().describe('Maximum number of issues to return'),
-  offset: z.number().int().min(0).optional().describe('Number of issues to skip for pagination')
+  offset: z.number().int().min(0).optional().describe('Number of issues to skip for pagination'),
+  format: z.enum(['full', 'summary', 'minimal']).optional().describe('Response format: full (all fields), summary (key fields, default), minimal (id/title/status only)')
 });
 
 export type ListIssuesParams = z.infer<typeof listIssuesSchema>;
@@ -27,6 +31,7 @@ export async function listIssuesTool(
 ) {
   try {
     const issueProvider = providerFactory.getIssueProvider();
+    const format: IssueListFormat = params.format || 'summary';
 
     const filters: IssueFilters = {
       status: params.status,
@@ -42,15 +47,15 @@ export async function listIssuesTool(
     };
 
     const issues = await issueProvider.listIssues(filters);
-    const structuredIssues = issues.map(serializeIssue);
+    const structuredIssues = issues.map(issue => serializeIssue(issue, format));
 
-    const table = formatIssuesAsTable(issues);
+    const textContent = formatIssuesText(issues, format);
 
     return {
       content: [
         {
           type: 'text',
-          text: `Found ${issues.length} issue(s):\n\n${table}`
+          text: `Found ${issues.length} issue(s):\n\n${textContent}`
         }
       ],
       isError: false,
@@ -58,6 +63,7 @@ export async function listIssuesTool(
         totalIssues: issues.length,
         provider: providerFactory.getConfig().issues?.provider || 'markdown',
         filters: filters,
+        format: format,
         issues: structuredIssues
       }
     };
@@ -75,7 +81,36 @@ export async function listIssuesTool(
   }
 }
 
-function serializeIssue(issue: Issue) {
+/**
+ * Serialize an issue based on the requested format level.
+ *
+ * - full: all fields (original behavior)
+ * - summary: id, title, type, status, priority, labels, assignee, project
+ * - minimal: id, title, status only
+ */
+function serializeIssue(issue: Issue, format: IssueListFormat) {
+  if (format === 'minimal') {
+    return {
+      id: issue.id,
+      title: issue.title,
+      status: issue.status,
+    };
+  }
+
+  if (format === 'summary') {
+    return {
+      id: issue.id,
+      title: issue.title,
+      type: issue.type,
+      status: issue.status,
+      priority: issue.priority,
+      labels: issue.labels,
+      assignee: issue.assignee,
+      project: issue.project,
+    };
+  }
+
+  // full format - return everything
   return {
     id: issue.id,
     title: issue.title,
@@ -91,6 +126,33 @@ function serializeIssue(issue: Issue) {
     closedAt: issue.closedAt?.toISOString?.() ?? issue.closedAt,
     wranglerContext: issue.wranglerContext || null
   };
+}
+
+/**
+ * Format the text content for the response based on format level.
+ */
+function formatIssuesText(issues: Issue[], format: IssueListFormat): string {
+  if (issues.length === 0) {
+    return 'No issues found.';
+  }
+
+  if (format === 'minimal') {
+    return formatIssuesAsCompactList(issues);
+  }
+
+  return formatIssuesAsTable(issues);
+}
+
+/**
+ * Format issues as a compact list (for minimal format).
+ */
+function formatIssuesAsCompactList(issues: Issue[]): string {
+  return issues.map(issue => {
+    const title = issue.title.length > 60
+      ? issue.title.substring(0, 57) + '...'
+      : issue.title;
+    return `${issue.id} [${issue.status}] ${title}`;
+  }).join('\n');
 }
 
 function formatIssuesAsTable(issues: Issue[]): string {
