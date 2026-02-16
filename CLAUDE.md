@@ -11,6 +11,7 @@ This document provides essential context for AI agents (Claude Code, etc.) worki
 ### Core Value Proposition
 
 Wrangler ensures you and your human partner are **of one mind** about:
+
 - **Design principles** (via Constitution documents)
 - **Strategic direction** (via Roadmap files)
 - **Tactical execution** (via tracked issues and specifications)
@@ -30,26 +31,26 @@ Wrangler ensures you and your human partner are **of one mind** about:
    - Mandatory when applicable - no rationalizing away
    - Discoverable and composable
 
-6. **Git Hooks Enforcement Framework**
+3. **Git Hooks Enforcement Framework**
    - Pre-commit, pre-push, commit-msg hooks
    - Automated testing and code quality enforcement
    - Bypass mechanism for TDD RED phase (humans only)
    - Two installation patterns (direct or version-controlled)
 
-3. **Built-in MCP Server**
+4. **Built-in MCP Server**
    - 16 tools (11 issue management + 5 session orchestration)
    - Markdown-based storage (git-tracked)
    - Automatic workspace initialization
    - Full-text search and metadata queries
 
-4. **Template System**
+5. **Template System**
    - Templates stored in skill directories (skill-local pattern)
    - Governance file templates (Constitution, Roadmap, etc.)
    - Issue and specification templates
    - Directory README templates
    - Referenced directly from skills, not copied
 
-5. **Workflow Integration**
+6. **Workflow Integration**
    - Slash commands for common operations
    - Session hooks for automatic setup
    - Verification and validation tools
@@ -143,7 +144,8 @@ wrangler/
 Use these directories for different file types:
 
 **`.wrangler/memos/` - Wrangler Reference Material & Lessons Learned**
-- Root cause analyses (RCA-*.md)
+
+- Root cause analyses (RCA-\*.md)
 - Post-mortems and incident reports
 - Lessons learned from debugging sessions
 - Technical investigations and research findings
@@ -152,6 +154,7 @@ Use these directories for different file types:
 - **Naming:** `YYYY-MM-DD-topic-slug.md` or descriptive names
 
 **`docs/` - User-Facing Documentation**
+
 - Product documentation
 - User guides and tutorials
 - API documentation for end users
@@ -160,6 +163,7 @@ Use these directories for different file types:
 - **Naming:** lowercase-with-dashes.md
 
 **`devops/docs/` - Developer/Maintainer Documentation**
+
 - Architecture decision records (ADR)
 - Deployment procedures
 - CI/CD configuration guides
@@ -168,6 +172,7 @@ Use these directories for different file types:
 - **Naming:** Organized by topic, lowercase-with-dashes.md
 
 **`.wrangler/plans/` - Implementation Plans & Design Documents**
+
 - Implementation plans created by `writing-plans` skill (OPTIONAL)
 - Architecture overviews and design decisions
 - Component relationships and system diagrams
@@ -179,6 +184,7 @@ Use these directories for different file types:
 **Examples:**
 
 Creating root cause analysis:
+
 ```bash
 # ❌ DON'T create at root
 RCA-AUTH-FAILURE.md
@@ -188,6 +194,7 @@ RCA-AUTH-FAILURE.md
 ```
 
 Creating implementation summary:
+
 ```bash
 # ❌ DON'T create at root
 IMPLEMENTATION-SUMMARY-MCP.md
@@ -197,6 +204,7 @@ IMPLEMENTATION-SUMMARY-MCP.md
 ```
 
 Creating user documentation:
+
 ```bash
 # ❌ DON'T create at root
 USING-WORKFLOWS.md
@@ -206,6 +214,7 @@ docs/using-workflows.md
 ```
 
 Creating developer documentation:
+
 ```bash
 # ❌ DON'T create at root
 DEPLOYMENT-GUIDE.md
@@ -215,6 +224,7 @@ devops/docs/deployment-guide.md
 ```
 
 Creating implementation plan:
+
 ```bash
 # ❌ DON'T create at root
 PLAN-AUTH-REFACTOR.md
@@ -224,6 +234,7 @@ PLAN-AUTH-REFACTOR.md
 ```
 
 **When in doubt:**
+
 - If it's wrangler-specific analysis → `.wrangler/memos/`
 - If it's an implementation plan → `.wrangler/plans/` (but prefer MCP issues as source of truth)
 - If users read it → `docs/`
@@ -243,12 +254,14 @@ Wrangler implements a three-tier governance hierarchy to ensure consistency acro
 **Purpose**: Defines core design principles that guide all development decisions
 
 **Structure**:
+
 - Mission statement ("North Star")
 - 5-12 core principles with practice examples and anti-patterns
 - Decision framework (questions to evaluate features)
 - Amendment process (how principles can evolve)
 
 **Integration**:
+
 - Referenced in CLAUDE.md as mandatory reading
 - Checked via `wrangler:checking-constitutional-alignment` skill
 - Informs roadmap planning and issue creation
@@ -260,6 +273,7 @@ Wrangler implements a three-tier governance hierarchy to ensure consistency acro
 **Purpose**: Maps vision to execution timeline with phases
 
 **Structure**:
+
 - Current state (completed features)
 - Phases (1-N) with timelines and goals
 - Success metrics per phase
@@ -275,6 +289,7 @@ Wrangler implements a three-tier governance hierarchy to ensure consistency acro
 **Purpose**: Detailed implementation status and next actions
 
 **Structure**:
+
 - Executive summary (X% complete)
 - Implementation completeness analysis (✅ ⚠️ ❌)
 - Partially implemented features table
@@ -288,6 +303,7 @@ Wrangler implements a three-tier governance hierarchy to ensure consistency acro
 Each governance directory (`issues/`, `specifications/`) contains:
 
 **README.md** (minimal, 100-200 lines):
+
 - Current status metrics
 - Directory structure
 - Workflow steps (reference skills)
@@ -322,6 +338,7 @@ Update NEXT_STEPS (Track progress)
 ### Initialization
 
 Run `/wrangler:initializing-governance` to create:
+
 - `.wrangler/CONSTITUTION.md` (template)
 - `.wrangler/ROADMAP.md` (template)
 - `.wrangler/ROADMAP_NEXT_STEPS.md` (template)
@@ -332,6 +349,7 @@ Run `/wrangler:initializing-governance` to create:
 ### Verification & Maintenance
 
 **Automated checks** (on session start):
+
 - Governance file existence
 - Frontmatter validation
 - Status-location consistency
@@ -339,6 +357,7 @@ Run `/wrangler:initializing-governance` to create:
 - Metric staleness
 
 **Manual commands**:
+
 - `/wrangler:verifying-governance` - Detailed validation report
 - `/wrangler:refreshing-metrics` - Update status counts
 - `/wrangler:check-alignment` - Constitutional alignment check
@@ -365,6 +384,7 @@ The built-in MCP server provides **systematic issue and specification tracking**
 ### Automatic Initialization
 
 On session start, the `hooks/session-start.sh` script automatically:
+
 1. Detects git repository root
 2. Creates `issues/` directory at project root
 3. Creates `specifications/` directory at project root
@@ -379,13 +399,14 @@ Issues are stored as **Markdown files with YAML frontmatter**:
 **File naming**: `{counter}-{slug}.md` (e.g., `000001-add-authentication.md`)
 
 **Example issue**:
+
 ```markdown
 ---
 id: "000001"
 title: "Implement authentication system"
-type: "issue"                      # "issue" or "specification"
-status: "open"                     # "open", "in_progress", "closed", "cancelled"
-priority: "high"                   # "low", "medium", "high", "critical"
+type: "issue" # "issue" or "specification"
+status: "open" # "open", "in_progress", "closed", "cancelled"
+priority: "high" # "low", "medium", "high", "critical"
 labels: ["backend", "security"]
 assignee: "claude-code"
 project: "Auth Refactor"
@@ -402,6 +423,7 @@ wranglerContext:
 Implement a secure authentication system using OAuth2...
 
 ### Requirements
+
 - Support JWT tokens
 - Rate limiting
 ```
@@ -425,6 +447,7 @@ When working with issues, you have access to these 11 tools:
 ### When to Use Issues
 
 **CREATE ISSUES WHEN:**
+
 - Planning multi-step implementations
 - Tracking bugs or technical debt
 - Coordinating work across subagents
@@ -432,6 +455,7 @@ When working with issues, you have access to these 11 tools:
 - Breaking down complex tasks
 
 **DON'T CREATE ISSUES FOR:**
+
 - Single, simple tasks
 - Trivial changes
 - Informational queries
@@ -447,26 +471,31 @@ The Git Hooks Enforcement Framework provides automated testing and code quality 
 ### Key Components
 
 **3 Hooks:**
+
 - `pre-commit` - Runs formatter, linter, unit tests before each commit
 - `pre-push` - Runs full test suite before pushing to protected branches
 - `commit-msg` - Validates commit message format (optional)
 
 **2 Skills:**
+
 - `setting-up-git-hooks` - Interactive hook configuration and installation
 - `updating-git-hooks` - Update existing hook configuration
 
 **2 Slash Commands:**
+
 - `/wrangler:setting-up-git-hooks` - Set up git hooks
 - `/wrangler:updating-git-hooks` - Update hook configuration
 
 ### Installation Patterns
 
 **Pattern A (Default): Direct Installation**
+
 - Hooks installed directly to `.git/hooks/`
 - Configuration in `.wrangler/config/hooks-config.json`
 - Best for individual developers
 
 **Pattern B: Version-Controlled**
+
 - Hooks stored in `.wrangler/config/git-hooks/`
 - Symlinked via `scripts/install-hooks.sh`
 - Best for teams wanting identical hooks
@@ -496,11 +525,11 @@ WRANGLER_SKIP_HOOKS=1 git commit -m "WIP: failing test"
 
 ### TDD Integration
 
-| TDD Phase | Hook Behavior | What To Do |
-|-----------|---------------|------------|
-| RED | Pre-commit fails (expected) | Use bypass |
-| GREEN | Pre-commit passes | Normal commit |
-| REFACTOR | Pre-commit passes | Normal commit |
+| TDD Phase | Hook Behavior               | What To Do    |
+| --------- | --------------------------- | ------------- |
+| RED       | Pre-commit fails (expected) | Use bypass    |
+| GREEN     | Pre-commit passes           | Normal commit |
+| REFACTOR  | Pre-commit passes           | Normal commit |
 
 ### Configuration
 
@@ -531,122 +560,6 @@ See [docs/git-hooks.md](docs/git-hooks.md) for comprehensive documentation.
 
 ---
 
-## Figma Design Workflow
-
-### What It Does
-
-The Figma integration bridges the design-implementation gap by providing systematic design workflows:
-1. **Design System Setup** - Initialize design systems from templates or custom Q&A
-2. **Mockup Generation** - Create Figma mockups from specifications
-3. **Design Governance** - Track token drift between Figma and code
-
-### Key Components
-
-**3 Skills:**
-- `design-system-setup` - Initialize design systems (3 templates: minimal, modern, vibrant)
-- `figma-design-workflow` - Generate mockups from specs with hierarchical file structure
-- `design-system-governance` - Detect drift, create issues (report-only, no auto-fix)
-
-**3 Templates:**
-- **Minimal**: 9 colors, 5 font sizes, 4 components
-- **Modern**: 61 colors, 9 sizes, 20+ components (recommended default)
-- **Vibrant**: 44 colors, bold typography, playful aesthetic
-
-**3 Slash Commands:**
-- `/wrangler:setup-design-system` - Initialize design system
-- `/wrangler:generate-figma-mocks` - Create mockups from spec
-- `/wrangler:check-design-drift` - Audit token drift
-
-### Prerequisites
-
-**Required:**
-- Figma account (free tier sufficient)
-- `FIGMA_ACCESS_TOKEN` environment variable
-  - Get token: https://www.figma.com/developers/api#access-tokens
-  - Add to environment: `export FIGMA_ACCESS_TOKEN=your-token-here`
-
-**Optional:**
-- Organization/Enterprise Figma plan for Code Connect features
-
-### Quick Start
-
-1. **Set up design system:**
-   ```
-   /wrangler:setup-design-system
-   ```
-   Choose template or custom Q&A workflow
-
-2. **Generate mockups from spec:**
-   ```
-   /wrangler:generate-figma-mocks
-   ```
-   Provide spec ID or let agent infer from context
-
-3. **Check for drift:**
-   ```
-   /wrangler:check-design-drift
-   ```
-   Creates issues for any detected drift
-
-### Metadata Storage
-
-Design system metadata stored in wrangler issues/specs:
-- `figmaFileUrl` - URL to Figma design system file
-- `figmaFileKey` - Figma file key
-- `figmaFrameUrls` - Map of page names to frame URLs
-- `approvalStatus` - pending_review | approved | rejected
-- `verificationBaseline` - true for approved mocks
-
-### Token Export Formats
-
-**CSS Variables:**
-```css
-:root {
-  --color-primary: #3B82F6;
-  --spacing-md: 1rem;
-}
-```
-
-**Tailwind Config:**
-```js
-module.exports = {
-  theme: {
-    extend: {
-      colors: { primary: '#3B82F6' },
-      spacing: { md: '1rem' }
-    }
-  }
-}
-```
-
-**Design Tokens JSON (W3C):**
-```json
-{
-  "color": {
-    "primary": { "$value": "#3B82F6", "$type": "color" }
-  }
-}
-```
-
-### Workflow Integration
-
-**Typical flow:**
-1. User creates specification → agent detects no design system
-2. Agent prompts: setup-design-system skill
-3. User creates UI spec → agent runs figma-design-workflow
-4. User reviews mockups in Figma, approves
-5. Agent implements with design context
-6. Periodic governance checks detect drift
-
-### Future Enhancements
-
-- Visual regression testing (pixel-perfect verification)
-- Automated mock refinement
-- Design system versioning
-- Component usage analytics
-
----
-
 ## Quality Assurance & Compliance
 
 ### Session Adherence Validation
@@ -656,6 +569,7 @@ module.exports = {
 **Command**: `/wrangler:validate-session-adherence`
 
 **What It Does**:
+
 - Analyzes last 30-50 messages of conversation
 - Validates skill invocation compliance
 - Checks workflow step compliance (TDD, verification, code review)
@@ -664,6 +578,7 @@ module.exports = {
 - Generates comprehensive compliance report
 
 **When to Use**:
+
 - After completing complex implementations
 - When suspicious that processes weren't followed
 - Before claiming work is production-ready
@@ -711,6 +626,7 @@ module.exports = {
    - Subagent results verified independently?
 
 **Output**: Structured compliance report with:
+
 - Overall compliance score (PASS/PARTIAL/FAIL)
 - Violation count by severity (Critical/High/Medium/Low)
 - Specific violations with evidence (message references)
@@ -721,17 +637,20 @@ module.exports = {
 **Comparison with Gap Analysis**:
 
 `/wrangler:analyze-session-gaps` asks:
+
 - What CAPABILITY is missing?
 - What SKILL should exist?
 - What GAP prevents success?
 
 `/wrangler:validate-session-adherence` asks:
+
 - Was the RIGHT SKILL used?
 - Were WORKFLOW STEPS followed?
 - Was EVIDENCE provided?
 - Did COMPLIANCE occur?
 
 **Documentation**:
+
 - Command: `commands/validate-session-adherence.md`
 - Workflows: `docs/workflows.md`
 - Verification Requirements: `docs/verification-requirements.md`
@@ -744,11 +663,13 @@ module.exports = {
 ### Test-Driven Development (MANDATORY)
 
 **All code MUST follow TDD**:
+
 1. **RED**: Write failing test first
 2. **GREEN**: Implement minimum code to pass
 3. **REFACTOR**: Improve code quality
 
 **Testing commands**:
+
 ```bash
 npm run test:mcp              # Run all MCP tests
 npm run build:mcp             # Build MCP server
@@ -762,11 +683,13 @@ npm run watch:mcp             # Watch mode for development
 **Location**: All MCP code is in `mcp/` directory
 
 **TypeScript compilation**:
+
 - Source: `mcp/**/*.ts`
 - Output: `mcp/dist/**/*.js`
 - Config: `mcp/tsconfig.json`
 
 **Adding new tools**:
+
 1. Create tool file in `mcp/tools/issues/{name}.ts`
 2. Write comprehensive tests FIRST in `mcp/__tests__/tools/issues/{name}.test.ts`
 3. Implement Zod schema for validation
@@ -776,10 +699,11 @@ npm run watch:mcp             # Watch mode for development
 7. Export from `mcp/tools/issues/index.ts`
 
 **Tool implementation pattern**:
+
 ```typescript
 // 1. Zod schema
 export const myToolSchema = z.object({
-  param: z.string().min(1)
+  param: z.string().min(1),
 });
 
 // 2. Type
@@ -788,14 +712,17 @@ export type MyToolParams = z.infer<typeof myToolSchema>;
 // 3. Tool function
 export async function myTool(
   params: MyToolParams,
-  providerFactory: ProviderFactory
+  providerFactory: ProviderFactory,
 ): Promise<CallToolResult> {
   try {
     const provider = providerFactory.getIssueProvider();
     // ... implementation
     return createSuccessResponse(message, metadata);
   } catch (error) {
-    return createErrorResponse(MCPErrorCode.TOOL_EXECUTION_ERROR, error.message);
+    return createErrorResponse(
+      MCPErrorCode.TOOL_EXECUTION_ERROR,
+      error.message,
+    );
   }
 }
 ```
@@ -805,6 +732,7 @@ export async function myTool(
 **Location**: All skills are in `skills/` directory
 
 **Skill structure**:
+
 ```
 skills/{category}/{skill-name}/
 ├── SKILL.md                   # Skill content (markdown)
@@ -820,6 +748,7 @@ skills/{category}/{skill-name}/
 **Rationale**: Anthropic 2026 standard for consistency and discoverability
 
 **Examples**:
+
 - ✅ `writing-skills` (gerund)
 - ✅ `practicing-tdd` (gerund)
 - ✅ `reviewing-code` (gerund)
@@ -828,6 +757,7 @@ skills/{category}/{skill-name}/
 - ❌ `create-issue` (imperative verb)
 
 **Requirements**:
+
 - Directory name matches frontmatter `name` field
 - Use lowercase-with-dashes format
 - Present continuous tense (verb + -ing)
@@ -837,17 +767,20 @@ skills/{category}/{skill-name}/
 **Principle**: "The context window is a public good"
 
 **Skill File Size Limits**:
+
 - SKILL.md body: <500 lines (target: 300-400 lines)
 - Getting-started workflows: <150 words
 - Frequently-used skills: <200 words total
 - Complex skills: <500 words main content, rest in `references/`
 
 **Progressive Disclosure**:
+
 - Skills >500 lines MUST use progressive disclosure
 - Heavy content moves to `references/` subdirectory
 - SKILL.md explicitly references supporting files
 
 **Verbosity Reduction**:
+
 - Only add context Claude doesn't have
 - Challenge each paragraph: "Does this justify its token cost?"
 - Assume Claude knows common concepts
@@ -875,6 +808,7 @@ skills/{category}/{skill-name}/
 ### Error Handling
 
 **Always use MCPErrorCode enum**:
+
 - `VALIDATION_ERROR` - Zod validation failures
 - `RESOURCE_NOT_FOUND` - Missing issues/files
 - `PERMISSION_DENIED` - Access denied
@@ -882,17 +816,19 @@ skills/{category}/{skill-name}/
 - `PATH_TRAVERSAL_DENIED` - Security violation
 
 **Error response format**:
+
 ```typescript
 return createErrorResponse(
   MCPErrorCode.VALIDATION_ERROR,
   "Clear error message",
-  { context: additionalInfo }
+  { context: additionalInfo },
 );
 ```
 
 ### Security
 
 **Path traversal prevention is MANDATORY**:
+
 ```typescript
 private assertWithinWorkspace(targetPath: string, action: string): void {
   const resolvedTarget = path.resolve(targetPath);
@@ -955,19 +891,22 @@ WRANGLER_MCP_DEBUG=true npm run mcp:dev
 
 ```typescript
 // Example: Create issue via MCP tool
-const result = await createIssueTool({
-  title: "Implement new feature",
-  description: "Detailed description...",
-  type: "issue",
-  status: "open",
-  priority: "high",
-  labels: ["backend", "api"],
-  project: "Q4 Roadmap",
-  wranglerContext: {
-    agentId: "implementation-agent",
-    estimatedEffort: "2 days"
-  }
-}, providerFactory);
+const result = await createIssueTool(
+  {
+    title: "Implement new feature",
+    description: "Detailed description...",
+    type: "issue",
+    status: "open",
+    priority: "high",
+    labels: ["backend", "api"],
+    project: "Q4 Roadmap",
+    wranglerContext: {
+      agentId: "implementation-agent",
+      estimatedEffort: "2 days",
+    },
+  },
+  providerFactory,
+);
 ```
 
 ---
@@ -1153,7 +1092,7 @@ npm run mcp:dev                # Debug mode
 
 - **[SPEC-WRANGLER-MCP-INTEGRATION.md](SPEC-WRANGLER-MCP-INTEGRATION.md)** - Original specification
 - **[IMPLEMENTATION-SUMMARY.md](IMPLEMENTATION-SUMMARY.md)** - Detailed implementation report
-- **[mcp/__tests__/INTEGRATION_TEST_REPORT.md](mcp/__tests__/INTEGRATION_TEST_REPORT.md)** - Test results
+- **[mcp/**tests**/INTEGRATION_TEST_REPORT.md](mcp/__tests__/INTEGRATION_TEST_REPORT.md)** - Test results
 
 ---
 
@@ -1170,6 +1109,7 @@ npm run mcp:dev                # Debug mode
 ### v1.2.0 (December 7, 2025)
 
 **Centralized .wrangler/ Directory**:
+
 - ✅ Centralized `.wrangler/` directory structure for all governance files
 - ✅ Constitution at `.wrangler/CONSTITUTION.md` (top-level, not in subdirectory)
 - ✅ 11 issue management MCP tools
@@ -1187,6 +1127,7 @@ npm run mcp:dev                # Debug mode
 ### v1.0.0 (October 29, 2024)
 
 **Initial Release**:
+
 - ✅ Skills library (testing, debugging, collaboration, meta)
 - ✅ Built-in MCP server with 11 issue management tools
 - ✅ Automatic workspace initialization

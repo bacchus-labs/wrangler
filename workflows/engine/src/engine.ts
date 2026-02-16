@@ -320,6 +320,7 @@ export class WorkflowEngine {
       if (!type) {
         // Check if this is a new-style composed step (has prompt field) or legacy agent step
         const stepAny = step as Record<string, unknown>;
+        console.error(`[DEBUG] executeStep routing: step="${step.name}" has prompt=${!!stepAny.prompt} has resolver=${!!this.resolver} keys=${Object.keys(stepAny).join(',')}`);
         if (stepAny.prompt && this.resolver) {
           await this.runComposedAgent(step as StepDefinition & { agent?: string; prompt: string; model?: string; output?: string }, ctx);
         } else {
@@ -460,6 +461,19 @@ export class WorkflowEngine {
     // Render prompt body with template variables
     const renderedPrompt = renderTemplate(promptDef.body, templateVars);
 
+    // Resolve output schema to JSON Schema (if agent defines one)
+    let outputFormat: { type: 'json_schema'; schema: Record<string, unknown> } | undefined;
+    if (agentDef.outputSchema) {
+      const zodSchema = await resolveSchemaReference(agentDef.outputSchema);
+      if (zodSchema && zodSchema instanceof z.ZodType) {
+        const jsonSchema = (z as any).toJSONSchema(zodSchema);
+        outputFormat = {
+          type: 'json_schema',
+          schema: jsonSchema as Record<string, unknown>,
+        };
+      }
+    }
+
     // Model priority: step > agent > workflow default
     const model = step.model ?? agentDef.model ?? this.activeDefaults.model;
 
@@ -470,6 +484,7 @@ export class WorkflowEngine {
       options: {
         systemPrompt: agentDef.systemPrompt,
         allowedTools: agentDef.tools,
+        outputFormat,
         model,
         cwd: this.config.workingDirectory,
         permissionMode: this.activeDefaults.permissionMode,
@@ -479,7 +494,17 @@ export class WorkflowEngine {
       },
     });
 
+    // DEBUG: log whether outputFormat was resolved
+    if (outputFormat) {
+      console.error(`[DEBUG] Step "${step.name}": outputFormat resolved with schema keys: ${Object.keys(outputFormat.schema).join(', ')}`);
+    } else {
+      console.error(`[DEBUG] Step "${step.name}": no outputFormat (agent outputSchema: ${agentDef.outputSchema ?? 'none'})`);
+    }
+
     for await (const message of generator) {
+      // DEBUG: log all messages
+      console.error(`[DEBUG] Step "${step.name}" message: type=${(message as any).type} subtype=${(message as any).subtype} has_structured_output=${(message as any).structured_output != null}`);
+
       if (isResultMessage(message) && message.subtype === 'success' && message.structured_output != null) {
         result = message.structured_output;
       }
@@ -488,6 +513,9 @@ export class WorkflowEngine {
         throw new Error(`Agent "${step.name}" failed: ${message.subtype} - ${errors}`);
       }
     }
+
+    // DEBUG: log result status
+    console.error(`[DEBUG] Step "${step.name}": result=${result != null ? 'present' : 'null'}, step.output=${step.output ?? 'none'}`);
 
     if (step.output && result != null) {
       ctx.set(step.output, result);

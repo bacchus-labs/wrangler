@@ -98,30 +98,32 @@ The total test count increased because agent-core had pre-existing tests unrelat
 
 ## Key Recommendations
 
-1. **Quality gates must be structurally enforced by the workflow engine**, not left as advisory instructions to the agent. If the engine does not dispatch gate subagents automatically, gates will not run.
+1. **The engine -- not the agent -- must execute workflow steps.** Quality checks are just prompt steps in the workflow definition. The engine runs every step in sequence. The agent doesn't get to decide which steps are "necessary." This is how SwissArmyHammer works and it's the right model.
 
-2. **Deprecate the `implementing-specs` legacy skill.** It conflicts with the workflow engine approach and pollutes agent context with a competing process definition.
+2. **Deprecate the `implementing-specs` legacy skill.** It conflicts with the workflow engine approach and pollutes agent context with a competing process definition. (Done: set to disable-model-invocation.)
 
-3. **The workflow engine should auto-dispatch gate subagents** after each task implementation step completes, without requiring the orchestrating agent to decide whether to do so.
+3. **No special "gate" abstraction.** A code review is a prompt step. A security check is a prompt step. They're steps. The `gate-group` step type and `review-gates/` directory convention add unnecessary conceptual overhead for something that's fundamentally "run these prompts in sequence."
 
-4. **Gate results should be required** before `issues_mark_complete` succeeds. The MCP tool itself should enforce gate passage as a precondition.
+4. **Project-level workflow overrides** (`.wrangler/workflows/`) should let projects customize which steps run, swap prompt templates, and add project-specific checks -- all without forking the builtin workflow. Layered resolution: project > builtin, first match wins.
 
-5. **Project-level workflow overrides** (`.wrangler/workflows/`) should be implemented so individual projects can customize which gates apply and what thresholds are acceptable.
+5. **Subagent prompts should reference skills by name** rather than paraphrasing requirements. This keeps prompts concise and ensures subagents receive canonical process instructions.
 
-6. **Subagent prompts should reference skills by name** rather than paraphrasing requirements. This keeps prompts concise and ensures subagents receive canonical process instructions.
+6. **Worktree dependency setup should be a workflow step**, not left to ad-hoc discovery during verification. For monorepo projects, `npm install` in the worktree is a prerequisite that should be automated.
 
 ---
 
 ## Architectural Insight: Advisory vs Structural Enforcement
 
-The fundamental lesson from this session: anything the agent CAN skip, the agent WILL skip, given sufficient rationalization pressure. Quality gates must be structural, not advisory.
+The fundamental lesson from this session: anything the agent CAN skip, the agent WILL skip, given sufficient rationalization pressure.
 
 | Advisory (failed in this session) | Structural (needed) |
 |---|---|
-| Skill says "do code review" | Engine dispatches review subagent automatically |
-| Agent decides "not needed here" | Agent has no say -- gate is part of workflow |
+| Skill says "do code review" | Engine runs review prompt step automatically |
+| Agent decides "not needed here" | Agent has no say -- step is part of workflow |
 | Quality depends on prompt discipline | Quality depends on system design |
 
-This mirrors the wingman project's approach where workflow state transitions require gate passage. The agent cannot advance to the next task without gate completion, regardless of its assessment of whether the gate is "necessary" for a particular change.
+The fix is not a special "gate enforcement layer." The fix is simpler: make the engine the thing that executes steps. A code review is just a prompt step in the workflow. The engine runs it the same way it runs an implementation step. There's no mechanism for the agent to skip it because the engine -- not the agent -- controls step execution.
 
-The implication for wrangler's workflow engine is clear: gate dispatch and gate enforcement must live in the engine's state machine, not in the agent's instruction set.
+This is the SwissArmyHammer model: states, prompts, conditions, transitions. No special gate concept. Enforcement is just how state machines work.
+
+See SPEC-000047 in the wrangler project for the full design.

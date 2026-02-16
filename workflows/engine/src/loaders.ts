@@ -16,6 +16,7 @@ export const AgentFileSchema = z.object({
   description: z.string().optional(),
   tools: z.array(z.string()).default([]),
   model: z.string().optional(),
+  outputSchema: z.string().optional(),
 });
 
 export interface AgentDefinition {
@@ -23,6 +24,7 @@ export interface AgentDefinition {
   description?: string;
   tools: string[];
   model?: string;
+  outputSchema?: string;
   systemPrompt: string;
 }
 

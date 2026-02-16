@@ -2,7 +2,7 @@ name: spec-implementation
 version: 2
 
 defaults:
-  agent: planner
+  agent: analyzer
   model: opus
   permissionMode: bypassPermissions
   settingSources: ["project"]
@@ -14,7 +14,7 @@ safety:
 
 phases:
   - name: analyze
-    agent: planner
+    agent: analyzer
     prompt: analyze-spec
     model: sonnet
     output: analysis
@@ -55,7 +55,7 @@ phases:
         onExhausted: escalate
         steps:
           - name: fix-issues
-            agent: implementer
+            agent: fixer
             prompt: fix-issues
             input: review.actionableIssues
 
@@ -84,6 +84,6 @@ phases:
     failWhen: verification.testSuite.exitCode != 0
 
   - name: publish
-    agent: planner
+    agent: publisher
     prompt: publish-changes
     output: publish
