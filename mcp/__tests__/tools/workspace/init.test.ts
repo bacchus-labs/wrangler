@@ -757,6 +757,366 @@ describe('initWorkspaceTool', () => {
     });
   });
 
+  // ─── FR-004/FR-005/FR-006: Builtin Asset Provisioning ──────────────
+
+  describe('builtin asset provisioning (FR-004, FR-005, FR-006)', () => {
+    // The exact builtin files that should be provisioned from plugin workflows/ directory
+    const BUILTIN_AGENTS = [
+      'analyzer.md',
+      'fixer.md',
+      'implementer.md',
+      'publisher.md',
+      'reviewer.md',
+      'verifier.md',
+    ];
+
+    const BUILTIN_PROMPTS = [
+      'analyze-diff.md',
+      'analyze-spec.md',
+      'code-quality-review.md',
+      'consolidate-review.md',
+      'fix-issues.md',
+      'implement-task.md',
+      'publish-changes.md',
+      'review-code-quality.md',
+      'review-security.md',
+      'review-testing.md',
+      'run-verification.md',
+      'security-review.md',
+      'test-coverage-review.md',
+    ];
+
+    const BUILTIN_WORKFLOWS = [
+      'code-review.yaml',
+      'spec-implementation.yaml',
+    ];
+
+    let fullPluginRoot: string;
+
+    beforeEach(() => {
+      // Create a plugin root with ALL builtin asset files
+      fullPluginRoot = path.join(tmpDir, 'full-plugin');
+      const agentsDir = path.join(fullPluginRoot, 'workflows', 'agents');
+      const promptsDir = path.join(fullPluginRoot, 'workflows', 'prompts');
+      fs.mkdirSync(agentsDir, { recursive: true });
+      fs.mkdirSync(promptsDir, { recursive: true });
+
+      // Create all 6 agent files
+      for (const agent of BUILTIN_AGENTS) {
+        fs.writeFileSync(path.join(agentsDir, agent), `# ${agent}`);
+      }
+      // Create all 13 prompt files
+      for (const prompt of BUILTIN_PROMPTS) {
+        fs.writeFileSync(path.join(promptsDir, prompt), `# ${prompt}`);
+      }
+      // Create all 2 workflow files
+      for (const wf of BUILTIN_WORKFLOWS) {
+        fs.writeFileSync(
+          path.join(fullPluginRoot, 'workflows', wf),
+          `name: ${wf}`
+        );
+      }
+
+      // Also set up the schema in this plugin root
+      fs.mkdirSync(path.join(fullPluginRoot, '.wrangler', 'config'), { recursive: true });
+      fs.copyFileSync(
+        path.join(pluginRoot, '.wrangler', 'config', 'workspace-schema.json'),
+        path.join(fullPluginRoot, '.wrangler', 'config', 'workspace-schema.json')
+      );
+    });
+
+    // ─── FR-004: Agent Provisioning ──────────────────────────────────
+
+    describe('FR-004: agent file provisioning (6 files)', () => {
+      it('should plan copying all 6 agent files on fresh project', async () => {
+        const result = await initWorkspaceTool(
+          { fix: false, projectRoot, pluginRoot: fullPluginRoot }
+        );
+
+        const report = result.metadata as InitWorkspaceResult;
+        expect(report.assets.agents.copied).toHaveLength(6);
+        for (const agent of BUILTIN_AGENTS) {
+          expect(report.assets.agents.copied).toContain(agent);
+        }
+        expect(report.assets.agents.skipped).toHaveLength(0);
+      });
+
+      it('should copy all 6 agent files to .wrangler/orchestration/agents/', async () => {
+        await initWorkspaceTool(
+          { fix: true, projectRoot, pluginRoot: fullPluginRoot }
+        );
+
+        const agentsDest = path.join(projectRoot, '.wrangler', 'orchestration', 'agents');
+        for (const agent of BUILTIN_AGENTS) {
+          const destPath = path.join(agentsDest, agent);
+          expect(fs.existsSync(destPath)).toBe(true);
+          // Verify content matches source
+          const content = fs.readFileSync(destPath, 'utf-8');
+          expect(content).toBe(`# ${agent}`);
+        }
+      });
+
+      it('should copy agent files with preserved content fidelity', async () => {
+        // Write a more complex agent file
+        const complexContent = '---\nname: analyzer\nversion: 1.0\n---\n\n# Analyzer Agent\n\nDetailed instructions...';
+        fs.writeFileSync(
+          path.join(fullPluginRoot, 'workflows', 'agents', 'analyzer.md'),
+          complexContent
+        );
+
+        await initWorkspaceTool(
+          { fix: true, projectRoot, pluginRoot: fullPluginRoot }
+        );
+
+        const copied = fs.readFileSync(
+          path.join(projectRoot, '.wrangler', 'orchestration', 'agents', 'analyzer.md'),
+          'utf-8'
+        );
+        expect(copied).toBe(complexContent);
+      });
+    });
+
+    // ─── FR-005: Prompt Provisioning ─────────────────────────────────
+
+    describe('FR-005: prompt file provisioning (13 files)', () => {
+      it('should plan copying all 13 prompt files on fresh project', async () => {
+        const result = await initWorkspaceTool(
+          { fix: false, projectRoot, pluginRoot: fullPluginRoot }
+        );
+
+        const report = result.metadata as InitWorkspaceResult;
+        expect(report.assets.prompts.copied).toHaveLength(13);
+        for (const prompt of BUILTIN_PROMPTS) {
+          expect(report.assets.prompts.copied).toContain(prompt);
+        }
+        expect(report.assets.prompts.skipped).toHaveLength(0);
+      });
+
+      it('should copy all 13 prompt files to .wrangler/orchestration/prompts/', async () => {
+        await initWorkspaceTool(
+          { fix: true, projectRoot, pluginRoot: fullPluginRoot }
+        );
+
+        const promptsDest = path.join(projectRoot, '.wrangler', 'orchestration', 'prompts');
+        for (const prompt of BUILTIN_PROMPTS) {
+          const destPath = path.join(promptsDest, prompt);
+          expect(fs.existsSync(destPath)).toBe(true);
+          const content = fs.readFileSync(destPath, 'utf-8');
+          expect(content).toBe(`# ${prompt}`);
+        }
+      });
+    });
+
+    // ─── FR-006: Workflow Provisioning ───────────────────────────────
+
+    describe('FR-006: workflow file provisioning (2 files)', () => {
+      it('should plan copying all 2 workflow YAML files on fresh project', async () => {
+        const result = await initWorkspaceTool(
+          { fix: false, projectRoot, pluginRoot: fullPluginRoot }
+        );
+
+        const report = result.metadata as InitWorkspaceResult;
+        expect(report.assets.workflows.copied).toHaveLength(2);
+        for (const wf of BUILTIN_WORKFLOWS) {
+          expect(report.assets.workflows.copied).toContain(wf);
+        }
+        expect(report.assets.workflows.skipped).toHaveLength(0);
+      });
+
+      it('should copy all 2 workflow YAML files to .wrangler/orchestration/workflows/', async () => {
+        await initWorkspaceTool(
+          { fix: true, projectRoot, pluginRoot: fullPluginRoot }
+        );
+
+        const wfDest = path.join(projectRoot, '.wrangler', 'orchestration', 'workflows');
+        for (const wf of BUILTIN_WORKFLOWS) {
+          const destPath = path.join(wfDest, wf);
+          expect(fs.existsSync(destPath)).toBe(true);
+          const content = fs.readFileSync(destPath, 'utf-8');
+          expect(content).toBe(`name: ${wf}`);
+        }
+      });
+
+      it('should only copy .yaml files from workflows root, not subdirectories', async () => {
+        // Put a non-yaml file and a file in a subdirectory
+        fs.writeFileSync(
+          path.join(fullPluginRoot, 'workflows', 'README.md'),
+          '# Readme'
+        );
+
+        const result = await initWorkspaceTool(
+          { fix: true, projectRoot, pluginRoot: fullPluginRoot }
+        );
+
+        const report = result.metadata as InitWorkspaceResult;
+        // Should only have 2 YAML files, not the README
+        expect(report.assets.workflows.copied).toHaveLength(2);
+        expect(report.assets.workflows.copied).not.toContain('README.md');
+      });
+    });
+
+    // ─── FR-012: Existence Checks (Prevent Overwriting) ──────────────
+
+    describe('FR-012: existence checks prevent overwriting', () => {
+      it('should skip existing agent files and not overwrite them', async () => {
+        // Pre-create 2 of the 6 agent files with custom content
+        const agentsDest = path.join(projectRoot, '.wrangler', 'orchestration', 'agents');
+        fs.mkdirSync(agentsDest, { recursive: true });
+        fs.writeFileSync(path.join(agentsDest, 'analyzer.md'), '# My Custom Analyzer');
+        fs.writeFileSync(path.join(agentsDest, 'fixer.md'), '# My Custom Fixer');
+
+        const result = await initWorkspaceTool(
+          { fix: true, projectRoot, pluginRoot: fullPluginRoot }
+        );
+
+        const report = result.metadata as InitWorkspaceResult;
+        // 2 should be skipped
+        expect(report.assets.agents.skipped).toContain('analyzer.md');
+        expect(report.assets.agents.skipped).toContain('fixer.md');
+        expect(report.assets.agents.skipped).toHaveLength(2);
+        // 4 should be copied
+        expect(report.assets.agents.copied).toHaveLength(4);
+        expect(report.assets.agents.copied).toContain('implementer.md');
+        expect(report.assets.agents.copied).toContain('publisher.md');
+        expect(report.assets.agents.copied).toContain('reviewer.md');
+        expect(report.assets.agents.copied).toContain('verifier.md');
+
+        // Verify custom content preserved
+        expect(fs.readFileSync(path.join(agentsDest, 'analyzer.md'), 'utf-8')).toBe('# My Custom Analyzer');
+        expect(fs.readFileSync(path.join(agentsDest, 'fixer.md'), 'utf-8')).toBe('# My Custom Fixer');
+
+        // Verify new files were actually copied
+        expect(fs.existsSync(path.join(agentsDest, 'implementer.md'))).toBe(true);
+      });
+
+      it('should skip existing prompt files and not overwrite them', async () => {
+        const promptsDest = path.join(projectRoot, '.wrangler', 'orchestration', 'prompts');
+        fs.mkdirSync(promptsDest, { recursive: true });
+        fs.writeFileSync(path.join(promptsDest, 'analyze-spec.md'), '# Custom Spec Prompt');
+
+        const result = await initWorkspaceTool(
+          { fix: true, projectRoot, pluginRoot: fullPluginRoot }
+        );
+
+        const report = result.metadata as InitWorkspaceResult;
+        expect(report.assets.prompts.skipped).toContain('analyze-spec.md');
+        expect(report.assets.prompts.skipped).toHaveLength(1);
+        expect(report.assets.prompts.copied).toHaveLength(12);
+
+        // Custom content preserved
+        expect(fs.readFileSync(path.join(promptsDest, 'analyze-spec.md'), 'utf-8')).toBe('# Custom Spec Prompt');
+      });
+
+      it('should skip existing workflow files and not overwrite them', async () => {
+        const wfDest = path.join(projectRoot, '.wrangler', 'orchestration', 'workflows');
+        fs.mkdirSync(wfDest, { recursive: true });
+        fs.writeFileSync(path.join(wfDest, 'code-review.yaml'), 'name: custom-review');
+
+        const result = await initWorkspaceTool(
+          { fix: true, projectRoot, pluginRoot: fullPluginRoot }
+        );
+
+        const report = result.metadata as InitWorkspaceResult;
+        expect(report.assets.workflows.skipped).toContain('code-review.yaml');
+        expect(report.assets.workflows.skipped).toHaveLength(1);
+        expect(report.assets.workflows.copied).toHaveLength(1);
+        expect(report.assets.workflows.copied).toContain('spec-implementation.yaml');
+
+        // Custom content preserved
+        expect(fs.readFileSync(path.join(wfDest, 'code-review.yaml'), 'utf-8')).toBe('name: custom-review');
+      });
+
+      it('should skip all files when all already exist', async () => {
+        // First run copies everything
+        await initWorkspaceTool(
+          { fix: true, projectRoot, pluginRoot: fullPluginRoot }
+        );
+
+        // Second run should skip all
+        const result = await initWorkspaceTool(
+          { fix: false, projectRoot, pluginRoot: fullPluginRoot }
+        );
+
+        const report = result.metadata as InitWorkspaceResult;
+        expect(report.assets.agents.copied).toHaveLength(0);
+        expect(report.assets.agents.skipped).toHaveLength(6);
+        expect(report.assets.prompts.copied).toHaveLength(0);
+        expect(report.assets.prompts.skipped).toHaveLength(13);
+        expect(report.assets.workflows.copied).toHaveLength(0);
+        expect(report.assets.workflows.skipped).toHaveLength(2);
+      });
+    });
+
+    // ─── FR-013: Idempotent on Fresh and Existing Projects ───────────
+
+    describe('FR-013: idempotent provisioning across runs', () => {
+      it('should report status compliant when all assets already provisioned', async () => {
+        // First run provisions everything
+        await initWorkspaceTool(
+          { fix: true, projectRoot, pluginRoot: fullPluginRoot }
+        );
+
+        // Second report-only run
+        const result = await initWorkspaceTool(
+          { fix: false, projectRoot, pluginRoot: fullPluginRoot }
+        );
+
+        const report = result.metadata as InitWorkspaceResult;
+        expect(report.status).toBe('compliant');
+      });
+
+      it('should provision only missing assets on partially initialized project', async () => {
+        // Pre-create half the agents
+        const agentsDest = path.join(projectRoot, '.wrangler', 'orchestration', 'agents');
+        fs.mkdirSync(agentsDest, { recursive: true });
+        fs.writeFileSync(path.join(agentsDest, 'analyzer.md'), '# Custom');
+        fs.writeFileSync(path.join(agentsDest, 'fixer.md'), '# Custom');
+        fs.writeFileSync(path.join(agentsDest, 'reviewer.md'), '# Custom');
+
+        const result = await initWorkspaceTool(
+          { fix: true, projectRoot, pluginRoot: fullPluginRoot }
+        );
+
+        const report = result.metadata as InitWorkspaceResult;
+        // 3 agents skipped, 3 agents copied
+        expect(report.assets.agents.skipped).toHaveLength(3);
+        expect(report.assets.agents.copied).toHaveLength(3);
+        expect(report.assets.agents.copied).toContain('implementer.md');
+        expect(report.assets.agents.copied).toContain('publisher.md');
+        expect(report.assets.agents.copied).toContain('verifier.md');
+      });
+
+      it('should apply idempotently (second fix run changes nothing)', async () => {
+        // First run
+        const result1 = await initWorkspaceTool(
+          { fix: true, projectRoot, pluginRoot: fullPluginRoot }
+        );
+        const report1 = result1.metadata as InitWorkspaceResult;
+        expect(report1.status).toBe('initialized');
+
+        // Second run - should be compliant
+        const result2 = await initWorkspaceTool(
+          { fix: true, projectRoot, pluginRoot: fullPluginRoot }
+        );
+        const report2 = result2.metadata as InitWorkspaceResult;
+        expect(report2.status).toBe('compliant');
+        expect(report2.assets.agents.copied).toHaveLength(0);
+        expect(report2.assets.prompts.copied).toHaveLength(0);
+        expect(report2.assets.workflows.copied).toHaveLength(0);
+      });
+
+      it('should include total asset count in text summary', async () => {
+        const result = await initWorkspaceTool(
+          { fix: true, projectRoot, pluginRoot: fullPluginRoot }
+        );
+
+        const text = result.content[0].text;
+        // Total assets = 6 agents + 13 prompts + 2 workflows = 21
+        expect(text).toContain('Assets provisioned: 21');
+      });
+    });
+  });
+
   // ─── NFR-004: Structured Output ───────────────────────────────────
 
   describe('structured output (NFR-004)', () => {
