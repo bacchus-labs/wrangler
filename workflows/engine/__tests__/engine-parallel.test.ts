@@ -386,6 +386,117 @@ phases:
     expect(reviewCalls).toHaveLength(4); // 2 tasks x 2 reviews
   });
 
+  it('should handle deeply nested structure: parallel > per-task > parallel (3 levels)', async () => {
+    // Producer agent
+    await writeAgentMarkdown(tmpDir, 'producer.md', {
+      name: 'producer', description: 'Produces tasks',
+      tools: [],
+    }, 'Produce tasks');
+
+    // Four leaf agents for the inner parallel steps
+    await writeAgentMarkdown(tmpDir, 'lint.md', {
+      name: 'lint', description: 'Lint check',
+      tools: [],
+    }, 'Lint {{currentTask.id}}');
+
+    await writeAgentMarkdown(tmpDir, 'typecheck.md', {
+      name: 'typecheck', description: 'Type check',
+      tools: [],
+    }, 'Typecheck {{currentTask.id}}');
+
+    await writeAgentMarkdown(tmpDir, 'security.md', {
+      name: 'security', description: 'Security scan',
+      tools: [],
+    }, 'Security scan');
+
+    await writeAgentMarkdown(tmpDir, 'license.md', {
+      name: 'license', description: 'License check',
+      tools: [],
+    }, 'License check');
+
+    // Workflow: parallel(top) > [per-task branch, parallel(static checks)]
+    //   per-task branch > inner-parallel(lint, typecheck)
+    //   static checks > parallel(security, license)
+    await writeWorkflowYaml(tmpDir, 'workflow.yaml', `
+name: deep-nesting-test
+version: 1
+phases:
+  - name: plan
+    agent: producer.md
+    prompt: producer.md
+    output: tasks
+  - name: top-parallel
+    type: parallel
+    steps:
+      - name: per-task-checks
+        type: per-task
+        source: tasks
+        steps:
+          - name: inner-parallel
+            type: parallel
+            steps:
+              - name: lint-step
+                agent: lint.md
+                prompt: lint.md
+                output: lintResult
+              - name: typecheck-step
+                agent: typecheck.md
+                prompt: typecheck.md
+                output: typecheckResult
+      - name: static-checks
+        type: parallel
+        steps:
+          - name: security-step
+            agent: security.md
+            prompt: security.md
+            output: securityResult
+          - name: license-step
+            agent: license.md
+            prompt: license.md
+            output: licenseResult
+`);
+
+    const tasks = [
+      { id: 'task-1', title: 'First', description: 'First task', dependencies: [] },
+      { id: 'task-2', title: 'Second', description: 'Second task', dependencies: [] },
+    ];
+
+    const { queryFn, calls } = createSDKSimulator({
+      responses: new Map([
+        ['Produce tasks', createAgentSequence(tasks)],
+        ['Lint', createAgentSequence({ lint: 'pass' })],
+        ['Typecheck', createAgentSequence({ typecheck: 'pass' })],
+        ['Security', createAgentSequence({ security: 'pass' })],
+        ['License', createAgentSequence({ license: 'pass' })],
+      ]),
+    });
+
+    const engine = new WorkflowEngine({
+      config: makeConfig(tmpDir),
+      queryFn,
+    });
+
+    const result = await engine.run('workflow.yaml', '/tmp/spec.md');
+
+    expect(result.status).toBe('completed');
+
+    // 1 producer + 2 tasks x 2 inner parallel (lint+typecheck) + 2 static checks (security+license)
+    // = 1 + 4 + 2 = 7
+    expect(calls).toHaveLength(7);
+
+    // Verify all leaf agents were called
+    const prompts = calls.map(c => c.prompt);
+    const lintCalls = prompts.filter(p => p.includes('Lint'));
+    const typecheckCalls = prompts.filter(p => p.includes('Typecheck'));
+    const securityCalls = prompts.filter(p => p.includes('Security'));
+    const licenseCalls = prompts.filter(p => p.includes('License'));
+
+    expect(lintCalls).toHaveLength(2);      // once per task
+    expect(typecheckCalls).toHaveLength(2);  // once per task
+    expect(securityCalls).toHaveLength(1);   // static check
+    expect(licenseCalls).toHaveLength(1);    // static check
+  });
+
   it('should handle parallel step with code handler children', async () => {
     await writeWorkflowYaml(tmpDir, 'workflow.yaml', `
 name: parallel-code-test

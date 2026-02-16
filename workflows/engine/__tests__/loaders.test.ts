@@ -208,3 +208,109 @@ Some instructions.
     await expect(loadPromptFile(fakePath)).rejects.toThrow(/ENOENT|no such file/i);
   });
 });
+
+// ============================================================================
+// Template rendering edge cases
+// ============================================================================
+
+describe('template rendering edge cases', () => {
+  it('should handle invalid Mustache syntax (unclosed tag) without crashing', async () => {
+    const filePath = await writeTestFile('prompts/invalid-mustache.md', `---
+name: invalid-mustache
+---
+This has {{unclosed and no closing braces.
+`);
+
+    const prompt = await loadPromptFile(filePath);
+
+    // The loader should not crash -- it preserves the body as-is for later rendering
+    expect(prompt.name).toBe('invalid-mustache');
+    expect(prompt.body).toContain('{{unclosed');
+  });
+
+  it('should handle empty template variable {{}} without crashing', async () => {
+    const filePath = await writeTestFile('prompts/empty-var.md', `---
+name: empty-var
+---
+This has an empty {{}} variable.
+`);
+
+    const prompt = await loadPromptFile(filePath);
+
+    expect(prompt.name).toBe('empty-var');
+    expect(prompt.body).toContain('{{}}');
+  });
+
+  it('should preserve nested/complex Mustache sections for later rendering', async () => {
+    const filePath = await writeTestFile('prompts/complex-mustache.md', `---
+name: complex-mustache
+---
+Items:
+{{#items}}{{name}} - {{description}}{{/items}}
+
+Inverted:
+{{^empty}}Not empty{{/empty}}
+`);
+
+    const prompt = await loadPromptFile(filePath);
+
+    expect(prompt.name).toBe('complex-mustache');
+    expect(prompt.body).toContain('{{#items}}');
+    expect(prompt.body).toContain('{{name}}');
+    expect(prompt.body).toContain('{{/items}}');
+    expect(prompt.body).toContain('{{^empty}}');
+    expect(prompt.body).toContain('{{/empty}}');
+  });
+});
+
+// ============================================================================
+// Filesystem error handling
+// ============================================================================
+
+describe('filesystem error handling', () => {
+  it('should give a clear error when loading from a non-existent directory', async () => {
+    const badPath = path.join(tmpDir, 'no', 'such', 'dir', 'agent.md');
+
+    await expect(loadAgentFile(badPath)).rejects.toThrow(/ENOENT|no such file/i);
+  });
+
+  it('should handle an empty agent file gracefully', async () => {
+    const filePath = await writeTestFile('agents/empty.md', '');
+
+    // gray-matter parses empty content as empty data + empty body
+    // The Zod schema requires name, so this should throw a validation error
+    await expect(loadAgentFile(filePath)).rejects.toThrow();
+  });
+
+  it('should handle an empty prompt file gracefully', async () => {
+    const filePath = await writeTestFile('prompts/empty.md', '');
+
+    // Same as above -- missing required name field
+    await expect(loadPromptFile(filePath)).rejects.toThrow();
+  });
+
+  it('should accept an agent file with frontmatter but no body (empty prompt)', async () => {
+    const filePath = await writeTestFile('agents/no-body.md', `---
+name: no-body-agent
+---
+`);
+
+    const agent = await loadAgentFile(filePath);
+
+    expect(agent.name).toBe('no-body-agent');
+    // Body is trimmed, so empty body becomes empty string
+    expect(agent.systemPrompt).toBe('');
+  });
+
+  it('should accept a prompt file with frontmatter but no body', async () => {
+    const filePath = await writeTestFile('prompts/no-body.md', `---
+name: no-body-prompt
+---
+`);
+
+    const prompt = await loadPromptFile(filePath);
+
+    expect(prompt.name).toBe('no-body-prompt');
+    expect(prompt.body).toBe('');
+  });
+});
