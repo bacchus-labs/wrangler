@@ -29,6 +29,8 @@ import {
   type TaskDefinition,
 } from './schemas/index.js';
 import { aggregateGateResults, ReviewResultSchema, type ReviewResult } from './schemas/review.js';
+import { WorkflowResolver } from './resolver.js';
+import { loadAgentFile, loadPromptFile } from './loaders.js';
 import {
   type QueryFunction,
   type SDKMessage,
@@ -42,19 +44,23 @@ export class WorkflowEngine {
   private config: EngineConfig;
   private queryFn: QueryFunction;
   private handlerRegistry: HandlerRegistry;
+  private resolver?: WorkflowResolver;
   private auditLog: WorkflowAuditEntry[] = [];
   private onAuditEntry?: (entry: WorkflowAuditEntry) => Promise<void>;
   private activeDefaults: { model: string; permissionMode: string; settingSources: string[] };
+  private activeDefaultAgent?: string;
 
   constructor(options: {
     config: EngineConfig;
     queryFn: QueryFunction;
     handlerRegistry?: HandlerRegistry;
+    resolver?: WorkflowResolver;
     onAuditEntry?: (entry: WorkflowAuditEntry) => Promise<void>;
   }) {
     this.config = options.config;
     this.queryFn = options.queryFn;
     this.handlerRegistry = options.handlerRegistry ?? createDefaultRegistry();
+    this.resolver = options.resolver;
     this.onAuditEntry = options.onAuditEntry;
     this.activeDefaults = { ...options.config.defaults };
   }
@@ -83,6 +89,7 @@ export class WorkflowEngine {
       permissionMode: definition.defaults?.permissionMode ?? this.config.defaults.permissionMode,
       settingSources: definition.defaults?.settingSources ?? this.config.defaults.settingSources,
     };
+    this.activeDefaultAgent = definition.defaults?.agent;
 
     const context = new WorkflowContext({ specPath });
 
@@ -144,6 +151,7 @@ export class WorkflowEngine {
       permissionMode: definition.defaults?.permissionMode ?? this.config.defaults.permissionMode,
       settingSources: definition.defaults?.settingSources ?? this.config.defaults.settingSources,
     };
+    this.activeDefaultAgent = definition.defaults?.agent;
 
     const context = WorkflowContext.fromCheckpoint(checkpointData);
 
@@ -192,20 +200,79 @@ export class WorkflowEngine {
   }
 
   /**
+   * Determine if a step is a "check" step (for skipChecks).
+   * A step is a check if it uses the reviewer agent or its name contains "review" or "check".
+   */
+  private isCheckStep(step: StepDefinition): boolean {
+    const nameLower = step.name.toLowerCase();
+    if (nameLower.includes('review') || nameLower.includes('check')) {
+      return true;
+    }
+    // Check if the step uses a reviewer agent
+    if ('agent' in step && typeof (step as Record<string, unknown>).agent === 'string') {
+      const agentPath = (step as Record<string, unknown>).agent as string;
+      if (agentPath.toLowerCase().includes('review')) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Check if a step should be skipped, returning the skip reason or null.
+   * Priority: enabled:false > skipStepNames > skipChecks
+   */
+  private getSkipReason(step: StepDefinition): string | null {
+    // 1. enabled: false (workflow-level disable)
+    if ('enabled' in step && step.enabled === false) {
+      return 'disabled in workflow definition';
+    }
+
+    // 2. skipStepNames (runtime skip by name)
+    if (this.config.skipStepNames?.includes(step.name)) {
+      return `--skip-step=${step.name}`;
+    }
+
+    // 3. skipChecks (runtime skip all check steps)
+    // Code steps are never skipped by skipChecks
+    if (this.config.skipChecks) {
+      const type = ('type' in step ? step.type : undefined) as string | undefined;
+      if (type !== 'code' && this.isCheckStep(step)) {
+        return '--skip-checks';
+      }
+    }
+
+    return null;
+  }
+
+  /**
    * Recursively execute a step based on its type.
    */
   async executeStep(
     step: StepDefinition,
     ctx: WorkflowContext
   ): Promise<void> {
+    // Check for skip conditions before any execution
+    const skipReason = this.getSkipReason(step);
+    if (skipReason !== null) {
+      await this.auditStepSkipped(step.name, skipReason);
+      return;
+    }
+
     await this.auditStepStart(step.name);
 
     try {
       const type = ('type' in step ? step.type : undefined) as string | undefined;
 
       if (!type) {
-        // Agent+prompt step (no type field)
-        await this.runAgent(step as StepDefinition & { agent: string }, ctx);
+        // Check if this is a new-style composed step (has prompt field) or legacy agent step
+        const stepAny = step as Record<string, unknown>;
+        if (stepAny.prompt && this.resolver) {
+          await this.runComposedAgent(step as StepDefinition & { agent?: string; prompt: string; model?: string; output?: string; failWhen?: string }, ctx);
+        } else {
+          // Legacy agent step (agent field is a file path)
+          await this.runAgent(step as StepDefinition & { agent: string }, ctx);
+        }
       } else {
         switch (type) {
           case 'code':
@@ -335,6 +402,122 @@ export class WorkflowEngine {
     if (step.failWhen && ctx.evaluate(step.failWhen)) {
       throw new WorkflowFailure(step.name, step.failWhen);
     }
+  }
+
+
+  /**
+   * Execute a composed agent+prompt step using WorkflowResolver.
+   * Resolves agent and prompt files by name, loads definitions,
+   * renders the prompt body with template variables, and dispatches
+   * via queryFn with the agent's systemPrompt as the system prompt.
+   */
+  private async runComposedAgent(
+    step: StepDefinition & { agent?: string; prompt: string; model?: string; output?: string; failWhen?: string; input?: string | Record<string, unknown> },
+    ctx: WorkflowContext
+  ): Promise<void> {
+    if (!this.resolver) {
+      throw new Error(`Step "${step.name}": resolver is required for agent+prompt composition`);
+    }
+
+    // Resolve agent name: step.agent > defaults.agent > error
+    const agentName = step.agent ?? this.activeDefaultAgent;
+    if (!agentName) {
+      throw new Error(
+        `Step "${step.name}": no agent specified and no defaults.agent in workflow definition`
+      );
+    }
+
+    // Resolve and load agent file
+    const agentResolved = await this.resolver.resolveAgent(agentName);
+    const agentDef = await loadAgentFile(agentResolved.path);
+
+    // Resolve and load prompt file
+    const promptResolved = await this.resolver.resolvePrompt(step.prompt);
+    const promptDef = await loadPromptFile(promptResolved.path);
+
+    // Build template vars and resolve input
+    const templateVars = ctx.getTemplateVars();
+    if (step.input) {
+      if (typeof step.input === 'string') {
+        const inputValue = ctx.resolve(step.input);
+        if (inputValue !== undefined) {
+          const inputParts = step.input.split('.');
+          const leafKey = inputParts[inputParts.length - 1];
+          templateVars[leafKey] = inputValue;
+        }
+      } else {
+        for (const [key, val] of Object.entries(step.input)) {
+          if (typeof val === 'string') {
+            const resolved = ctx.resolve(val);
+            if (resolved !== undefined) {
+              templateVars[key] = resolved;
+            }
+          } else {
+            templateVars[key] = val;
+          }
+        }
+      }
+    }
+
+    // Render prompt body with template variables
+    const renderedPrompt = renderTemplate(promptDef.body, templateVars);
+
+    // Model priority: step > agent > workflow default
+    const model = step.model ?? agentDef.model ?? this.activeDefaults.model;
+
+    let result: unknown = null;
+
+    const generator = this.queryFn({
+      prompt: renderedPrompt,
+      options: {
+        systemPrompt: agentDef.systemPrompt,
+        allowedTools: agentDef.tools,
+        model,
+        cwd: this.config.workingDirectory,
+        permissionMode: this.activeDefaults.permissionMode,
+        allowDangerouslySkipPermissions: this.activeDefaults.permissionMode === 'bypassPermissions',
+        mcpServers: this.config.mcpServers,
+        settingSources: this.activeDefaults.settingSources,
+      },
+    });
+
+    for await (const message of generator) {
+      if (isResultMessage(message) && message.subtype === 'success' && message.structured_output != null) {
+        result = message.structured_output;
+      }
+      if (isResultMessage(message) && message.subtype !== 'success') {
+        const errors = message.errors?.join(', ') ?? 'unknown error';
+        throw new Error(`Agent "${step.name}" failed: ${message.subtype} - ${errors}`);
+      }
+    }
+
+    if (step.output && result != null) {
+      ctx.set(step.output, result);
+
+      // Track changed files if result has them
+      if (typeof result === 'object' && result !== null) {
+        ctx.addChangedFilesFromResult(result as { filesChanged?: Array<{ path: string }> });
+      }
+    }
+
+    // Record composition metadata for audit trail
+    await this.auditComposedStep(step.name, agentResolved.path, promptResolved.path);
+
+    // Check failWhen condition
+    if (step.failWhen && ctx.evaluate(step.failWhen)) {
+      throw new WorkflowFailure(step.name, step.failWhen);
+    }
+  }
+
+  /**
+   * Record audit metadata for a composed agent+prompt step.
+   * Overwrites the 'completed' entry that executeStep will write
+   * so we capture the source file paths.
+   */
+  private composedStepMeta: Map<string, { agentSource: string; promptSource: string }> = new Map();
+
+  private async auditComposedStep(stepName: string, agentPath: string, promptPath: string): Promise<void> {
+    this.composedStepMeta.set(stepName, { agentSource: agentPath, promptSource: promptPath });
   }
 
   /**
@@ -649,11 +832,19 @@ export class WorkflowEngine {
   }
 
   private async auditStepComplete(stepName: string, metadata?: Record<string, unknown>): Promise<void> {
+    // Merge any composed step metadata (agent/prompt source paths)
+    const composedMeta = this.composedStepMeta.get(stepName);
+    const mergedMetadata = composedMeta
+      ? { ...metadata, ...composedMeta }
+      : metadata;
+    // Clean up after use
+    if (composedMeta) this.composedStepMeta.delete(stepName);
+
     const entry: WorkflowAuditEntry = {
       step: stepName,
       status: 'completed',
       timestamp: new Date().toISOString(),
-      metadata,
+      metadata: mergedMetadata,
     };
     this.auditLog.push(entry);
     if (this.onAuditEntry) await this.onAuditEntry(entry);
@@ -667,6 +858,17 @@ export class WorkflowEngine {
       metadata: {
         error: error instanceof Error ? error.message : String(error),
       },
+    };
+    this.auditLog.push(entry);
+    if (this.onAuditEntry) await this.onAuditEntry(entry);
+  }
+
+  private async auditStepSkipped(stepName: string, reason: string): Promise<void> {
+    const entry: WorkflowAuditEntry = {
+      step: stepName,
+      status: 'skipped',
+      timestamp: new Date().toISOString(),
+      metadata: { reason },
     };
     this.auditLog.push(entry);
     if (this.onAuditEntry) await this.onAuditEntry(entry);
