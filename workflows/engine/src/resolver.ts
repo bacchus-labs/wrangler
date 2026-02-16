@@ -59,7 +59,8 @@ export class WorkflowResolver {
     throw new Error(
       `${kind.slice(0, -1)} not found: ${filename}. Searched:\n` +
       `  1. ${projectPath}\n` +
-      `  2. ${builtinPath}`,
+      `  2. ${builtinPath}\n` +
+      `Hint: Create ${filename} in .wrangler/${kind}/ to override the builtin.`,
     );
   }
 }

@@ -11,13 +11,14 @@ import * as os from 'os';
 import { stringify as yamlStringify } from 'yaml';
 import { WorkflowEngine } from '../src/engine.js';
 import { WorkflowContext } from '../src/state.js';
-import { HandlerRegistry } from '../src/handlers/index.js';
+import { HandlerRegistry, createDefaultRegistry } from '../src/handlers/index.js';
 import {
   type QueryFunction,
   type QueryOptions,
   type SDKResultMessage,
   type SDKMessage,
   type WorkflowAuditEntry,
+  WorkflowFailure,
 } from '../src/types.js';
 import type { TaskDefinition } from '../src/schemas/index.js';
 import {
@@ -938,75 +939,7 @@ phases:
   });
 
   // -----------------------------------------------------------------------
-  // failWhen condition
-  // -----------------------------------------------------------------------
-  describe('failWhen condition', () => {
-    it('should throw WorkflowFailure when failWhen condition evaluates to true', async () => {
-      await writeAgentMarkdown(tmpDir, 'verifier.md', {
-        name: 'verifier',
-        description: 'Verifies',
-        tools: [],
-      }, 'Verify the output.');
-
-      await writeWorkflowYaml(tmpDir, 'workflow.yaml', `
-name: test-workflow
-version: 1
-phases:
-  - name: verify
-    type: agent
-    agent: verifier.md
-    output: verification
-    failWhen: "verification.testSuite.exitCode != 0"
-`);
-
-      const queryFn = createMockQuery(new Map([
-        ['default', { testSuite: { exitCode: 1 } }],
-      ]));
-
-      const engine = new WorkflowEngine({
-        config: makeConfig(tmpDir),
-        queryFn,
-      });
-
-      const result = await engine.run('workflow.yaml', '/tmp/spec.md');
-
-      expect(result.status).toBe('failed');
-      expect(result.error).toContain('verify');
-      expect(result.error).toContain('verification.testSuite.exitCode != 0');
-    });
-
-    it('should not fail when failWhen condition evaluates to false', async () => {
-      await writeAgentMarkdown(tmpDir, 'verifier.md', {
-        name: 'verifier',
-        description: 'Verifies',
-        tools: [],
-      }, 'Verify the output.');
-
-      await writeWorkflowYaml(tmpDir, 'workflow.yaml', `
-name: test-workflow
-version: 1
-phases:
-  - name: verify
-    type: agent
-    agent: verifier.md
-    output: verification
-    failWhen: "verification.testSuite.exitCode != 0"
-`);
-
-      const queryFn = createMockQuery(new Map([
-        ['default', { testSuite: { exitCode: 0 } }],
-      ]));
-
-      const engine = new WorkflowEngine({
-        config: makeConfig(tmpDir),
-        queryFn,
-      });
-
-      const result = await engine.run('workflow.yaml', '/tmp/spec.md');
-
-      expect(result.status).toBe('completed');
-    });
-  });
+  // failWhen was removed per spec decisions (handled by loop conditions instead)
 
   // -----------------------------------------------------------------------
   // Full happy-path workflow
@@ -1295,27 +1228,25 @@ phases:
     });
 
     it('should handle WorkflowFailure during resume', async () => {
-      await writeAgentMarkdown(tmpDir, 'agent.md', {
-        name: 'agent',
-        description: 'Agent',
-        tools: [],
-      }, 'Do something.');
+      const registry = createDefaultRegistry();
+      registry.register('fail-handler', async () => {
+        throw new WorkflowFailure('verify', 'verification.failed');
+      });
 
       await writeWorkflowYaml(tmpDir, 'workflow.yaml', `
 name: test-workflow
 version: 1
 phases:
   - name: verify
-    type: agent
-    agent: agent.md
-    output: verification
-    failWhen: "verification.failed"
+    type: code
+    handler: fail-handler
 `);
 
-      const queryFn = createMockQuery(new Map([['default', { failed: true }]]));
+      const queryFn = createMockQuery(new Map());
       const engine = new WorkflowEngine({
         config: makeConfig(tmpDir),
         queryFn,
+        handlerRegistry: registry,
       });
 
       const result = await engine.resume(

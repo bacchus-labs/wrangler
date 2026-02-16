@@ -28,8 +28,10 @@ export const AgentPromptStepSchema = BaseStepSchema.extend({
   agent: z.string().min(1).optional(),
   prompt: z.string().min(1).optional(),
   model: z.string().optional(),
-  failWhen: z.string().optional(),
-});
+}).refine(
+  (data) => data.agent || data.prompt,
+  { message: 'Either "agent" or "prompt" must be specified' }
+);
 
 // --- Code step ---
 

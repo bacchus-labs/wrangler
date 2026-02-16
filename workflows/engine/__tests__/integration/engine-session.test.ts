@@ -17,7 +17,7 @@ import { WorkflowEngine } from '../../src/engine.js';
 import { WorkflowContext } from '../../src/state.js';
 import { HandlerRegistry } from '../../src/handlers/index.js';
 import { WorkflowSessionManager, type SessionConfig } from '../../src/integration/session.js';
-import type { EngineConfig } from '../../src/types.js';
+import { type EngineConfig, WorkflowFailure } from '../../src/types.js';
 import { createSDKSimulator, createAgentSequence } from '../fixtures/sdk-simulator.js';
 
 // ---------------------------------------------------------------------------
@@ -605,28 +605,17 @@ phases:
       const sessionId = await sessionManager.createSession();
 
       const registry = new HandlerRegistry();
-      registry.register('set-fail', async (ctx) => {
-        ctx.set('shouldFail', true);
+      registry.register('fail-handler', async () => {
+        throw new WorkflowFailure('check', 'forced failure for test');
       });
-
-      await writeAgentMarkdown(tmpDir, 'agent.md', {
-        name: 'agent',
-        description: 'Agent',
-        tools: [],
-      }, 'Run.');
 
       await writeWorkflowYaml(tmpDir, 'workflow.yaml', `
 name: failing-workflow
 version: 1
 phases:
-  - name: setup
-    type: code
-    handler: set-fail
   - name: check
-    type: agent
-    agent: agent.md
-    output: checkResult
-    failWhen: shouldFail
+    type: code
+    handler: fail-handler
 `);
 
       const { queryFn } = createSDKSimulator({

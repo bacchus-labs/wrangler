@@ -903,34 +903,7 @@ phases:
       expect(callLog).toHaveLength(1);
     });
 
-    it('failWhen referencing undefined variable does not throw', async () => {
-      await setupComposedWorkflowFiles(tmpDir);
-
-      await writeWorkflowYaml(tmpDir, 'workflow.yaml', `
-name: failwhen-undefined-e2e
-version: 1
-defaults:
-  agent: coder
-phases:
-  - name: safe-step
-    prompt: implement-task
-    failWhen: undefinedVar.doesNotExist
-    output: stepResult
-`);
-
-      const queryFn = createMockQuery(new Map([['Implement', { done: true }]]));
-      const resolver = new WorkflowResolver(tmpDir, tmpDir);
-      const engine = new WorkflowEngine({
-        config: makeConfig(tmpDir),
-        queryFn,
-        resolver,
-      });
-
-      const result = await engine.run('workflow.yaml', '/tmp/spec.md');
-
-      // failWhen condition is undefined, evaluates to false -> no failure
-      expect(result.status).toBe('completed');
-    });
+    // failWhen was removed per spec decisions (handled by loop conditions instead)
   });
 
   // =========================================================================
@@ -1018,6 +991,147 @@ phases:
 
       // Verify changed files propagated
       expect(result.changedFiles).toContain('src/auth.ts');
+    });
+  });
+
+  // =========================================================================
+  // Runtime error handling
+  // =========================================================================
+  describe('runtime error handling', () => {
+    it('propagates error and records audit when queryFn throws mid-workflow', async () => {
+      await setupComposedWorkflowFiles(tmpDir);
+
+      await writeWorkflowYaml(tmpDir, 'workflow.yaml', `
+name: error-mid-workflow-e2e
+version: 1
+defaults:
+  agent: coder
+phases:
+  - name: analyze
+    agent: planner
+    prompt: analyze-spec
+    output: analysis
+  - name: implement
+    prompt: implement-task
+    output: implResult
+`);
+
+      let callCount = 0;
+      const queryFn: QueryFunction = async function* (params: QueryOptions): AsyncGenerator<SDKMessage, void> {
+        callCount++;
+        if (callCount === 2) {
+          throw new Error('Agent dispatch failed: connection timeout');
+        }
+
+        yield {
+          type: 'result',
+          subtype: 'success',
+          structured_output: { tasks: ['task-1'] },
+          is_error: false,
+          num_turns: 1,
+          total_cost_usd: 0.01,
+          session_id: 'test-session',
+        } as SDKResultMessage;
+      };
+
+      const resolver = new WorkflowResolver(tmpDir, tmpDir);
+      const auditEntries: WorkflowAuditEntry[] = [];
+      const engine = new WorkflowEngine({
+        config: makeConfig(tmpDir),
+        queryFn,
+        resolver,
+        onAuditEntry: async (entry) => { auditEntries.push(entry); },
+      });
+
+      await expect(engine.run('workflow.yaml', '/tmp/spec.md'))
+        .rejects.toThrow('Agent dispatch failed: connection timeout');
+
+      // First step should have completed successfully
+      const completedEntries = auditEntries.filter(e => e.status === 'completed');
+      expect(completedEntries.some(e => e.step === 'analyze')).toBe(true);
+
+      // Second step should have a failure recorded in audit
+      const failedEntries = auditEntries.filter(e => e.status === 'failed');
+      expect(failedEntries.some(e => e.step === 'implement')).toBe(true);
+      expect(failedEntries.find(e => e.step === 'implement')!.metadata?.error)
+        .toContain('Agent dispatch failed');
+    });
+
+    it('handles queryFn yielding a non-result message gracefully', async () => {
+      await setupComposedWorkflowFiles(tmpDir);
+
+      await writeWorkflowYaml(tmpDir, 'workflow.yaml', `
+name: malformed-response-e2e
+version: 1
+defaults:
+  agent: coder
+phases:
+  - name: implement
+    prompt: implement-task
+    output: implResult
+`);
+
+      // queryFn yields a message that is not a 'result' type --
+      // the engine only processes messages where type === 'result',
+      // so the output variable remains null.
+      const queryFn: QueryFunction = async function* (): AsyncGenerator<SDKMessage, void> {
+        yield {
+          type: 'assistant',
+          message: { role: 'assistant', content: 'some text' },
+        } as unknown as SDKMessage;
+      };
+
+      const resolver = new WorkflowResolver(tmpDir, tmpDir);
+      const engine = new WorkflowEngine({
+        config: makeConfig(tmpDir),
+        queryFn,
+        resolver,
+      });
+
+      const result = await engine.run('workflow.yaml', '/tmp/spec.md');
+
+      // The workflow should complete -- non-result messages are silently skipped,
+      // and the output key is simply not set (null result).
+      expect(result.status).toBe('completed');
+      expect(result.outputs?.implResult).toBeUndefined();
+    });
+
+    it('propagates error when queryFn generator rejects', async () => {
+      await setupComposedWorkflowFiles(tmpDir);
+
+      await writeWorkflowYaml(tmpDir, 'workflow.yaml', `
+name: rejected-promise-e2e
+version: 1
+defaults:
+  agent: coder
+phases:
+  - name: implement
+    prompt: implement-task
+    output: implResult
+`);
+
+      // queryFn returns an async generator that immediately throws
+      const queryFn: QueryFunction = async function* (): AsyncGenerator<SDKMessage, void> {
+        throw new Error('Internal SDK error: request rejected');
+      };
+
+      const resolver = new WorkflowResolver(tmpDir, tmpDir);
+      const auditEntries: WorkflowAuditEntry[] = [];
+      const engine = new WorkflowEngine({
+        config: makeConfig(tmpDir),
+        queryFn,
+        resolver,
+        onAuditEntry: async (entry) => { auditEntries.push(entry); },
+      });
+
+      await expect(engine.run('workflow.yaml', '/tmp/spec.md'))
+        .rejects.toThrow('Internal SDK error: request rejected');
+
+      // Audit trail should record the failure
+      const failedEntries = auditEntries.filter(e => e.status === 'failed');
+      expect(failedEntries.some(e => e.step === 'implement')).toBe(true);
+      expect(failedEntries.find(e => e.step === 'implement')!.metadata?.error)
+        .toContain('Internal SDK error');
     });
   });
 });

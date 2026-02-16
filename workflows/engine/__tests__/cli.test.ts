@@ -8,6 +8,14 @@
 import { jest } from '@jest/globals';
 import type { WorkflowResult } from '../src/state.js';
 
+// Mock child_process before any module that uses it is imported.
+// getCurrentBranch does `await import('child_process')` dynamically,
+// so the mock must be registered first at module scope.
+const mockExecSync = jest.fn();
+jest.unstable_mockModule('child_process', () => ({
+  execSync: mockExecSync,
+}));
+
 // ================================================================
 // printResult
 // ================================================================
@@ -280,42 +288,31 @@ describe('printResult', () => {
 // ================================================================
 
 describe('getCurrentBranch', () => {
-  let mockedExecSync: jest.Mock;
   let getCurrentBranch: (cwd: string) => Promise<string>;
 
   beforeAll(async () => {
-    // Set up the mock before importing the module that uses it
-    const mockModule = {
-      execSync: jest.fn(),
-    };
-    jest.unstable_mockModule('child_process', () => mockModule);
-    mockedExecSync = mockModule.execSync as jest.Mock;
-
-    // Re-import cli to get the version that will use our mocked child_process
-    // Since getCurrentBranch uses dynamic import('child_process'), the mock
-    // will be resolved when the function is called.
     const cli = await import('../src/cli.js');
     getCurrentBranch = cli.getCurrentBranch;
   });
 
   beforeEach(() => {
-    mockedExecSync.mockReset();
+    mockExecSync.mockReset();
   });
 
   it('returns the trimmed branch name on success', async () => {
-    mockedExecSync.mockReturnValue('main\n');
+    mockExecSync.mockReturnValue('main\n');
 
     const branch = await getCurrentBranch('/some/dir');
 
     expect(branch).toBe('main');
-    expect(mockedExecSync).toHaveBeenCalledWith(
+    expect(mockExecSync).toHaveBeenCalledWith(
       'git rev-parse --abbrev-ref HEAD',
       { cwd: '/some/dir', encoding: 'utf-8' },
     );
   });
 
   it('returns "unknown" when execSync throws', async () => {
-    mockedExecSync.mockImplementation(() => {
+    mockExecSync.mockImplementation(() => {
       throw new Error('not a git repository');
     });
 
@@ -325,7 +322,7 @@ describe('getCurrentBranch', () => {
   });
 
   it('handles branch names with slashes (feature branches)', async () => {
-    mockedExecSync.mockReturnValue('feature/auth-system\n');
+    mockExecSync.mockReturnValue('feature/auth-system\n');
 
     const branch = await getCurrentBranch('/some/dir');
 
