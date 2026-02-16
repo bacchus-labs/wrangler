@@ -1406,7 +1406,12 @@ describe('WorkflowContext - changedFiles in template vars', () => {
 describe('WorkflowContext - template rendering integration', () => {
   // These tests verify that the built-in context variables work
   // with the renderTemplate function from loader.ts
-  const { renderTemplate } = require('../src/loader.js');
+  let renderTemplate: (template: string, vars: Record<string, unknown>) => string;
+
+  beforeAll(async () => {
+    const loader = await import('../src/loader.js');
+    renderTemplate = loader.renderTemplate;
+  });
 
   it('renders {{spec.title}} from session context', () => {
     const ctx = new WorkflowContext();

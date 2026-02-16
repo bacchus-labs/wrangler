@@ -11,7 +11,6 @@
 
 import { Command } from 'commander';
 import * as path from 'path';
-import { execSync } from 'child_process';
 import { WorkflowEngine } from './engine.js';
 import { WorkflowSessionManager } from './integration/session.js';
 import { buildMcpConfig } from './integration/mcp.js';
@@ -209,7 +208,8 @@ export function printResult(result: WorkflowResult): void {
 
 export async function getCurrentBranch(cwd: string): Promise<string> {
   try {
-    return execSync('git rev-parse --abbrev-ref HEAD', { cwd, encoding: 'utf-8' }).trim();
+    const cp = await import('child_process');
+    return cp.execSync('git rev-parse --abbrev-ref HEAD', { cwd, encoding: 'utf-8' }).trim();
   } catch {
     return 'unknown';
   }
