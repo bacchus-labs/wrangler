@@ -77,6 +77,10 @@ export interface EngineConfig {
   mcpServers?: Record<string, unknown>;
   /** Callback invoked after each top-level phase completes */
   onPhaseComplete?: (phaseName: string, context: import('./state.js').WorkflowContext) => Promise<void>;
+  /** Skip all "check" steps (steps using reviewer agent or named with "review"/"check") */
+  skipChecks?: boolean;
+  /** Skip specific named steps */
+  skipStepNames?: string[];
 }
 
 /**

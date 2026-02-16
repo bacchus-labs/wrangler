@@ -208,8 +208,8 @@ export function printResult(result: WorkflowResult): void {
 
 export async function getCurrentBranch(cwd: string): Promise<string> {
   try {
-    const { execSync } = await import('child_process');
-    return execSync('git rev-parse --abbrev-ref HEAD', { cwd, encoding: 'utf-8' }).trim();
+    const cp = await import('child_process');
+    return cp.execSync('git rev-parse --abbrev-ref HEAD', { cwd, encoding: 'utf-8' }).trim();
   } catch {
     return 'unknown';
   }

@@ -1,11 +1,12 @@
 /**
  * WorkflowEngine: Generic interpreter for YAML workflow definitions.
  *
- * Recursively executes 5 step types:
- * - agent:      Single query() call using a markdown agent definition
+ * Recursively executes step types:
+ * - agent+prompt: Composed agent/prompt step via WorkflowResolver
+ * - agent (legacy): Single query() call using a markdown agent definition
  * - code:       Runs a registered TypeScript handler function
  * - per-task:   Iterates over a list, runs nested steps for each item
- * - gate-group: Discovers all .md files in a directory, runs each as query()
+ * - parallel:   Runs nested steps concurrently
  * - loop:       Repeats nested steps while condition is true, up to maxRetries
  */
 
@@ -14,8 +15,6 @@ import { z } from 'zod';
 import {
   loadWorkflowYaml,
   loadAgentMarkdown,
-  loadGateMarkdown,
-  discoverGates,
   renderTemplate,
   resolveSchemaReference,
 } from './loader.js';
@@ -24,10 +23,12 @@ import { type HandlerRegistry, createDefaultRegistry } from './handlers/index.js
 import {
   type StepDefinition,
   type PerTaskStep,
+  type ParallelStep,
   type LoopStep,
   type TaskDefinition,
 } from './schemas/index.js';
-import { aggregateGateResults, ReviewResultSchema, type ReviewResult } from './schemas/review.js';
+import { WorkflowResolver } from './resolver.js';
+import { loadAgentFile, loadPromptFile } from './loaders.js';
 import {
   type QueryFunction,
   type SDKMessage,
@@ -41,19 +42,23 @@ export class WorkflowEngine {
   private config: EngineConfig;
   private queryFn: QueryFunction;
   private handlerRegistry: HandlerRegistry;
+  private resolver?: WorkflowResolver;
   private auditLog: WorkflowAuditEntry[] = [];
   private onAuditEntry?: (entry: WorkflowAuditEntry) => Promise<void>;
   private activeDefaults: { model: string; permissionMode: string; settingSources: string[] };
+  private activeDefaultAgent?: string;
 
   constructor(options: {
     config: EngineConfig;
     queryFn: QueryFunction;
     handlerRegistry?: HandlerRegistry;
+    resolver?: WorkflowResolver;
     onAuditEntry?: (entry: WorkflowAuditEntry) => Promise<void>;
   }) {
     this.config = options.config;
     this.queryFn = options.queryFn;
     this.handlerRegistry = options.handlerRegistry ?? createDefaultRegistry();
+    this.resolver = options.resolver;
     this.onAuditEntry = options.onAuditEntry;
     this.activeDefaults = { ...options.config.defaults };
   }
@@ -64,7 +69,8 @@ export class WorkflowEngine {
    */
   private assertWithinWorkflowDir(resolvedPath: string): void {
     const relative = path.relative(this.config.workflowBaseDir, resolvedPath);
-    if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    const normalized = relative.split(path.sep).join('/');
+    if (normalized.startsWith('..') || path.isAbsolute(relative)) {
       throw new Error(`Path "${resolvedPath}" escapes workflow directory "${this.config.workflowBaseDir}"`);
     }
   }
@@ -82,6 +88,7 @@ export class WorkflowEngine {
       permissionMode: definition.defaults?.permissionMode ?? this.config.defaults.permissionMode,
       settingSources: definition.defaults?.settingSources ?? this.config.defaults.settingSources,
     };
+    this.activeDefaultAgent = definition.defaults?.agent;
 
     const context = new WorkflowContext({ specPath });
 
@@ -143,6 +150,7 @@ export class WorkflowEngine {
       permissionMode: definition.defaults?.permissionMode ?? this.config.defaults.permissionMode,
       settingSources: definition.defaults?.settingSources ?? this.config.defaults.settingSources,
     };
+    this.activeDefaultAgent = definition.defaults?.agent;
 
     const context = WorkflowContext.fromCheckpoint(checkpointData);
 
@@ -191,40 +199,139 @@ export class WorkflowEngine {
   }
 
   /**
+   * Determine if a step is a "check" step (for skipChecks).
+   * A step is a check if it uses the reviewer agent or its name contains "review" or "check".
+   */
+  private isCheckStep(step: StepDefinition): boolean {
+    const nameLower = step.name.toLowerCase();
+    if (nameLower.includes('review') || nameLower.includes('check')) {
+      return true;
+    }
+    // Check if the step uses a reviewer agent
+    if ('agent' in step && typeof (step as Record<string, unknown>).agent === 'string') {
+      const agentPath = (step as Record<string, unknown>).agent as string;
+      if (agentPath.toLowerCase().includes('review')) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Check if a step should be skipped, returning the skip reason or null.
+   * Priority: enabled:false > skipStepNames > skipChecks
+   */
+  private getSkipReason(step: StepDefinition): string | null {
+    // 1. enabled: false (workflow-level disable)
+    if ('enabled' in step && step.enabled === false) {
+      return 'disabled in workflow definition';
+    }
+
+    // 2. skipStepNames (runtime skip by name)
+    if (this.config.skipStepNames?.includes(step.name)) {
+      return `--skip-step=${step.name}`;
+    }
+
+    // 3. skipChecks (runtime skip all check steps)
+    // Code steps are never skipped by skipChecks
+    if (this.config.skipChecks) {
+      const type = 'type' in step && typeof step.type === 'string' ? step.type : undefined;
+      if (type !== 'code' && this.isCheckStep(step)) {
+        return '--skip-checks';
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Resolve step.input into a template vars object for rendering prompts.
+   * Merges context template vars with any step-level input overrides.
+   *
+   * - If input is absent, returns the raw context template vars.
+   * - If input is a string, resolves it from context and adds the leaf key.
+   * - If input is an object, resolves each string value from context and
+   *   passes non-string values through directly.
+   */
+  private resolveStepInput(
+    step: { input?: string | Record<string, unknown> },
+    ctx: WorkflowContext
+  ): Record<string, unknown> {
+    const templateVars = ctx.getTemplateVars();
+    if (!step.input) return templateVars;
+
+    if (typeof step.input === 'string') {
+      const inputValue = ctx.resolve(step.input);
+      if (inputValue !== undefined) {
+        const inputParts = step.input.split('.');
+        const leafKey = inputParts[inputParts.length - 1];
+        templateVars[leafKey] = inputValue;
+      }
+    } else {
+      for (const [key, val] of Object.entries(step.input)) {
+        if (typeof val === 'string') {
+          const resolved = ctx.resolve(val);
+          if (resolved !== undefined) {
+            templateVars[key] = resolved;
+          }
+        } else {
+          templateVars[key] = val;
+        }
+      }
+    }
+
+    return templateVars;
+  }
+
+  /**
    * Recursively execute a step based on its type.
    */
   async executeStep(
     step: StepDefinition,
     ctx: WorkflowContext
   ): Promise<void> {
+    // Check for skip conditions before any execution
+    const skipReason = this.getSkipReason(step);
+    if (skipReason !== null) {
+      await this.auditStepSkipped(step.name, skipReason);
+      return;
+    }
+
     await this.auditStepStart(step.name);
 
     try {
-      const type = ('type' in step && step.type) ? step.type : 'agent';
+      const type = 'type' in step && typeof step.type === 'string' ? step.type : undefined;
 
-      switch (type) {
-        case 'agent':
+      if (!type) {
+        // Check if this is a new-style composed step (has prompt field) or legacy agent step
+        const stepAny = step as Record<string, unknown>;
+        if (stepAny.prompt && this.resolver) {
+          await this.runComposedAgent(step as StepDefinition & { agent?: string; prompt: string; model?: string; output?: string }, ctx);
+        } else {
+          // Legacy agent step (agent field is a file path)
           await this.runAgent(step as StepDefinition & { agent: string }, ctx);
-          break;
+        }
+      } else {
+        switch (type) {
+          case 'code':
+            await this.runHandler(step as StepDefinition & { handler: string }, ctx);
+            break;
 
-        case 'code':
-          await this.runHandler(step as StepDefinition & { handler: string }, ctx);
-          break;
+          case 'parallel':
+            await this.runParallel(step as ParallelStep, ctx);
+            break;
 
-        case 'per-task':
-          await this.runPerTask(step as PerTaskStep, ctx);
-          break;
+          case 'per-task':
+            await this.runPerTask(step as PerTaskStep, ctx);
+            break;
 
-        case 'gate-group':
-          await this.runGateGroup(step as StepDefinition & { gates: string }, ctx);
-          break;
+          case 'loop':
+            await this.runLoop(step as LoopStep, ctx);
+            break;
 
-        case 'loop':
-          await this.runLoop(step as LoopStep, ctx);
-          break;
-
-        default:
-          throw new Error(`Unknown step type: ${type}`);
+          default:
+            throw new Error(`Unknown step type: ${type}`);
+        }
       }
 
       await this.auditStepComplete(step.name);
@@ -238,24 +345,14 @@ export class WorkflowEngine {
    * Execute an agent step: load markdown definition, render template, call query().
    */
   private async runAgent(
-    step: StepDefinition & { agent: string; model?: string; input?: string; failWhen?: string; output?: string },
+    step: StepDefinition & { agent: string; model?: string; input?: string | Record<string, unknown>; output?: string },
     ctx: WorkflowContext
   ): Promise<void> {
     const agentPath = path.resolve(this.config.workflowBaseDir, step.agent);
     this.assertWithinWorkflowDir(agentPath);
     const agentDef = await loadAgentMarkdown(agentPath);
 
-    // Resolve input into template vars
-    const templateVars = ctx.getTemplateVars();
-    if (step.input) {
-      const inputValue = ctx.resolve(step.input);
-      if (inputValue !== undefined) {
-        // Make the input available directly in template vars
-        const inputParts = step.input.split('.');
-        const leafKey = inputParts[inputParts.length - 1];
-        templateVars[leafKey] = inputValue;
-      }
-    }
+    const templateVars = this.resolveStepInput(step, ctx);
 
     const prompt = renderTemplate(agentDef.prompt, templateVars);
 
@@ -310,24 +407,118 @@ export class WorkflowEngine {
       }
     }
 
-    // Check failWhen condition
-    if (step.failWhen && ctx.evaluate(step.failWhen)) {
-      throw new WorkflowFailure(step.name, step.failWhen);
+  }
+
+
+  /**
+   * Execute a composed agent+prompt step using WorkflowResolver.
+   * Resolves agent and prompt files by name, loads definitions,
+   * renders the prompt body with template variables, and dispatches
+   * via queryFn with the agent's systemPrompt as the system prompt.
+   */
+  private async runComposedAgent(
+    step: StepDefinition & { agent?: string; prompt: string; model?: string; output?: string; input?: string | Record<string, unknown> },
+    ctx: WorkflowContext
+  ): Promise<void> {
+    if (!this.resolver) {
+      throw new Error(`Step "${step.name}": resolver is required for agent+prompt composition`);
     }
+
+    // Resolve agent name: step.agent > defaults.agent > error
+    const agentName = step.agent ?? this.activeDefaultAgent;
+    if (!agentName) {
+      throw new Error(
+        `Step "${step.name}": no agent specified and no defaults.agent in workflow definition`
+      );
+    }
+
+    // Resolve and load agent file
+    const agentResolved = await this.resolver.resolveAgent(agentName);
+    const agentDef = await loadAgentFile(agentResolved.path);
+
+    // Resolve and load prompt file
+    const promptResolved = await this.resolver.resolvePrompt(step.prompt);
+    const promptDef = await loadPromptFile(promptResolved.path);
+
+    const templateVars = this.resolveStepInput(step, ctx);
+
+    // Render prompt body with template variables
+    const renderedPrompt = renderTemplate(promptDef.body, templateVars);
+
+    // Model priority: step > agent > workflow default
+    const model = step.model ?? agentDef.model ?? this.activeDefaults.model;
+
+    let result: unknown = null;
+
+    const generator = this.queryFn({
+      prompt: renderedPrompt,
+      options: {
+        systemPrompt: agentDef.systemPrompt,
+        allowedTools: agentDef.tools,
+        model,
+        cwd: this.config.workingDirectory,
+        permissionMode: this.activeDefaults.permissionMode,
+        allowDangerouslySkipPermissions: this.activeDefaults.permissionMode === 'bypassPermissions',
+        mcpServers: this.config.mcpServers,
+        settingSources: this.activeDefaults.settingSources,
+      },
+    });
+
+    for await (const message of generator) {
+      if (isResultMessage(message) && message.subtype === 'success' && message.structured_output != null) {
+        result = message.structured_output;
+      }
+      if (isResultMessage(message) && message.subtype !== 'success') {
+        const errors = message.errors?.join(', ') ?? 'unknown error';
+        throw new Error(`Agent "${step.name}" failed: ${message.subtype} - ${errors}`);
+      }
+    }
+
+    if (step.output && result != null) {
+      ctx.set(step.output, result);
+
+      // Track changed files if result has them
+      if (typeof result === 'object' && result !== null) {
+        ctx.addChangedFilesFromResult(result as { filesChanged?: Array<{ path: string }> });
+      }
+    }
+
+    // Record composition metadata for audit trail
+    await this.auditComposedStep(step.name, agentResolved.path, promptResolved.path);
+  }
+
+  /**
+   * Record audit metadata for a composed agent+prompt step.
+   * Overwrites the 'completed' entry that executeStep will write
+   * so we capture the source file paths.
+   */
+  private composedStepMeta: Map<string, { agentSource: string; promptSource: string }> = new Map();
+
+  private async auditComposedStep(stepName: string, agentPath: string, promptPath: string): Promise<void> {
+    this.composedStepMeta.set(stepName, { agentSource: agentPath, promptSource: promptPath });
   }
 
   /**
    * Execute a code handler step.
    */
   private async runHandler(
-    step: StepDefinition & { handler: string; input?: string },
+    step: StepDefinition & { handler: string; input?: string | Record<string, unknown> },
     ctx: WorkflowContext
   ): Promise<void> {
     const handler = this.handlerRegistry.get(step.handler);
 
     let input: unknown;
     if (step.input) {
-      input = ctx.resolve(step.input);
+      if (typeof step.input === 'string') {
+        input = ctx.resolve(step.input);
+      } else {
+        // Object input - resolve each string value
+        const resolved: Record<string, unknown> = {};
+        for (const [key, val] of Object.entries(step.input)) {
+          resolved[key] = typeof val === 'string' ? ctx.resolve(val) ?? val : val;
+        }
+        input = resolved;
+      }
     }
 
     await handler(ctx, input, { queryFn: this.queryFn, config: this.config });
@@ -347,8 +538,9 @@ export class WorkflowEngine {
 
     const sorted = this.topologicalSort(items);
 
-    for (const item of sorted) {
-      const taskCtx = ctx.withTask(item);
+    for (let i = 0; i < sorted.length; i++) {
+      const item = sorted[i];
+      const taskCtx = ctx.withTask(item, i, sorted.length);
 
       try {
         for (const childStep of step.steps) {
@@ -376,102 +568,30 @@ export class WorkflowEngine {
   }
 
   /**
-   * Execute a gate-group step: discover gates, run each, aggregate results.
+   * Execute a parallel step: run all nested steps concurrently.
    */
-  private async runGateGroup(
-    step: StepDefinition & { gates: string; output?: string; minSeverity?: 'critical' | 'important' | 'minor' },
+  private async runParallel(
+    step: ParallelStep,
     ctx: WorkflowContext
   ): Promise<void> {
-    const gatesDir = path.resolve(this.config.workflowBaseDir, step.gates);
-    this.assertWithinWorkflowDir(gatesDir);
-    const gateFiles = await discoverGates(gatesDir);
-
-    if (gateFiles.length === 0) {
-      // No gates found, set empty result
-      if (step.output) {
-        ctx.set(step.output, {
-          assessment: 'approved',
-          issues: [],
-          strengths: [],
-          hasActionableIssues: false,
-          gateResults: [],
-        });
-      }
-      return;
+    // Detect duplicate output variables
+    const outputs = step.steps
+      .filter(s => 'output' in s && s.output)
+      .map(s => (s as any).output as string);
+    const duplicates = outputs.filter((v, i) => outputs.indexOf(v) !== i);
+    if (duplicates.length > 0) {
+      throw new Error(
+        `Parallel step "${step.name}" has duplicate output variables: ${[...new Set(duplicates)].join(', ')}. ` +
+        `Each parallel child must write to a unique output.`
+      );
     }
 
-    const gateResults: Array<{ gate: string } & ReviewResult> = [];
-
-    for (const gateFile of gateFiles) {
-      const gateDef = await loadGateMarkdown(gateFile);
-
-      // Check enabled flag
-      if (gateDef.enabled === false) continue;
-
-      // Check runCondition
-      if (gateDef.runCondition === 'changed-files-match' && gateDef.filePatterns) {
-        if (!ctx.changedFilesMatch(gateDef.filePatterns)) continue;
-      }
-
-      // Run the gate agent
-      const result = await this.runSingleGate(gateDef, ctx);
-      gateResults.push({ gate: gateDef.name, ...result });
-    }
-
-    // Aggregate results with optional severity threshold
-    const aggregated = aggregateGateResults(gateResults, {
-      minSeverity: step.minSeverity,
-    });
-
-    if (step.output) {
-      ctx.set(step.output, aggregated);
-    }
+    // Run all nested steps in parallel
+    await Promise.all(
+      step.steps.map(nestedStep => this.executeStep(nestedStep, ctx))
+    );
   }
 
-  /**
-   * Run a single review gate as a query() call.
-   */
-  private async runSingleGate(
-    gateDef: { name: string; tools: string[]; model?: string; prompt: string },
-    ctx: WorkflowContext
-  ): Promise<ReviewResult> {
-    const prompt = renderTemplate(gateDef.prompt, ctx.getTemplateVars());
-    const model = gateDef.model ?? this.activeDefaults.model;
-
-    const jsonSchema = z.toJSONSchema(ReviewResultSchema);
-
-    let result: ReviewResult | null = null;
-
-    const generator = this.queryFn({
-      prompt,
-      options: {
-        allowedTools: gateDef.tools,
-        outputFormat: {
-          type: 'json_schema',
-          schema: jsonSchema as Record<string, unknown>,
-        },
-        model,
-        cwd: this.config.workingDirectory,
-        permissionMode: this.activeDefaults.permissionMode,
-        allowDangerouslySkipPermissions: this.activeDefaults.permissionMode === 'bypassPermissions',
-        mcpServers: this.config.mcpServers,
-        settingSources: this.activeDefaults.settingSources,
-      },
-    });
-
-    for await (const message of generator) {
-      if (isResultMessage(message) && message.subtype === 'success' && message.structured_output != null) {
-        result = ReviewResultSchema.parse(message.structured_output);
-      }
-    }
-
-    return result ?? {
-      assessment: 'approved',
-      issues: [],
-      strengths: [],
-      hasActionableIssues: false,
-    };
-  }
 
   /**
    * Execute a loop step: repeat nested steps while condition is true.
@@ -604,17 +724,28 @@ export class WorkflowEngine {
   }
 
   private async auditStepComplete(stepName: string, metadata?: Record<string, unknown>): Promise<void> {
+    // Merge any composed step metadata (agent/prompt source paths)
+    const composedMeta = this.composedStepMeta.get(stepName);
+    const mergedMetadata = composedMeta
+      ? { ...metadata, ...composedMeta }
+      : metadata;
+    // Clean up after use
+    if (composedMeta) this.composedStepMeta.delete(stepName);
+
     const entry: WorkflowAuditEntry = {
       step: stepName,
       status: 'completed',
       timestamp: new Date().toISOString(),
-      metadata,
+      metadata: mergedMetadata,
     };
     this.auditLog.push(entry);
     if (this.onAuditEntry) await this.onAuditEntry(entry);
   }
 
   private async auditStepFailed(stepName: string, error: unknown): Promise<void> {
+    // Clean up any composed step metadata for the failed step
+    this.composedStepMeta.delete(stepName);
+
     const entry: WorkflowAuditEntry = {
       step: stepName,
       status: 'failed',
@@ -622,6 +753,17 @@ export class WorkflowEngine {
       metadata: {
         error: error instanceof Error ? error.message : String(error),
       },
+    };
+    this.auditLog.push(entry);
+    if (this.onAuditEntry) await this.onAuditEntry(entry);
+  }
+
+  private async auditStepSkipped(stepName: string, reason: string): Promise<void> {
+    const entry: WorkflowAuditEntry = {
+      step: stepName,
+      status: 'skipped',
+      timestamp: new Date().toISOString(),
+      metadata: { reason },
     };
     this.auditLog.push(entry);
     if (this.onAuditEntry) await this.onAuditEntry(entry);

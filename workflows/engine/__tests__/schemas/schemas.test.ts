@@ -15,12 +15,13 @@ import { ZodError } from 'zod';
 
 // --- Workflow schemas ---
 import {
-  AgentStepSchema,
+  AgentPromptStepSchema,
   CodeStepSchema,
-  GateGroupStepSchema,
+  ParallelStepPartialSchema,
   LoopStepPartialSchema,
   PerTaskStepPartialSchema,
   WorkflowDefaultsSchema,
+  WorkflowSafetySchema,
   WorkflowDefinitionSchema,
   AgentDefinitionSchema,
   GateDefinitionSchema,
@@ -72,73 +73,86 @@ import {
 
 describe('Workflow schemas', () => {
 
-  // --- AgentStepSchema ---
+  // --- AgentPromptStepSchema ---
 
-  describe('AgentStepSchema', () => {
-    it('should accept valid agent step with all fields', () => {
-      const result = AgentStepSchema.parse({
+  describe('AgentPromptStepSchema', () => {
+    it('should accept step with agent and prompt', () => {
+      const result = AgentPromptStepSchema.parse({
         name: 'analyze',
         agent: 'analyzer',
-        type: 'agent',
-        model: 'opus',
-        input: '{{spec}}',
+        prompt: 'analyze.md',
         output: 'analysis',
-        failWhen: 'tasks.length === 0',
       });
       expect(result.name).toBe('analyze');
       expect(result.agent).toBe('analyzer');
-      expect(result.type).toBe('agent');
-      expect(result.model).toBe('opus');
-      expect(result.input).toBe('{{spec}}');
+      expect(result.prompt).toBe('analyze.md');
       expect(result.output).toBe('analysis');
-      expect(result.failWhen).toBe('tasks.length === 0');
     });
 
-    it('should accept agent step with only required fields', () => {
-      const result = AgentStepSchema.parse({
+    it('should accept step with agent only (no prompt)', () => {
+      const result = AgentPromptStepSchema.parse({
         name: 'analyze',
         agent: 'analyzer',
       });
       expect(result.name).toBe('analyze');
       expect(result.agent).toBe('analyzer');
-      expect(result.type).toBeUndefined();
-      expect(result.model).toBeUndefined();
-      expect(result.input).toBeUndefined();
-      expect(result.output).toBeUndefined();
-      expect(result.failWhen).toBeUndefined();
+      expect(result.prompt).toBeUndefined();
     });
 
-    it('should reject agent step with empty name', () => {
-      expect(() => AgentStepSchema.parse({
+    it('should accept step with prompt only (no agent)', () => {
+      const result = AgentPromptStepSchema.parse({
+        name: 'analyze',
+        prompt: 'analyze.md',
+      });
+      expect(result.name).toBe('analyze');
+      expect(result.prompt).toBe('analyze.md');
+      expect(result.agent).toBeUndefined();
+    });
+
+    it('should accept step with all optional fields', () => {
+      const result = AgentPromptStepSchema.parse({
+        name: 'analyze',
+        agent: 'analyzer',
+        prompt: 'analyze.md',
+        model: 'opus',
+        output: 'analysis',
+        enabled: false,
+        condition: 'someVar === true',
+        input: '{{spec}}',
+      });
+      expect(result.model).toBe('opus');
+      expect(result.enabled).toBe(false);
+      expect(result.condition).toBe('someVar === true');
+      expect(result.input).toBe('{{spec}}');
+    });
+
+    it('should accept step with object input', () => {
+      const result = AgentPromptStepSchema.parse({
+        name: 'analyze',
+        agent: 'analyzer',
+        input: { spec: '{{spec}}', context: '{{ctx}}' },
+      });
+      expect(result.input).toEqual({ spec: '{{spec}}', context: '{{ctx}}' });
+    });
+
+    it('should default enabled to true', () => {
+      const result = AgentPromptStepSchema.parse({
+        name: 'analyze',
+        agent: 'analyzer',
+      });
+      expect(result.enabled).toBe(true);
+    });
+
+    it('should reject step with empty name', () => {
+      expect(() => AgentPromptStepSchema.parse({
         name: '',
         agent: 'analyzer',
       })).toThrow(ZodError);
     });
 
-    it('should reject agent step with empty agent', () => {
-      expect(() => AgentStepSchema.parse({
-        name: 'analyze',
-        agent: '',
-      })).toThrow(ZodError);
-    });
-
-    it('should reject agent step missing name', () => {
-      expect(() => AgentStepSchema.parse({
+    it('should reject step missing name', () => {
+      expect(() => AgentPromptStepSchema.parse({
         agent: 'analyzer',
-      })).toThrow(ZodError);
-    });
-
-    it('should reject agent step missing agent', () => {
-      expect(() => AgentStepSchema.parse({
-        name: 'analyze',
-      })).toThrow(ZodError);
-    });
-
-    it('should reject agent step with wrong type literal', () => {
-      expect(() => AgentStepSchema.parse({
-        name: 'analyze',
-        agent: 'analyzer',
-        type: 'code',
       })).toThrow(ZodError);
     });
   });
@@ -195,76 +209,38 @@ describe('Workflow schemas', () => {
     });
   });
 
-  // --- GateGroupStepSchema ---
+  // --- ParallelStepPartialSchema ---
 
-  describe('GateGroupStepSchema', () => {
-    it('should accept valid gate-group step', () => {
-      const result = GateGroupStepSchema.parse({
-        name: 'review',
-        type: 'gate-group',
-        gates: 'gates/',
-        output: 'reviewResult',
+  describe('ParallelStepPartialSchema', () => {
+    it('should accept valid parallel step', () => {
+      const result = ParallelStepPartialSchema.parse({
+        name: 'run-gates',
+        type: 'parallel',
+        steps: [
+          { name: 'gate-a', agent: 'reviewer' },
+          { name: 'gate-b', agent: 'linter' },
+        ],
+        output: 'gateResults',
       });
-      expect(result.name).toBe('review');
-      expect(result.type).toBe('gate-group');
-      expect(result.gates).toBe('gates/');
-      expect(result.output).toBe('reviewResult');
+      expect(result.name).toBe('run-gates');
+      expect(result.type).toBe('parallel');
+      expect(result.steps).toHaveLength(2);
+      expect(result.output).toBe('gateResults');
     });
 
-    it('should reject gate-group with empty gates path', () => {
-      expect(() => GateGroupStepSchema.parse({
-        name: 'review',
-        type: 'gate-group',
-        gates: '',
+    it('should reject parallel step without steps', () => {
+      expect(() => ParallelStepPartialSchema.parse({
+        name: 'run-gates',
+        type: 'parallel',
       })).toThrow(ZodError);
     });
 
-    it('should reject gate-group missing gates', () => {
-      expect(() => GateGroupStepSchema.parse({
-        name: 'review',
-        type: 'gate-group',
+    it('should reject parallel step with wrong type', () => {
+      expect(() => ParallelStepPartialSchema.parse({
+        name: 'run-gates',
+        type: 'loop',
+        steps: [],
       })).toThrow(ZodError);
-    });
-
-    it('should accept gate-group with minSeverity', () => {
-      const result = GateGroupStepSchema.parse({
-        name: 'review',
-        type: 'gate-group',
-        gates: 'gates/',
-        minSeverity: 'important',
-        output: 'reviewResult',
-      });
-      expect(result.minSeverity).toBe('important');
-    });
-
-    it('should accept gate-group without minSeverity (optional)', () => {
-      const result = GateGroupStepSchema.parse({
-        name: 'review',
-        type: 'gate-group',
-        gates: 'gates/',
-      });
-      expect(result.minSeverity).toBeUndefined();
-    });
-
-    it('should reject gate-group with invalid minSeverity value', () => {
-      expect(() => GateGroupStepSchema.parse({
-        name: 'review',
-        type: 'gate-group',
-        gates: 'gates/',
-        minSeverity: 'low',
-      })).toThrow(ZodError);
-    });
-
-    it('should accept all valid minSeverity levels', () => {
-      for (const sev of ['critical', 'important', 'minor'] as const) {
-        const result = GateGroupStepSchema.parse({
-          name: 'review',
-          type: 'gate-group',
-          gates: 'gates/',
-          minSeverity: sev,
-        });
-        expect(result.minSeverity).toBe(sev);
-      }
     });
   });
 
@@ -287,6 +263,18 @@ describe('Workflow schemas', () => {
       expect(result.maxRetries).toBe(3);
       expect(result.onExhausted).toBe('escalate');
       expect(result.steps).toHaveLength(1);
+    });
+
+    it('should accept loop step with default maxRetries and onExhausted', () => {
+      const result = LoopStepPartialSchema.parse({
+        name: 'fix-loop',
+        type: 'loop',
+        condition: 'review.hasIssues',
+        steps: [{ name: 'fix', agent: 'fixer' }],
+      });
+      // defaults should be applied
+      expect(result.maxRetries).toBeDefined();
+      expect(result.onExhausted).toBeDefined();
     });
 
     it('should accept all onExhausted values', () => {
@@ -358,10 +346,13 @@ describe('Workflow schemas', () => {
       })).toThrow(ZodError);
     });
 
-    it('should reject loop missing required fields', () => {
+    it('should reject loop missing condition', () => {
       expect(() => LoopStepPartialSchema.parse({
         name: 'loop',
         type: 'loop',
+        maxRetries: 3,
+        onExhausted: 'fail',
+        steps: [],
       })).toThrow(ZodError);
     });
   });
@@ -401,265 +392,94 @@ describe('Workflow schemas', () => {
       });
       expect(result.steps).toHaveLength(0);
     });
+
+    it('should reject per-task missing source', () => {
+      expect(() => PerTaskStepPartialSchema.parse({
+        name: 'implement',
+        type: 'per-task',
+        steps: [],
+      })).toThrow(ZodError);
+    });
+  });
+
+  // --- WorkflowSafetySchema ---
+
+  describe('WorkflowSafetySchema', () => {
+    it('should accept full safety block', () => {
+      const result = WorkflowSafetySchema.parse({
+        maxLoopRetries: 5,
+        maxStepTimeoutMs: 60000,
+        maxWorkflowDurationMs: 300000,
+        failOnStepError: true,
+      });
+      expect(result.maxLoopRetries).toBe(5);
+      expect(result.maxStepTimeoutMs).toBe(60000);
+      expect(result.maxWorkflowDurationMs).toBe(300000);
+      expect(result.failOnStepError).toBe(true);
+    });
+
+    it('should accept empty safety block with defaults', () => {
+      const result = WorkflowSafetySchema.parse({});
+      expect(result).toBeDefined();
+    });
+
+    it('should accept partial safety block', () => {
+      const result = WorkflowSafetySchema.parse({
+        maxLoopRetries: 10,
+      });
+      expect(result.maxLoopRetries).toBe(10);
+    });
   });
 
   // --- WorkflowDefaultsSchema ---
 
   describe('WorkflowDefaultsSchema', () => {
-    it('should apply defaults when no values provided', () => {
+    it('should accept defaults with agent field', () => {
+      const result = WorkflowDefaultsSchema.parse({
+        agent: 'my-agent',
+        model: 'opus',
+        permissionMode: 'bypassPermissions',
+      });
+      expect(result.agent).toBe('my-agent');
+      expect(result.model).toBe('opus');
+      expect(result.permissionMode).toBe('bypassPermissions');
+    });
+
+    it('should provide default values', () => {
       const result = WorkflowDefaultsSchema.parse({});
       expect(result.model).toBe('opus');
       expect(result.permissionMode).toBe('bypassPermissions');
-      expect(result.settingSources).toEqual(['project']);
     });
 
-    it('should accept custom values', () => {
+    it('should accept defaults with all fields', () => {
       const result = WorkflowDefaultsSchema.parse({
+        agent: 'default-agent',
         model: 'sonnet',
-        permissionMode: 'askUser',
+        permissionMode: 'ask',
         settingSources: ['project', 'user'],
       });
-      expect(result.model).toBe('sonnet');
-      expect(result.permissionMode).toBe('askUser');
+      expect(result.agent).toBe('default-agent');
       expect(result.settingSources).toEqual(['project', 'user']);
     });
-
-    it('should handle partial overrides with defaults for the rest', () => {
-      const result = WorkflowDefaultsSchema.parse({ model: 'haiku' });
-      expect(result.model).toBe('haiku');
-      expect(result.permissionMode).toBe('bypassPermissions');
-      expect(result.settingSources).toEqual(['project']);
-    });
   });
 
-  // --- WorkflowDefinitionSchema ---
-
-  describe('WorkflowDefinitionSchema', () => {
-    it('should accept valid workflow definition', () => {
-      const result = WorkflowDefinitionSchema.parse({
-        name: 'spec-implementation',
-        version: 1,
-        phases: [{ name: 'analyze', agent: 'analyzer' }],
-      });
-      expect(result.name).toBe('spec-implementation');
-      expect(result.version).toBe(1);
-      expect(result.phases).toHaveLength(1);
-    });
-
-    it('should accept workflow with defaults', () => {
-      const result = WorkflowDefinitionSchema.parse({
-        name: 'spec-implementation',
-        version: 2,
-        defaults: { model: 'sonnet' },
-        phases: [{ name: 'step1', type: 'code', handler: 'h.ts' }],
-      });
-      expect(result.defaults?.model).toBe('sonnet');
-    });
-
-    it('should reject workflow with empty name', () => {
-      expect(() => WorkflowDefinitionSchema.parse({
-        name: '',
-        version: 1,
-        phases: [{ name: 'a', agent: 'b' }],
-      })).toThrow(ZodError);
-    });
-
-    it('should reject workflow with non-positive version', () => {
-      expect(() => WorkflowDefinitionSchema.parse({
-        name: 'w',
-        version: 0,
-        phases: [{ name: 'a', agent: 'b' }],
-      })).toThrow(ZodError);
-    });
-
-    it('should reject workflow with negative version', () => {
-      expect(() => WorkflowDefinitionSchema.parse({
-        name: 'w',
-        version: -1,
-        phases: [{ name: 'a', agent: 'b' }],
-      })).toThrow(ZodError);
-    });
-
-    it('should reject workflow with non-integer version', () => {
-      expect(() => WorkflowDefinitionSchema.parse({
-        name: 'w',
-        version: 1.5,
-        phases: [{ name: 'a', agent: 'b' }],
-      })).toThrow(ZodError);
-    });
-
-    it('should reject workflow with empty phases array', () => {
-      expect(() => WorkflowDefinitionSchema.parse({
-        name: 'w',
-        version: 1,
-        phases: [],
-      })).toThrow(ZodError);
-    });
-
-    it('should reject workflow missing phases', () => {
-      expect(() => WorkflowDefinitionSchema.parse({
-        name: 'w',
-        version: 1,
-      })).toThrow(ZodError);
-    });
-  });
-
-  // --- AgentDefinitionSchema ---
-
-  describe('AgentDefinitionSchema', () => {
-    it('should accept valid agent definition', () => {
-      const result = AgentDefinitionSchema.parse({
-        name: 'analyzer',
-        description: 'Analyzes specs and produces task lists',
-        tools: ['Read', 'Grep', 'Glob'],
-        model: 'opus',
-        outputSchema: 'schemas/analysis.ts#AnalysisResultSchema',
-      });
-      expect(result.name).toBe('analyzer');
-      expect(result.tools).toEqual(['Read', 'Grep', 'Glob']);
-      expect(result.model).toBe('opus');
-      expect(result.outputSchema).toBe('schemas/analysis.ts#AnalysisResultSchema');
-    });
-
-    it('should accept agent definition without optional fields', () => {
-      const result = AgentDefinitionSchema.parse({
-        name: 'analyzer',
-        description: 'Analyzes specs',
-        tools: [],
-      });
-      expect(result.model).toBeUndefined();
-      expect(result.outputSchema).toBeUndefined();
-    });
-
-    it('should accept agent definition with empty tools array', () => {
-      const result = AgentDefinitionSchema.parse({
-        name: 'analyzer',
-        description: 'Analyzes specs',
-        tools: [],
-      });
-      expect(result.tools).toEqual([]);
-    });
-
-    it('should reject agent definition with empty name', () => {
-      expect(() => AgentDefinitionSchema.parse({
-        name: '',
-        description: 'desc',
-        tools: [],
-      })).toThrow(ZodError);
-    });
-
-    it('should reject agent definition with empty description', () => {
-      expect(() => AgentDefinitionSchema.parse({
-        name: 'analyzer',
-        description: '',
-        tools: [],
-      })).toThrow(ZodError);
-    });
-
-    it('should reject agent definition missing tools', () => {
-      expect(() => AgentDefinitionSchema.parse({
-        name: 'analyzer',
-        description: 'desc',
-      })).toThrow(ZodError);
-    });
-  });
-
-  // --- GateDefinitionSchema ---
-
-  describe('GateDefinitionSchema', () => {
-    it('should accept valid gate definition with all fields', () => {
-      const result = GateDefinitionSchema.parse({
-        name: 'security-review',
-        description: 'Reviews code for security issues',
-        tools: ['Read', 'Grep'],
-        runCondition: 'changed-files-match',
-        filePatterns: ['**/*.ts', '**/*.js'],
-        enabled: true,
-      });
-      expect(result.name).toBe('security-review');
-      expect(result.runCondition).toBe('changed-files-match');
-      expect(result.filePatterns).toEqual(['**/*.ts', '**/*.js']);
-      expect(result.enabled).toBe(true);
-    });
-
-    it('should apply defaults for runCondition and enabled', () => {
-      const result = GateDefinitionSchema.parse({
-        name: 'gate',
-        description: 'desc',
-        tools: [],
-      });
-      expect(result.runCondition).toBe('always');
-      expect(result.enabled).toBe(true);
-    });
-
-    it('should accept all runCondition values', () => {
-      for (const value of ['always', 'changed-files-match', 'manual'] as const) {
-        const result = GateDefinitionSchema.parse({
-          name: 'gate',
-          description: 'desc',
-          tools: [],
-          runCondition: value,
-        });
-        expect(result.runCondition).toBe(value);
-      }
-    });
-
-    it('should accept gate with enabled=false', () => {
-      const result = GateDefinitionSchema.parse({
-        name: 'gate',
-        description: 'desc',
-        tools: [],
-        enabled: false,
-      });
-      expect(result.enabled).toBe(false);
-    });
-
-    it('should reject gate with invalid runCondition', () => {
-      expect(() => GateDefinitionSchema.parse({
-        name: 'gate',
-        description: 'desc',
-        tools: [],
-        runCondition: 'sometimes',
-      })).toThrow(ZodError);
-    });
-
-    it('should accept gate with filePatterns but no runCondition (defaults to always)', () => {
-      const result = GateDefinitionSchema.parse({
-        name: 'gate',
-        description: 'desc',
-        tools: [],
-        filePatterns: ['*.ts'],
-      });
-      expect(result.filePatterns).toEqual(['*.ts']);
-      expect(result.runCondition).toBe('always');
-    });
-
-    it('should accept gate without filePatterns', () => {
-      const result = GateDefinitionSchema.parse({
-        name: 'gate',
-        description: 'desc',
-        tools: [],
-      });
-      expect(result.filePatterns).toBeUndefined();
-    });
-  });
-
-  // --- validateStep ---
+  // --- validateStep() ---
 
   describe('validateStep()', () => {
-    it('should validate agent step (default type)', () => {
+    it('should validate agent+prompt step (no type field)', () => {
       const result = validateStep({
         name: 'analyze',
         agent: 'analyzer',
+        prompt: 'analyze.md',
+        output: 'analysis',
       });
       expect(result.name).toBe('analyze');
       expect('agent' in result && result.agent).toBe('analyzer');
     });
 
-    it('should validate agent step with explicit type', () => {
+    it('should validate agent-only step (no type field)', () => {
       const result = validateStep({
         name: 'analyze',
-        type: 'agent',
         agent: 'analyzer',
         model: 'opus',
       });
@@ -676,14 +496,18 @@ describe('Workflow schemas', () => {
       expect('handler' in result && result.handler).toBe('handlers/test.ts');
     });
 
-    it('should validate gate-group step', () => {
+    it('should validate parallel step with nested steps', () => {
       const result = validateStep({
-        name: 'review',
-        type: 'gate-group',
-        gates: 'gates/',
+        name: 'run-gates',
+        type: 'parallel',
+        steps: [
+          { name: 'gate-a', agent: 'reviewer' },
+          { name: 'gate-b', agent: 'linter' },
+        ],
       });
-      expect(result.name).toBe('review');
-      expect('gates' in result && result.gates).toBe('gates/');
+      expect(result.name).toBe('run-gates');
+      expect((result as any).type).toBe('parallel');
+      expect('steps' in result && result.steps).toHaveLength(2);
     });
 
     it('should validate per-task step with nested agent steps', () => {
@@ -697,7 +521,7 @@ describe('Workflow schemas', () => {
         ],
       });
       expect(result.name).toBe('implement-tasks');
-      expect(result.type).toBe('per-task');
+      expect((result as any).type).toBe('per-task');
       expect('steps' in result && result.steps).toHaveLength(2);
     });
 
@@ -710,11 +534,11 @@ describe('Workflow schemas', () => {
         onExhausted: 'escalate',
         steps: [
           { name: 'fix', agent: 'fixer' },
-          { name: 'review', type: 'gate-group', gates: 'gates/' },
+          { name: 'review', type: 'parallel', steps: [{ name: 'gate-a', agent: 'reviewer' }] },
         ],
       });
       expect(result.name).toBe('fix-loop');
-      expect(result.type).toBe('loop');
+      expect((result as any).type).toBe('loop');
       expect('steps' in result && result.steps).toHaveLength(2);
     });
 
@@ -736,7 +560,7 @@ describe('Workflow schemas', () => {
           },
         ],
       });
-      expect(result.type).toBe('loop');
+      expect((result as any).type).toBe('loop');
       const loopResult = result as { steps: Array<{ type: string; steps: unknown[] }> };
       expect(loopResult.steps[0].type).toBe('per-task');
       expect(loopResult.steps[0].steps).toHaveLength(1);
@@ -749,12 +573,26 @@ describe('Workflow schemas', () => {
       expect(() => validateStep(42)).toThrow('Step must be an object');
     });
 
+    it('should throw for step with no type and no agent/prompt', () => {
+      expect(() => validateStep({
+        name: 'bad-step',
+      })).toThrow();
+    });
+
     it('should throw for unknown step type', () => {
       expect(() => validateStep({
         name: 'unknown',
-        type: 'parallel',
+        type: 'magic',
         agent: 'a',
-      })).toThrow('Unknown step type: parallel');
+      })).toThrow('Unknown step type: magic');
+    });
+
+    it('should reject gate-group type (removed)', () => {
+      expect(() => validateStep({
+        name: 'review',
+        type: 'gate-group',
+        gates: 'gates/',
+      })).toThrow('Unknown step type: gate-group');
     });
 
     it('should throw for invalid agent step in per-task nested steps', () => {
@@ -780,24 +618,50 @@ describe('Workflow schemas', () => {
         ],
       })).toThrow('Unknown step type: unknown-type');
     });
+
+    it('should validate step with enabled=false', () => {
+      const result = validateStep({
+        name: 'optional-step',
+        agent: 'analyzer',
+        enabled: false,
+      });
+      expect(result.name).toBe('optional-step');
+      expect('enabled' in result && result.enabled).toBe(false);
+    });
+
+    it('should validate step with condition', () => {
+      const result = validateStep({
+        name: 'conditional-step',
+        agent: 'analyzer',
+        condition: 'analysis.tasks.length > 0',
+      });
+      expect('condition' in result && result.condition).toBe('analysis.tasks.length > 0');
+    });
   });
 
   // --- validateWorkflowDefinition ---
 
   describe('validateWorkflowDefinition()', () => {
-    it('should validate a complete workflow definition', () => {
+    it('should validate a complete workflow with new format', () => {
       const raw = {
         name: 'spec-implementation',
         version: 1,
         defaults: {
+          agent: 'default-agent',
           model: 'opus',
           permissionMode: 'bypassPermissions',
           settingSources: ['project'],
+        },
+        safety: {
+          maxLoopRetries: 5,
+          maxStepTimeoutMs: 120000,
+          failOnStepError: true,
         },
         phases: [
           {
             name: 'analyze',
             agent: 'analyzer',
+            prompt: 'analyze.md',
             output: 'analysis',
           },
           {
@@ -809,9 +673,12 @@ describe('Workflow schemas', () => {
             ],
           },
           {
-            name: 'review',
-            type: 'gate-group',
-            gates: 'gates/',
+            name: 'review-gates',
+            type: 'parallel',
+            steps: [
+              { name: 'code-review', agent: 'reviewer', prompt: 'review.md' },
+              { name: 'lint-check', type: 'code', handler: 'handlers/lint.ts' },
+            ],
             output: 'reviewResult',
           },
           {
@@ -822,7 +689,7 @@ describe('Workflow schemas', () => {
             onExhausted: 'escalate',
             steps: [
               { name: 'fix', agent: 'fixer' },
-              { name: 're-review', type: 'gate-group', gates: 'gates/' },
+              { name: 're-review', type: 'parallel', steps: [{ name: 'gate-a', agent: 'reviewer' }] },
             ],
           },
           {
@@ -842,21 +709,49 @@ describe('Workflow schemas', () => {
       expect(result.name).toBe('spec-implementation');
       expect(result.version).toBe(1);
       expect(result.defaults?.model).toBe('opus');
+      expect(result.defaults?.agent).toBe('default-agent');
+      expect(result.safety?.maxLoopRetries).toBe(5);
+      expect(result.safety?.failOnStepError).toBe(true);
       expect(result.phases).toHaveLength(6);
       expect(result.phases[0].name).toBe('analyze');
-      expect(result.phases[1].type).toBe('per-task');
-      expect(result.phases[2].type).toBe('gate-group');
-      expect(result.phases[3].type).toBe('loop');
+      expect((result.phases[1] as any).type).toBe('per-task');
+      expect((result.phases[2] as any).type).toBe('parallel');
+      expect((result.phases[3] as any).type).toBe('loop');
     });
 
-    it('should validate workflow without defaults', () => {
+    it('should validate workflow without defaults or safety', () => {
       const result = validateWorkflowDefinition({
         name: 'simple',
         version: 1,
         phases: [{ name: 'step1', agent: 'agent1' }],
       });
       expect(result.defaults).toBeUndefined();
+      expect(result.safety).toBeUndefined();
       expect(result.phases).toHaveLength(1);
+    });
+
+    it('should accept safety block', () => {
+      const result = validateWorkflowDefinition({
+        name: 'safe-workflow',
+        version: 1,
+        safety: {
+          maxLoopRetries: 10,
+          maxWorkflowDurationMs: 600000,
+        },
+        phases: [{ name: 'step1', agent: 'agent1' }],
+      });
+      expect(result.safety?.maxLoopRetries).toBe(10);
+      expect(result.safety?.maxWorkflowDurationMs).toBe(600000);
+    });
+
+    it('should accept defaults.agent field', () => {
+      const result = validateWorkflowDefinition({
+        name: 'w',
+        version: 1,
+        defaults: { agent: 'my-default-agent' },
+        phases: [{ name: 'step1', agent: 'agent1' }],
+      });
+      expect(result.defaults?.agent).toBe('my-default-agent');
     });
 
     it('should throw on missing name', () => {

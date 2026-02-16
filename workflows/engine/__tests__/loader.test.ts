@@ -96,9 +96,15 @@ phases:
         output: implementation
 
   - name: review
-    type: gate-group
-    gates: gates/
+    type: parallel
     output: reviewResult
+    steps:
+      - name: code-review
+        agent: reviewer
+        prompt: code-quality-review
+      - name: test-review
+        agent: reviewer
+        prompt: test-coverage-review
 
   - name: fix-loop
     type: loop
@@ -109,8 +115,11 @@ phases:
       - name: fix
         agent: fixer
       - name: re-review
-        type: gate-group
-        gates: gates/
+        type: parallel
+        steps:
+          - name: code-review
+            agent: reviewer
+            prompt: code-quality-review
 
   - name: run-tests
     type: code
@@ -132,23 +141,23 @@ phases:
 
     // Check per-task step
     const perTask = result.phases[1];
-    expect(perTask.type).toBe('per-task');
+    expect('type' in perTask && perTask.type).toBe('per-task');
     expect('source' in perTask && perTask.source).toBe('analysis.tasks');
     expect('steps' in perTask && perTask.steps).toHaveLength(1);
 
-    // Check gate-group step
-    expect(result.phases[2].type).toBe('gate-group');
+    // Check parallel step (replaces gate-group)
+    expect('type' in result.phases[2] && result.phases[2].type).toBe('parallel');
 
     // Check loop step
     const loop = result.phases[3];
-    expect(loop.type).toBe('loop');
+    expect('type' in loop && loop.type).toBe('loop');
     expect('condition' in loop && loop.condition).toBe('reviewResult.hasActionableIssues');
     expect('maxRetries' in loop && loop.maxRetries).toBe(3);
     expect('onExhausted' in loop && loop.onExhausted).toBe('escalate');
     expect('steps' in loop && loop.steps).toHaveLength(2);
 
     // Check code step
-    expect(result.phases[4].type).toBe('code');
+    expect('type' in result.phases[4] && result.phases[4].type).toBe('code');
     expect('handler' in result.phases[4] && result.phases[4].handler).toBe('handlers/run-tests.ts');
   });
 
@@ -229,7 +238,7 @@ phases:
     agent: agent1
 `);
 
-    await expect(loadWorkflowYaml(filePath)).rejects.toThrow('Unknown step type: parallel');
+    await expect(loadWorkflowYaml(filePath)).rejects.toThrow();
   });
 
   it('should throw when a nested step within per-task is invalid', async () => {

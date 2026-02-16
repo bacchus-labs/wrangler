@@ -676,7 +676,7 @@ describe('WorkflowContext - getTemplateVars()', () => {
     const ctx = new WorkflowContext({ a: 1, b: 'two' });
     ctx.set('c', [3]);
     const vars = ctx.getTemplateVars();
-    expect(vars).toEqual({ a: 1, b: 'two', c: [3] });
+    expect(vars).toEqual({ a: 1, b: 'two', c: [3], changedFiles: [] });
   });
 
   it('returns a copy, not the internal reference', () => {
@@ -688,7 +688,7 @@ describe('WorkflowContext - getTemplateVars()', () => {
 
   it('returns empty object for fresh context', () => {
     const ctx = new WorkflowContext();
-    expect(ctx.getTemplateVars()).toEqual({});
+    expect(ctx.getTemplateVars()).toEqual({ changedFiles: [] });
   });
 });
 
@@ -748,7 +748,7 @@ describe('WorkflowContext - toCheckpoint() and fromCheckpoint()', () => {
 
   it('restores from empty checkpoint data gracefully', () => {
     const restored = WorkflowContext.fromCheckpoint({});
-    expect(restored.getTemplateVars()).toEqual({});
+    expect(restored.getTemplateVars()).toEqual({ changedFiles: [] });
     expect(restored.getCompletedPhases()).toEqual([]);
     expect(restored.getCurrentTaskId()).toBeNull();
     expect(restored.getChangedFiles()).toEqual([]);
@@ -975,5 +975,487 @@ describe('WorkflowContext - per-task context isolation', () => {
 
     expect((childA.get('task') as TaskDefinition).title).toBe('Alpha');
     expect((childB.get('task') as TaskDefinition).title).toBe('Beta');
+  });
+});
+
+// ================================================================
+// evaluate() - boolean operators and falsy-on-missing
+// ================================================================
+
+import { validateCondition } from '../src/state.js';
+
+describe('WorkflowContext - evaluate() boolean operators', () => {
+  // --- OR operator ---
+  it('evaluates OR: true || false -> true', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('a', { x: true });
+    ctx.set('b', { y: false });
+    expect(ctx.evaluate('a.x || b.y')).toBe(true);
+  });
+
+  it('evaluates OR: false || true -> true', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('a', { x: false });
+    ctx.set('b', { y: true });
+    expect(ctx.evaluate('a.x || b.y')).toBe(true);
+  });
+
+  it('evaluates OR: false || false -> false', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('a', { x: false });
+    ctx.set('b', { y: false });
+    expect(ctx.evaluate('a.x || b.y')).toBe(false);
+  });
+
+  it('evaluates OR: true || true -> true', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('a', { x: true });
+    ctx.set('b', { y: true });
+    expect(ctx.evaluate('a.x || b.y')).toBe(true);
+  });
+
+  // --- AND operator ---
+  it('evaluates AND: true && true -> true', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('a', { x: true });
+    ctx.set('b', { y: true });
+    expect(ctx.evaluate('a.x && b.y')).toBe(true);
+  });
+
+  it('evaluates AND: true && false -> false', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('a', { x: true });
+    ctx.set('b', { y: false });
+    expect(ctx.evaluate('a.x && b.y')).toBe(false);
+  });
+
+  it('evaluates AND: false && true -> false', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('a', { x: false });
+    ctx.set('b', { y: true });
+    expect(ctx.evaluate('a.x && b.y')).toBe(false);
+  });
+
+  // --- NOT operator ---
+  it('evaluates NOT: !review.allPassed when allPassed=true -> false', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('review', { allPassed: true });
+    expect(ctx.evaluate('!review.allPassed')).toBe(false);
+  });
+
+  it('evaluates NOT: !review.allPassed when allPassed=false -> true', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('review', { allPassed: false });
+    expect(ctx.evaluate('!review.allPassed')).toBe(true);
+  });
+
+  // --- Precedence: ! > && > || ---
+  it('evaluates precedence: a || b && c  (AND binds tighter)', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('a', false);
+    ctx.set('b', true);
+    ctx.set('c', false);
+    // false || (true && false) -> false
+    expect(ctx.evaluate('a || b && c')).toBe(false);
+  });
+
+  it('evaluates precedence: a || b && c (second case)', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('a', true);
+    ctx.set('b', false);
+    ctx.set('c', false);
+    // true || (false && false) -> true
+    expect(ctx.evaluate('a || b && c')).toBe(true);
+  });
+
+  // --- Combined with parentheses ---
+  it('evaluates parenthesized: (a || b) && c', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('a', { x: true });
+    ctx.set('b', { y: false });
+    ctx.set('c', { z: true });
+    expect(ctx.evaluate('(a.x || b.y) && c.z')).toBe(true);
+  });
+
+  it('evaluates parenthesized: a.x && (b.y || c.z)', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('a', { x: true });
+    ctx.set('b', { y: false });
+    ctx.set('c', { z: true });
+    expect(ctx.evaluate('a.x && (b.y || c.z)')).toBe(true);
+  });
+
+  it('evaluates nested parentheses: (a && (b || c))', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('a', true);
+    ctx.set('b', false);
+    ctx.set('c', true);
+    expect(ctx.evaluate('(a && (b || c))')).toBe(true);
+  });
+
+  // --- Comparison with OR ---
+  it('evaluates comparison with OR: count > 0 || hasIssues', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('count', 5);
+    ctx.set('hasIssues', false);
+    expect(ctx.evaluate('count > 0 || hasIssues')).toBe(true);
+  });
+
+  it('evaluates comparison with OR: count > 0 || hasIssues (both false)', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('count', 0);
+    ctx.set('hasIssues', false);
+    expect(ctx.evaluate('count > 0 || hasIssues')).toBe(false);
+  });
+
+  // --- NOT with comparison ---
+  it('evaluates NOT with comparison: !status == "failed" treated as (!status) == "failed"', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('review', { allPassed: true });
+    ctx.set('count', 5);
+    // !review.allPassed && count > 3 -> false && true -> false
+    expect(ctx.evaluate('!review.allPassed && count > 3')).toBe(false);
+  });
+
+  // --- Multiple OR clauses ---
+  it('evaluates triple OR: a || b || c', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('a', false);
+    ctx.set('b', false);
+    ctx.set('c', true);
+    expect(ctx.evaluate('a || b || c')).toBe(true);
+  });
+
+  // --- Multiple AND clauses ---
+  it('evaluates triple AND: a && b && c', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('a', true);
+    ctx.set('b', true);
+    ctx.set('c', true);
+    expect(ctx.evaluate('a && b && c')).toBe(true);
+  });
+
+  it('evaluates triple AND with one false: a && b && c', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('a', true);
+    ctx.set('b', false);
+    ctx.set('c', true);
+    expect(ctx.evaluate('a && b && c')).toBe(false);
+  });
+});
+
+describe('WorkflowContext - evaluate() falsy-on-missing', () => {
+  it('returns false for completely undefined variable', () => {
+    const ctx = new WorkflowContext();
+    expect(ctx.evaluate('undefinedVar.prop')).toBe(false);
+  });
+
+  it('returns false for deeply nested missing property', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('a', { b: undefined });
+    expect(ctx.evaluate('a.b.c.d.e')).toBe(false);
+  });
+
+  it('returns false for null.anything', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('obj', null);
+    expect(ctx.evaluate('obj.anything')).toBe(false);
+  });
+
+  it('returns false for missing in OR (both missing)', () => {
+    const ctx = new WorkflowContext();
+    expect(ctx.evaluate('missing1.prop || missing2.prop')).toBe(false);
+  });
+
+  it('returns true for missing OR true', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('exists', { val: true });
+    expect(ctx.evaluate('missing.prop || exists.val')).toBe(true);
+  });
+
+  it('returns false for missing in comparison (does not throw)', () => {
+    const ctx = new WorkflowContext();
+    expect(ctx.evaluate('missing.count > 0')).toBe(false);
+  });
+
+  it('returns false for missing AND existing', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('exists', { val: true });
+    expect(ctx.evaluate('missing.prop && exists.val')).toBe(false);
+  });
+
+  it('negation of missing returns true', () => {
+    const ctx = new WorkflowContext();
+    expect(ctx.evaluate('!missing.prop')).toBe(true);
+  });
+});
+
+describe('validateCondition()', () => {
+  it('returns no errors for a valid simple expression', () => {
+    expect(validateCondition('review.hasIssues')).toEqual([]);
+  });
+
+  it('returns no errors for valid boolean expression', () => {
+    expect(validateCondition('a.x || b.y && !c.z')).toEqual([]);
+  });
+
+  it('returns no errors for valid comparison', () => {
+    expect(validateCondition('count > 0')).toEqual([]);
+  });
+
+  it('returns no errors for parenthesized expression', () => {
+    expect(validateCondition('(a || b) && c')).toEqual([]);
+  });
+
+  it('returns error for unbalanced open paren', () => {
+    const errors = validateCondition('(a || b');
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0]).toMatch(/paren/i);
+  });
+
+  it('returns error for unbalanced close paren', () => {
+    const errors = validateCondition('a || b)');
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0]).toMatch(/paren/i);
+  });
+
+  it('returns error for empty expression', () => {
+    const errors = validateCondition('');
+    expect(errors.length).toBeGreaterThan(0);
+  });
+
+  it('returns error for empty operand in OR', () => {
+    const errors = validateCondition('a ||');
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0]).toMatch(/empty/i);
+  });
+
+  it('returns error for empty operand in AND', () => {
+    const errors = validateCondition('&& b');
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0]).toMatch(/empty/i);
+  });
+
+  it('returns no errors for NOT operator', () => {
+    expect(validateCondition('!review.allPassed')).toEqual([]);
+  });
+
+  it('returns error for double NOT without operand', () => {
+    const errors = validateCondition('!!');
+    expect(errors.length).toBeGreaterThan(0);
+  });
+});
+
+// ================================================================
+// setSessionContext()
+// ================================================================
+
+describe('WorkflowContext - setSessionContext()', () => {
+  it('populates spec object with title, id, and content', () => {
+    const ctx = new WorkflowContext();
+    ctx.setSessionContext({
+      spec: { id: 'SPEC-047', title: 'Template Layering', content: '## Overview\nLayering support' },
+      worktreePath: '/tmp/worktree',
+      sessionId: 'session-abc',
+      branchName: 'feature/layering',
+    });
+    const spec = ctx.get('spec') as Record<string, string>;
+    expect(spec.id).toBe('SPEC-047');
+    expect(spec.title).toBe('Template Layering');
+    expect(spec.content).toBe('## Overview\nLayering support');
+  });
+
+  it('populates worktreePath as a string', () => {
+    const ctx = new WorkflowContext();
+    ctx.setSessionContext({ worktreePath: '/home/user/worktrees/feat' });
+    expect(ctx.get('worktreePath')).toBe('/home/user/worktrees/feat');
+  });
+
+  it('populates sessionId as a string', () => {
+    const ctx = new WorkflowContext();
+    ctx.setSessionContext({ sessionId: 'sess-123' });
+    expect(ctx.get('sessionId')).toBe('sess-123');
+  });
+
+  it('populates branchName as a string', () => {
+    const ctx = new WorkflowContext();
+    ctx.setSessionContext({ branchName: 'main' });
+    expect(ctx.get('branchName')).toBe('main');
+  });
+
+  it('all session context variables appear in getTemplateVars()', () => {
+    const ctx = new WorkflowContext();
+    ctx.setSessionContext({
+      spec: { id: 'S1', title: 'My Spec', content: 'body' },
+      worktreePath: '/tmp/wt',
+      sessionId: 'sess-x',
+      branchName: 'dev',
+    });
+    const vars = ctx.getTemplateVars();
+    expect(vars.spec).toEqual({ id: 'S1', title: 'My Spec', content: 'body' });
+    expect(vars.worktreePath).toBe('/tmp/wt');
+    expect(vars.sessionId).toBe('sess-x');
+    expect(vars.branchName).toBe('dev');
+  });
+
+  it('partial session context only sets provided fields', () => {
+    const ctx = new WorkflowContext();
+    ctx.setSessionContext({ sessionId: 'partial' });
+    expect(ctx.get('sessionId')).toBe('partial');
+    expect(ctx.get('worktreePath')).toBeUndefined();
+    expect(ctx.get('spec')).toBeUndefined();
+    expect(ctx.get('branchName')).toBeUndefined();
+  });
+
+  it('session context variables are accessible via resolve() dot notation', () => {
+    const ctx = new WorkflowContext();
+    ctx.setSessionContext({
+      spec: { id: 'SPEC-001', title: 'Test', content: 'content here' },
+    });
+    expect(ctx.resolve('spec.title')).toBe('Test');
+    expect(ctx.resolve('spec.id')).toBe('SPEC-001');
+    expect(ctx.resolve('spec.content')).toBe('content here');
+  });
+
+  it('session context survives checkpoint round-trip', () => {
+    const ctx = new WorkflowContext();
+    ctx.setSessionContext({
+      spec: { id: 'S2', title: 'Checkpoint Spec', content: 'body' },
+      worktreePath: '/wt',
+      sessionId: 'sess-cp',
+      branchName: 'cp-branch',
+    });
+    const restored = WorkflowContext.fromCheckpoint(ctx.toCheckpoint());
+    expect(restored.get('spec')).toEqual({ id: 'S2', title: 'Checkpoint Spec', content: 'body' });
+    expect(restored.get('worktreePath')).toBe('/wt');
+    expect(restored.get('sessionId')).toBe('sess-cp');
+    expect(restored.get('branchName')).toBe('cp-branch');
+  });
+});
+
+// ================================================================
+// Per-task context: taskIndex and taskCount
+// ================================================================
+
+describe('WorkflowContext - withTask() taskIndex and taskCount', () => {
+  it('withTask sets task, taskIndex, and taskCount on child context', () => {
+    const ctx = new WorkflowContext();
+    const tasks = [
+      makeTask({ id: 't1', title: 'First' }),
+      makeTask({ id: 't2', title: 'Second' }),
+      makeTask({ id: 't3', title: 'Third' }),
+    ];
+    const child = ctx.withTask(tasks[1], 1, tasks.length);
+    expect(child.get('task')).toEqual(tasks[1]);
+    expect(child.get('taskIndex')).toBe(1);
+    expect(child.get('taskCount')).toBe(3);
+  });
+
+  it('taskIndex and taskCount appear in getTemplateVars()', () => {
+    const ctx = new WorkflowContext();
+    const task = makeTask({ id: 't1', title: 'Only Task' });
+    const child = ctx.withTask(task, 0, 1);
+    const vars = child.getTemplateVars();
+    expect(vars.taskIndex).toBe(0);
+    expect(vars.taskCount).toBe(1);
+    expect(vars.task).toEqual(task);
+  });
+
+  it('taskIndex and taskCount are accessible via resolve()', () => {
+    const ctx = new WorkflowContext();
+    const task = makeTask({ id: 't2', title: 'Task Two' });
+    const child = ctx.withTask(task, 1, 5);
+    expect(child.resolve('taskIndex')).toBe(1);
+    expect(child.resolve('taskCount')).toBe(5);
+    expect(child.resolve('task.title')).toBe('Task Two');
+  });
+});
+
+// ================================================================
+// changedFiles as template variable
+// ================================================================
+
+describe('WorkflowContext - changedFiles in template vars', () => {
+  it('changedFiles appears in getTemplateVars()', () => {
+    const ctx = new WorkflowContext();
+    ctx.addChangedFile('src/auth.ts');
+    ctx.addChangedFile('src/utils.ts');
+    const vars = ctx.getTemplateVars();
+    expect(vars.changedFiles).toEqual(['src/auth.ts', 'src/utils.ts']);
+  });
+
+  it('setChangedFiles replaces the current changed files list', () => {
+    const ctx = new WorkflowContext();
+    ctx.addChangedFile('old-file.ts');
+    ctx.setChangedFiles(['new-a.ts', 'new-b.ts']);
+    expect(ctx.getChangedFiles()).toEqual(['new-a.ts', 'new-b.ts']);
+    expect(ctx.getTemplateVars().changedFiles).toEqual(['new-a.ts', 'new-b.ts']);
+  });
+
+  it('empty changedFiles is an empty array in template vars', () => {
+    const ctx = new WorkflowContext();
+    const vars = ctx.getTemplateVars();
+    expect(vars.changedFiles).toEqual([]);
+  });
+});
+
+// ================================================================
+// Template rendering with built-in context variables
+// ================================================================
+
+describe('WorkflowContext - template rendering integration', () => {
+  // These tests verify that the built-in context variables work
+  // with the renderTemplate function from loader.ts
+  let renderTemplate: (template: string, vars: Record<string, unknown>) => string;
+
+  beforeAll(async () => {
+    const loader = await import('../src/loader.js');
+    renderTemplate = loader.renderTemplate;
+  });
+
+  it('renders {{spec.title}} from session context', () => {
+    const ctx = new WorkflowContext();
+    ctx.setSessionContext({
+      spec: { id: 'SPEC-047', title: 'Template Layering', content: 'body' },
+    });
+    const result = renderTemplate('Working on: {{spec.title}}', ctx.getTemplateVars());
+    expect(result).toBe('Working on: Template Layering');
+  });
+
+  it('renders {{worktreePath}} from session context', () => {
+    const ctx = new WorkflowContext();
+    ctx.setSessionContext({ worktreePath: '/tmp/my-worktree' });
+    const result = renderTemplate('Path: {{worktreePath}}', ctx.getTemplateVars());
+    expect(result).toBe('Path: /tmp/my-worktree');
+  });
+
+  it('renders {{sessionId}} and {{branchName}}', () => {
+    const ctx = new WorkflowContext();
+    ctx.setSessionContext({ sessionId: 'sess-42', branchName: 'feat/thing' });
+    const result = renderTemplate(
+      'Session {{sessionId}} on {{branchName}}',
+      ctx.getTemplateVars()
+    );
+    expect(result).toBe('Session sess-42 on feat/thing');
+  });
+
+  it('renders {{task.title}} in per-task context', () => {
+    const ctx = new WorkflowContext();
+    const task = makeTask({ id: 't1', title: 'Build Auth' });
+    const child = ctx.withTask(task, 0, 3);
+    const result = renderTemplate(
+      'Task {{taskIndex}} of {{taskCount}}: {{task.title}}',
+      child.getTemplateVars()
+    );
+    expect(result).toBe('Task 0 of 3: Build Auth');
+  });
+
+  it('renders {{#each changedFiles}} block', () => {
+    const ctx = new WorkflowContext();
+    ctx.addChangedFile('src/a.ts');
+    ctx.addChangedFile('src/b.ts');
+    const template = 'Files:{{#each changedFiles}} {{this}}{{/each}}';
+    const result = renderTemplate(template, ctx.getTemplateVars());
+    expect(result).toBe('Files: src/a.ts src/b.ts');
   });
 });

@@ -5,7 +5,7 @@
  */
 
 import { z } from 'zod';
-import { SessionCheckpoint, SessionCheckpointParamsSchema } from '../../types/session.js';
+import { SessionCheckpoint, SessionCheckpointParamsSchema, StepResult } from '../../types/session.js';
 import { SessionStorageProvider } from '../../providers/session-storage.js';
 import { createSuccessResponse, createErrorResponse, MCPErrorCode } from '../../types/errors.js';
 
@@ -40,18 +40,25 @@ export async function sessionCheckpointTool(
       variables: params.variables || {},
       lastAction: params.lastAction,
       resumeInstructions: params.resumeInstructions,
+      stepResults: params.stepResults as StepResult[] | undefined,
     };
 
     await storageProvider.saveCheckpoint(checkpoint);
 
+    let message = `Checkpoint saved: ${checkpointId}\nTasks completed: ${params.tasksCompleted.length}\nTasks pending: ${params.tasksPending.length}`;
+    if (params.stepResults && params.stepResults.length > 0) {
+      message += `\nSteps reported: ${params.stepResults.length}`;
+    }
+
     return createSuccessResponse(
-      `Checkpoint saved: ${checkpointId}\nTasks completed: ${params.tasksCompleted.length}\nTasks pending: ${params.tasksPending.length}`,
+      message,
       {
         sessionId: params.sessionId,
         checkpointId,
         tasksCompleted: params.tasksCompleted.length,
         tasksPending: params.tasksPending.length,
         timestamp: now,
+        stepResults: params.stepResults,
       }
     );
   } catch (error) {
