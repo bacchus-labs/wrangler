@@ -11,7 +11,9 @@
 
 import { Command } from 'commander';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 import { WorkflowEngine } from './engine.js';
+import { WorkflowResolver } from './resolver.js';
 import { WorkflowSessionManager } from './integration/session.js';
 import { buildMcpConfig } from './integration/mcp.js';
 import { createDefaultRegistry } from './handlers/index.js';
@@ -78,10 +80,17 @@ program
         branchName: await getCurrentBranch(workingDir),
       });
 
+      // The plugin root is the parent of the engine directory (workflows/)
+      // which contains agents/, prompts/, and workflow YAML files.
+      const cliDir = path.dirname(fileURLToPath(import.meta.url));
+      const pluginRoot = path.resolve(cliDir, '..', '..');
+      const resolver = new WorkflowResolver(workingDir, pluginRoot);
+
       const engine = new WorkflowEngine({
         config,
         queryFn,
         handlerRegistry: createDefaultRegistry(),
+        resolver,
         onAuditEntry: async (entry) => {
           await sessionManager.appendAuditEntry(entry);
         },

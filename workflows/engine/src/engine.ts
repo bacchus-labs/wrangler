@@ -362,7 +362,7 @@ export class WorkflowEngine {
     if (schemaRef) {
       const zodSchema = await resolveSchemaReference(schemaRef);
       if (zodSchema && zodSchema instanceof z.ZodType) {
-        const jsonSchema = z.toJSONSchema(zodSchema);
+        const jsonSchema = (z as any).toJSONSchema(zodSchema);
         outputFormat = {
           type: 'json_schema',
           schema: jsonSchema as Record<string, unknown>,
