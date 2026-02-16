@@ -24,6 +24,7 @@ import { type HandlerRegistry, createDefaultRegistry } from './handlers/index.js
 import {
   type StepDefinition,
   type PerTaskStep,
+  type ParallelStep,
   type LoopStep,
   type TaskDefinition,
 } from './schemas/index.js';
@@ -200,31 +201,37 @@ export class WorkflowEngine {
     await this.auditStepStart(step.name);
 
     try {
-      const type = ('type' in step && step.type) ? step.type : 'agent';
+      const type = ('type' in step ? step.type : undefined) as string | undefined;
 
-      switch (type) {
-        case 'agent':
-          await this.runAgent(step as StepDefinition & { agent: string }, ctx);
-          break;
+      if (!type) {
+        // Agent+prompt step (no type field)
+        await this.runAgent(step as StepDefinition & { agent: string }, ctx);
+      } else {
+        switch (type) {
+          case 'code':
+            await this.runHandler(step as StepDefinition & { handler: string }, ctx);
+            break;
 
-        case 'code':
-          await this.runHandler(step as StepDefinition & { handler: string }, ctx);
-          break;
+          case 'parallel':
+            await this.runParallel(step as ParallelStep, ctx);
+            break;
 
-        case 'per-task':
-          await this.runPerTask(step as PerTaskStep, ctx);
-          break;
+          case 'per-task':
+            await this.runPerTask(step as PerTaskStep, ctx);
+            break;
 
-        case 'gate-group':
-          await this.runGateGroup(step as StepDefinition & { gates: string }, ctx);
-          break;
+          case 'gate-group':
+            // Legacy support - gate-group is removed from the schema but still executed by the engine
+            await this.runGateGroup(step as StepDefinition & { gates: string }, ctx);
+            break;
 
-        case 'loop':
-          await this.runLoop(step as LoopStep, ctx);
-          break;
+          case 'loop':
+            await this.runLoop(step as LoopStep, ctx);
+            break;
 
-        default:
-          throw new Error(`Unknown step type: ${type}`);
+          default:
+            throw new Error(`Unknown step type: ${type}`);
+        }
       }
 
       await this.auditStepComplete(step.name);
@@ -238,7 +245,7 @@ export class WorkflowEngine {
    * Execute an agent step: load markdown definition, render template, call query().
    */
   private async runAgent(
-    step: StepDefinition & { agent: string; model?: string; input?: string; failWhen?: string; output?: string },
+    step: StepDefinition & { agent: string; model?: string; input?: string | Record<string, unknown>; failWhen?: string; output?: string },
     ctx: WorkflowContext
   ): Promise<void> {
     const agentPath = path.resolve(this.config.workflowBaseDir, step.agent);
@@ -248,12 +255,26 @@ export class WorkflowEngine {
     // Resolve input into template vars
     const templateVars = ctx.getTemplateVars();
     if (step.input) {
-      const inputValue = ctx.resolve(step.input);
-      if (inputValue !== undefined) {
-        // Make the input available directly in template vars
-        const inputParts = step.input.split('.');
-        const leafKey = inputParts[inputParts.length - 1];
-        templateVars[leafKey] = inputValue;
+      if (typeof step.input === 'string') {
+        const inputValue = ctx.resolve(step.input);
+        if (inputValue !== undefined) {
+          // Make the input available directly in template vars
+          const inputParts = step.input.split('.');
+          const leafKey = inputParts[inputParts.length - 1];
+          templateVars[leafKey] = inputValue;
+        }
+      } else {
+        // Object input - resolve each value and merge into template vars
+        for (const [key, val] of Object.entries(step.input)) {
+          if (typeof val === 'string') {
+            const resolved = ctx.resolve(val);
+            if (resolved !== undefined) {
+              templateVars[key] = resolved;
+            }
+          } else {
+            templateVars[key] = val;
+          }
+        }
       }
     }
 
@@ -320,14 +341,23 @@ export class WorkflowEngine {
    * Execute a code handler step.
    */
   private async runHandler(
-    step: StepDefinition & { handler: string; input?: string },
+    step: StepDefinition & { handler: string; input?: string | Record<string, unknown> },
     ctx: WorkflowContext
   ): Promise<void> {
     const handler = this.handlerRegistry.get(step.handler);
 
     let input: unknown;
     if (step.input) {
-      input = ctx.resolve(step.input);
+      if (typeof step.input === 'string') {
+        input = ctx.resolve(step.input);
+      } else {
+        // Object input - resolve each string value
+        const resolved: Record<string, unknown> = {};
+        for (const [key, val] of Object.entries(step.input)) {
+          resolved[key] = typeof val === 'string' ? ctx.resolve(val) ?? val : val;
+        }
+        input = resolved;
+      }
     }
 
     await handler(ctx, input, { queryFn: this.queryFn, config: this.config });
@@ -347,8 +377,9 @@ export class WorkflowEngine {
 
     const sorted = this.topologicalSort(items);
 
-    for (const item of sorted) {
-      const taskCtx = ctx.withTask(item);
+    for (let i = 0; i < sorted.length; i++) {
+      const item = sorted[i];
+      const taskCtx = ctx.withTask(item, i, sorted.length);
 
       try {
         for (const childStep of step.steps) {
@@ -374,6 +405,20 @@ export class WorkflowEngine {
       ctx.mergeTaskResults(taskCtx);
     }
   }
+
+  /**
+   * Execute a parallel step: run all nested steps concurrently.
+   */
+  private async runParallel(
+    step: ParallelStep,
+    ctx: WorkflowContext
+  ): Promise<void> {
+    // Run all nested steps in parallel
+    await Promise.all(
+      step.steps.map(nestedStep => this.executeStep(nestedStep, ctx))
+    );
+  }
+
 
   /**
    * Execute a gate-group step: discover gates, run each, aggregate results.

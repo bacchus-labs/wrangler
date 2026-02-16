@@ -1,50 +1,95 @@
 /**
  * Zod schemas for YAML workflow definitions and agent/gate markdown frontmatter.
  * These schemas validate the declarative configuration files.
+ *
+ * Step model (v2):
+ * - Steps without a `type` field are agent+prompt steps (must have agent and/or prompt)
+ * - type: 'code' requires handler
+ * - type: 'parallel' requires steps
+ * - type: 'loop' requires steps and condition
+ * - type: 'per-task' requires steps and source
  */
 
 import { z } from 'zod';
 
-// --- Step Definitions (recursive) ---
+// --- Shared base fields ---
 
 const BaseStepSchema = z.object({
   name: z.string().min(1),
   output: z.string().optional(),
+  enabled: z.boolean().default(true),
+  condition: z.string().optional(),
+  input: z.union([z.string(), z.record(z.string(), z.any())]).optional(),
 });
 
-export const AgentStepSchema = BaseStepSchema.extend({
-  type: z.literal('agent').optional(), // default type
-  agent: z.string().min(1),
+// --- Agent+Prompt step (no type field, or omitted type) ---
+
+export const AgentPromptStepSchema = BaseStepSchema.extend({
+  agent: z.string().min(1).optional(),
+  prompt: z.string().min(1).optional(),
   model: z.string().optional(),
-  input: z.string().optional(),
   failWhen: z.string().optional(),
 });
+
+// --- Code step ---
 
 export const CodeStepSchema = BaseStepSchema.extend({
   type: z.literal('code'),
   handler: z.string().min(1),
-  input: z.string().optional(),
 });
 
-export const GateGroupStepSchema = BaseStepSchema.extend({
-  type: z.literal('gate-group'),
-  gates: z.string().min(1),
-  minSeverity: z.enum(['critical', 'important', 'minor']).optional(),
+// --- Parallel step ---
+
+export const ParallelStepPartialSchema = BaseStepSchema.extend({
+  type: z.literal('parallel'),
+  steps: z.array(z.any()), // validated recursively
 });
 
-// Forward-declare for recursive types
+// --- Loop step ---
+
+export const LoopStepPartialSchema = BaseStepSchema.extend({
+  type: z.literal('loop'),
+  condition: z.string().min(1),
+  maxRetries: z.number().int().positive().default(3),
+  onExhausted: z.enum(['escalate', 'warn', 'fail']).default('escalate'),
+  steps: z.array(z.any()), // validated recursively
+});
+
+// --- Per-task step ---
+
+export const PerTaskStepPartialSchema = BaseStepSchema.extend({
+  type: z.literal('per-task'),
+  source: z.string().min(1),
+  steps: z.array(z.any()), // validated recursively
+});
+
+// --- Forward-declare recursive types ---
+
 export type StepDefinition =
-  | z.infer<typeof AgentStepSchema>
-  | z.infer<typeof CodeStepSchema>
-  | z.infer<typeof GateGroupStepSchema>
+  | (z.infer<typeof AgentPromptStepSchema>)
+  | (z.infer<typeof CodeStepSchema>)
+  | ParallelStep
   | PerTaskStep
   | LoopStep;
+
+export interface ParallelStep {
+  name: string;
+  type: 'parallel';
+  output?: string;
+  enabled?: boolean;
+  condition?: string;
+  input?: string | Record<string, unknown>;
+  steps: StepDefinition[];
+}
 
 export interface PerTaskStep {
   name: string;
   type: 'per-task';
   source: string;
   output?: string;
+  enabled?: boolean;
+  condition?: string;
+  input?: string | Record<string, unknown>;
   steps: StepDefinition[];
 }
 
@@ -55,27 +100,26 @@ export interface LoopStep {
   maxRetries: number;
   onExhausted: 'escalate' | 'warn' | 'fail';
   output?: string;
+  enabled?: boolean;
+  input?: string | Record<string, unknown>;
   steps: StepDefinition[];
 }
 
-// Non-recursive schemas for validation (we handle nesting manually)
-export const LoopStepPartialSchema = BaseStepSchema.extend({
-  type: z.literal('loop'),
-  condition: z.string().min(1),
-  maxRetries: z.number().int().positive(),
-  onExhausted: z.enum(['escalate', 'warn', 'fail']),
-  steps: z.array(z.any()), // validated recursively
+// --- Safety block ---
+
+export const WorkflowSafetySchema = z.object({
+  maxLoopRetries: z.number().int().positive().optional(),
+  maxStepTimeoutMs: z.number().int().positive().optional(),
+  maxWorkflowDurationMs: z.number().int().positive().optional(),
+  failOnStepError: z.boolean().optional(),
 });
 
-export const PerTaskStepPartialSchema = BaseStepSchema.extend({
-  type: z.literal('per-task'),
-  source: z.string().min(1),
-  steps: z.array(z.any()), // validated recursively
-});
+export type WorkflowSafety = z.infer<typeof WorkflowSafetySchema>;
 
-// --- Workflow Definition ---
+// --- Workflow Defaults ---
 
 export const WorkflowDefaultsSchema = z.object({
+  agent: z.string().optional(),
   model: z.string().default('opus'),
   permissionMode: z.string().default('bypassPermissions'),
   settingSources: z.array(z.string()).default(['project']),
@@ -83,10 +127,13 @@ export const WorkflowDefaultsSchema = z.object({
 
 export type WorkflowDefaults = z.infer<typeof WorkflowDefaultsSchema>;
 
+// --- Workflow Definition ---
+
 export const WorkflowDefinitionSchema = z.object({
   name: z.string().min(1),
   version: z.number().int().positive(),
   defaults: WorkflowDefaultsSchema.optional(),
+  safety: WorkflowSafetySchema.optional(),
   phases: z.array(z.any()).min(1), // validated recursively via validateStep
 });
 
@@ -94,6 +141,7 @@ export type WorkflowDefinition = {
   name: string;
   version: number;
   defaults?: WorkflowDefaults;
+  safety?: WorkflowSafety;
   phases: StepDefinition[];
 };
 
@@ -133,6 +181,12 @@ export interface GateDefinition extends GateDefinitionFrontmatter {
   filePath: string;
 }
 
+// --- Backward compatibility aliases ---
+// These are kept so existing code importing the old names still compiles.
+
+/** @deprecated Use AgentPromptStepSchema */
+export const AgentStepSchema = AgentPromptStepSchema;
+
 // --- Step Validation ---
 
 /**
@@ -145,17 +199,38 @@ export function validateStep(raw: unknown): StepDefinition {
   }
 
   const obj = raw as Record<string, unknown>;
-  const type = obj.type ?? 'agent';
+  const type = obj.type as string | undefined;
+
+  // If no type is specified, it's an agent+prompt step
+  if (!type) {
+    // Must have at least agent or prompt
+    if (!obj.agent && !obj.prompt) {
+      throw new Error(
+        'Step without a type must have at least "agent" or "prompt" field'
+      );
+    }
+    return AgentPromptStepSchema.parse(raw);
+  }
 
   switch (type) {
     case 'agent':
-      return AgentStepSchema.parse(raw);
+      // Legacy: type: 'agent' is treated as agent+prompt step
+      return AgentPromptStepSchema.parse(raw);
+
+    case 'gate-group': {
+      // Legacy: gate-group accepted for backward compat with existing workflows
+      const base = BaseStepSchema.parse(raw);
+      return { ...obj, ...base } as unknown as StepDefinition;
+    }
 
     case 'code':
       return CodeStepSchema.parse(raw);
 
-    case 'gate-group':
-      return GateGroupStepSchema.parse(raw);
+    case 'parallel': {
+      const partial = ParallelStepPartialSchema.parse(raw);
+      const steps = (partial.steps as unknown[]).map(validateStep);
+      return { ...partial, steps } as ParallelStep;
+    }
 
     case 'per-task': {
       const partial = PerTaskStepPartialSchema.parse(raw);
@@ -184,6 +259,7 @@ export function validateWorkflowDefinition(raw: unknown): WorkflowDefinition {
     name: parsed.name,
     version: parsed.version,
     defaults: parsed.defaults,
+    safety: parsed.safety,
     phases,
   };
 }

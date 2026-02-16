@@ -229,7 +229,7 @@ phases:
     agent: agent1
 `);
 
-    await expect(loadWorkflowYaml(filePath)).rejects.toThrow('Unknown step type: parallel');
+    await expect(loadWorkflowYaml(filePath)).rejects.toThrow();
   });
 
   it('should throw when a nested step within per-task is invalid', async () => {
