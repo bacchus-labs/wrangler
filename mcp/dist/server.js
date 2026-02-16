@@ -22,7 +22,7 @@ import { ProviderFactory } from './providers/factory.js';
 import { createErrorResponse, MCPErrorCode, getRemediation } from './types/errors.js';
 import { issuesAllCompleteSchema, issuesAllCompleteTool } from './tools/issues/all-complete.js';
 import { markCompleteSchema, markCompleteIssueTool } from './tools/issues/mark-complete.js';
-import { sessionStartSchema, sessionStartTool, sessionPhaseSchema, sessionPhaseTool, sessionCheckpointSchema, sessionCheckpointTool, sessionCompleteSchema, sessionCompleteTool, sessionGetSchema, sessionGetTool, } from './tools/session/index.js';
+import { sessionStartSchema, sessionStartTool, sessionPhaseSchema, sessionPhaseTool, sessionCheckpointSchema, sessionCheckpointTool, sessionCompleteSchema, sessionCompleteTool, sessionGetSchema, sessionGetTool, sessionStatusSchema, sessionStatusTool, } from './tools/session/index.js';
 import { SessionStorageProvider } from './providers/session-storage.js';
 export class WranglerMCPServer {
     server;
@@ -120,6 +120,9 @@ export class WranglerMCPServer {
                         break;
                     case 'session_get':
                         result = await sessionGetTool(sessionGetSchema.parse(args), this.sessionStorage);
+                        break;
+                    case 'session_status':
+                        result = await sessionStatusTool(sessionStatusSchema.parse(args), this.sessionStorage);
                         break;
                     default:
                         throw new Error(`Unknown tool: ${name}`);
@@ -254,6 +257,11 @@ export class WranglerMCPServer {
                 name: 'session_get',
                 description: 'Retrieve session state for recovery or status check. Omit sessionId to find most recent incomplete session.',
                 inputSchema: zodToJsonSchema(sessionGetSchema),
+            },
+            {
+                name: 'session_status',
+                description: 'Get detailed status of a workflow session including active step, progress, and duration.',
+                inputSchema: zodToJsonSchema(sessionStatusSchema),
             },
         ];
     }

@@ -105,6 +105,16 @@ export class SessionStorageProvider {
         return await fs.readJson(checkpointPath);
     }
     /**
+     * Get the blocker for a session (if paused)
+     */
+    async getBlocker(sessionId) {
+        const blockerPath = path.join(this.getSessionDir(sessionId), 'blocker.json');
+        if (!await fs.pathExists(blockerPath)) {
+            return null;
+        }
+        return await fs.readJson(blockerPath);
+    }
+    /**
      * Append an audit entry to the session's audit log
      */
     async appendAuditEntry(sessionId, entry) {

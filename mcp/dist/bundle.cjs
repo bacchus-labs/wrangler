@@ -26197,6 +26197,9 @@ var SessionCompleteParamsSchema = external_exports.object({
 var SessionGetParamsSchema = external_exports.object({
   sessionId: external_exports.string().optional().describe("Session ID (omit for most recent incomplete)")
 });
+var SessionStatusParamsSchema = external_exports.object({
+  sessionId: external_exports.string().optional().describe("Session ID. If omitted, finds the most recent workflow session.")
+});
 
 // mcp/tools/session/start.ts
 var fs3 = fsExtra2.default || fsExtra2;
@@ -26530,6 +26533,144 @@ Tasks pending: ${session.tasksPending.length}`,
   }
 }
 
+// mcp/tools/session/status.ts
+var sessionStatusSchema = SessionStatusParamsSchema;
+var TRACKED_PHASES = /* @__PURE__ */ new Set(["plan", "execute", "verify", "publish"]);
+function deriveActiveStep(lastEntry) {
+  if (!lastEntry) {
+    return "unknown";
+  }
+  const phase = lastEntry.phase;
+  const status = lastEntry.status;
+  if (status === "started") {
+    return `${phase} (in progress)`;
+  } else if (status === "complete" || status === "completed") {
+    return `${phase} just completed, waiting for next step`;
+  } else if (status === "failed") {
+    return `${phase} FAILED`;
+  }
+  return `${phase} (${status})`;
+}
+function getCompletedPhases(entries) {
+  const completed = /* @__PURE__ */ new Set();
+  for (const entry of entries) {
+    if (TRACKED_PHASES.has(entry.phase) && (entry.status === "complete" || entry.status === "completed")) {
+      completed.add(entry.phase);
+    }
+  }
+  return Array.from(completed).sort();
+}
+function calculateDuration(startedAt) {
+  try {
+    const startMs = new Date(startedAt).getTime();
+    const nowMs = Date.now();
+    const elapsedSeconds = Math.floor((nowMs - startMs) / 1e3);
+    if (elapsedSeconds < 0) {
+      return "unknown";
+    }
+    const minutes = Math.floor(elapsedSeconds / 60);
+    const seconds = elapsedSeconds % 60;
+    if (minutes > 0) {
+      return `${minutes}m ${seconds}s`;
+    }
+    return `${seconds}s`;
+  } catch {
+    return "unknown";
+  }
+}
+async function sessionStatusTool(params, storageProvider) {
+  try {
+    let sessionId = params.sessionId;
+    if (!sessionId) {
+      const allSessions = await storageProvider.listSessions();
+      const wfSessions = allSessions.filter((s) => s.id.startsWith("wf-"));
+      if (wfSessions.length === 0) {
+        return createErrorResponse(
+          "RESOURCE_NOT_FOUND" /* RESOURCE_NOT_FOUND */,
+          "No workflow sessions found"
+        );
+      }
+      sessionId = wfSessions[0].id;
+    }
+    const session = await storageProvider.getSession(sessionId);
+    if (!session) {
+      return createErrorResponse(
+        "RESOURCE_NOT_FOUND" /* RESOURCE_NOT_FOUND */,
+        `Session not found: ${sessionId}`
+      );
+    }
+    const auditEntries = await storageProvider.getAuditEntries(sessionId);
+    const lastEntry = auditEntries.length > 0 ? auditEntries[auditEntries.length - 1] : void 0;
+    const activeStep = deriveActiveStep(lastEntry);
+    const phasesCompleted = getCompletedPhases(auditEntries);
+    const duration = calculateDuration(session.startedAt);
+    const tasksCompleted = session.tasksCompleted.length;
+    const tasksPending = session.tasksPending.length;
+    const tasksTotal = tasksCompleted + tasksPending;
+    const checkpoint = await storageProvider.getCheckpoint(sessionId);
+    const blocker = await storageProvider.getBlocker(sessionId);
+    const lastActivity = lastEntry ? {
+      phase: lastEntry.phase,
+      status: lastEntry.status,
+      timestamp: lastEntry.timestamp
+    } : null;
+    const textLines = [
+      `=== Workflow Status: ${sessionId} ===`,
+      "",
+      `  Status:        ${session.status}`,
+      `  Active Step:   ${activeStep}`,
+      `  Phases Done:   ${phasesCompleted.length > 0 ? phasesCompleted.join(", ") : "none"} (from audit log)`,
+      `  Tasks:         ${tasksCompleted}/${tasksTotal} completed`,
+      `  Duration:      ${duration}`,
+      "",
+      `  Spec:          ${session.specFile}`,
+      `  Worktree:      ${session.worktreePath}`,
+      `  Branch:        ${session.branchName}`,
+      "",
+      `  Audit Entries: ${auditEntries.length}`
+    ];
+    if (lastActivity) {
+      textLines.push(`  Last Activity: ${lastActivity.phase} (${lastActivity.status}) at ${lastActivity.timestamp}`);
+    }
+    if (blocker) {
+      textLines.push("");
+      textLines.push(`  BLOCKER: ${blocker.details || "unknown reason"}`);
+    }
+    return createSuccessResponse(
+      textLines.join("\n"),
+      {
+        sessionId,
+        status: session.status,
+        activeStep,
+        phasesCompleted,
+        tasksCompleted,
+        tasksPending,
+        tasksTotal,
+        duration,
+        specFile: session.specFile,
+        worktreePath: session.worktreePath,
+        branchName: session.branchName,
+        auditEntryCount: auditEntries.length,
+        lastActivity,
+        checkpoint: checkpoint ? {
+          checkpointId: checkpoint.checkpointId,
+          createdAt: checkpoint.createdAt,
+          lastAction: checkpoint.lastAction,
+          resumeInstructions: checkpoint.resumeInstructions
+        } : null,
+        blocker: blocker || null
+      }
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return createErrorResponse(
+      "TOOL_EXECUTION_ERROR" /* TOOL_EXECUTION_ERROR */,
+      `Failed to get session status: ${message}`,
+      { details: { sessionId: params.sessionId } }
+    );
+  }
+}
+
 // mcp/providers/session-storage.ts
 var path4 = __toESM(require("path"), 1);
 var crypto2 = __toESM(require("crypto"), 1);
@@ -26624,6 +26765,16 @@ var SessionStorageProvider = class {
       return null;
     }
     return await fs4.readJson(checkpointPath);
+  }
+  /**
+   * Get the blocker for a session (if paused)
+   */
+  async getBlocker(sessionId) {
+    const blockerPath = path4.join(this.getSessionDir(sessionId), "blocker.json");
+    if (!await fs4.pathExists(blockerPath)) {
+      return null;
+    }
+    return await fs4.readJson(blockerPath);
   }
   /**
    * Append an audit entry to the session's audit log
@@ -26838,6 +26989,12 @@ var WranglerMCPServer = class {
               this.sessionStorage
             );
             break;
+          case "session_status":
+            result = await sessionStatusTool(
+              sessionStatusSchema.parse(args),
+              this.sessionStorage
+            );
+            break;
           default:
             throw new Error(`Unknown tool: ${name}`);
         }
@@ -26967,6 +27124,11 @@ var WranglerMCPServer = class {
         name: "session_get",
         description: "Retrieve session state for recovery or status check. Omit sessionId to find most recent incomplete session.",
         inputSchema: zodToJsonSchema(sessionGetSchema)
+      },
+      {
+        name: "session_status",
+        description: "Get detailed status of a workflow session including active step, progress, and duration.",
+        inputSchema: zodToJsonSchema(sessionStatusSchema)
       }
     ];
   }

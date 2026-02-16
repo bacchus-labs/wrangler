@@ -39,6 +39,8 @@ import {
   sessionCompleteTool,
   sessionGetSchema,
   sessionGetTool,
+  sessionStatusSchema,
+  sessionStatusTool,
 } from './tools/session/index.js';
 import { SessionStorageProvider } from './providers/session-storage.js';
 
@@ -216,6 +218,13 @@ export class WranglerMCPServer {
             ) as CallToolResult;
             break;
 
+          case 'session_status':
+            result = await sessionStatusTool(
+              sessionStatusSchema.parse(args),
+              this.sessionStorage
+            ) as CallToolResult;
+            break;
+
           default:
             throw new Error(`Unknown tool: ${name}`);
         }
@@ -372,6 +381,12 @@ export class WranglerMCPServer {
         description:
           'Retrieve session state for recovery or status check. Omit sessionId to find most recent incomplete session.',
         inputSchema: zodToJsonSchema(sessionGetSchema),
+      },
+      {
+        name: 'session_status',
+        description:
+          'Get detailed status of a workflow session including active step, progress, and duration.',
+        inputSchema: zodToJsonSchema(sessionStatusSchema),
       },
     ];
   }

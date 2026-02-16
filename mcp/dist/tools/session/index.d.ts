@@ -11,4 +11,6 @@ export { sessionCompleteSchema, sessionCompleteTool } from './complete.js';
 export type { SessionCompleteParams } from './complete.js';
 export { sessionGetSchema, sessionGetTool } from './get.js';
 export type { SessionGetParams } from './get.js';
+export { sessionStatusSchema, sessionStatusTool } from './status.js';
+export type { SessionStatusParams } from './status.js';
 //# sourceMappingURL=index.d.ts.map

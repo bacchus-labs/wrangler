@@ -36,13 +36,22 @@ export async function sessionCompleteTool(params, storageProvider) {
         });
         const durationSec = Math.round(durationMs / 1000);
         const durationMin = Math.round(durationSec / 60);
-        return createSuccessResponse(`Session ${params.status}: ${params.sessionId}\nDuration: ${durationMin} minutes\nTasks completed: ${session.tasksCompleted.length}${params.prUrl ? `\nPR: ${params.prUrl}` : ''}`, {
+        let message = `Session ${params.status}: ${params.sessionId}\nDuration: ${durationMin} minutes\nTasks completed: ${session.tasksCompleted.length}`;
+        if (params.prUrl) {
+            message += `\nPR: ${params.prUrl}`;
+        }
+        if (params.stepExecutionSummary) {
+            const s = params.stepExecutionSummary;
+            message += `\nSteps: ${s.executed}/${s.totalSteps} executed, ${s.skipped} skipped`;
+        }
+        return createSuccessResponse(message, {
             sessionId: params.sessionId,
             status: params.status,
             durationMs,
             tasksCompleted: session.tasksCompleted.length,
             prUrl: params.prUrl,
             prNumber: params.prNumber,
+            stepExecutionSummary: params.stepExecutionSummary,
         });
     }
     catch (error) {

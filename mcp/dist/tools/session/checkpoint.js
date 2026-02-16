@@ -24,14 +24,20 @@ export async function sessionCheckpointTool(params, storageProvider) {
             variables: params.variables || {},
             lastAction: params.lastAction,
             resumeInstructions: params.resumeInstructions,
+            stepResults: params.stepResults,
         };
         await storageProvider.saveCheckpoint(checkpoint);
-        return createSuccessResponse(`Checkpoint saved: ${checkpointId}\nTasks completed: ${params.tasksCompleted.length}\nTasks pending: ${params.tasksPending.length}`, {
+        let message = `Checkpoint saved: ${checkpointId}\nTasks completed: ${params.tasksCompleted.length}\nTasks pending: ${params.tasksPending.length}`;
+        if (params.stepResults && params.stepResults.length > 0) {
+            message += `\nSteps reported: ${params.stepResults.length}`;
+        }
+        return createSuccessResponse(message, {
             sessionId: params.sessionId,
             checkpointId,
             tasksCompleted: params.tasksCompleted.length,
             tasksPending: params.tasksPending.length,
             timestamp: now,
+            stepResults: params.stepResults,
         });
     }
     catch (error) {

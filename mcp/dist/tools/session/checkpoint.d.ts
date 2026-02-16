@@ -12,6 +12,19 @@ export declare const sessionCheckpointSchema: z.ZodObject<{
     lastAction: z.ZodString;
     resumeInstructions: z.ZodString;
     variables: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>;
+    stepResults: z.ZodOptional<z.ZodArray<z.ZodObject<{
+        stepName: z.ZodString;
+        status: z.ZodEnum<["passed", "failed", "skipped"]>;
+        outputSummary: z.ZodOptional<z.ZodString>;
+    }, "strip", z.ZodTypeAny, {
+        status: "failed" | "passed" | "skipped";
+        stepName: string;
+        outputSummary?: string | undefined;
+    }, {
+        status: "failed" | "passed" | "skipped";
+        stepName: string;
+        outputSummary?: string | undefined;
+    }>, "many">>;
 }, "strip", z.ZodTypeAny, {
     tasksCompleted: string[];
     tasksPending: string[];
@@ -19,6 +32,11 @@ export declare const sessionCheckpointSchema: z.ZodObject<{
     lastAction: string;
     resumeInstructions: string;
     variables?: Record<string, unknown> | undefined;
+    stepResults?: {
+        status: "failed" | "passed" | "skipped";
+        stepName: string;
+        outputSummary?: string | undefined;
+    }[] | undefined;
 }, {
     tasksCompleted: string[];
     tasksPending: string[];
@@ -26,6 +44,11 @@ export declare const sessionCheckpointSchema: z.ZodObject<{
     lastAction: string;
     resumeInstructions: string;
     variables?: Record<string, unknown> | undefined;
+    stepResults?: {
+        status: "failed" | "passed" | "skipped";
+        stepName: string;
+        outputSummary?: string | undefined;
+    }[] | undefined;
 }>;
 export type SessionCheckpointParams = z.infer<typeof sessionCheckpointSchema>;
 export declare function sessionCheckpointTool(params: SessionCheckpointParams, storageProvider: SessionStorageProvider): Promise<import("../../types/errors.js").MCPErrorResponse | import("../../types/errors.js").MCPSuccessResponse<{
@@ -34,5 +57,10 @@ export declare function sessionCheckpointTool(params: SessionCheckpointParams, s
     tasksCompleted: number;
     tasksPending: number;
     timestamp: string;
+    stepResults: {
+        status: "failed" | "passed" | "skipped";
+        stepName: string;
+        outputSummary?: string | undefined;
+    }[] | undefined;
 }>>;
 //# sourceMappingURL=checkpoint.d.ts.map

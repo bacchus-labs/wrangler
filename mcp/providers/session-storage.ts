@@ -135,6 +135,19 @@ export class SessionStorageProvider {
   }
 
   /**
+   * Get the blocker for a session (if paused)
+   */
+  async getBlocker(sessionId: string): Promise<Record<string, unknown> | null> {
+    const blockerPath = path.join(this.getSessionDir(sessionId), 'blocker.json');
+
+    if (!await fs.pathExists(blockerPath)) {
+      return null;
+    }
+
+    return await fs.readJson(blockerPath);
+  }
+
+  /**
    * Append an audit entry to the session's audit log
    */
   async appendAuditEntry(sessionId: string, entry: AuditEntry): Promise<void> {

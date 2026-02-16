@@ -88,6 +88,8 @@ export async function sessionStartTool(params, storageProvider) {
             actualWorktreePath = resolvedWorkingDir;
         }
         const now = new Date().toISOString();
+        // Resolve workflow name (default to "spec-implementation")
+        const workflowName = params.workflow || 'spec-implementation';
         // Create session object
         const session = {
             id: sessionId,
@@ -96,6 +98,9 @@ export async function sessionStartTool(params, storageProvider) {
             currentPhase: 'init',
             worktreePath: actualWorktreePath,
             branchName: worktreeCreated ? branchName : 'current',
+            workflow: workflowName,
+            skipChecks: params.skipChecks,
+            skipStepNames: params.skipStepNames,
             phasesCompleted: ['init'],
             tasksCompleted: [],
             tasksPending: [],
@@ -105,7 +110,7 @@ export async function sessionStartTool(params, storageProvider) {
         // Create session in storage
         await storageProvider.createSession(session);
         const auditPath = path.join(storageProvider.getSessionDir(sessionId), 'audit.jsonl');
-        return createSuccessResponse(`Session started: ${sessionId}\nWorktree: ${actualWorktreePath}\nBranch: ${session.branchName}`, {
+        return createSuccessResponse(`Session started: ${sessionId}\nWorkflow: ${workflowName}\nWorktree: ${actualWorktreePath}\nBranch: ${session.branchName}`, {
             sessionId,
             status: 'running',
             currentPhase: 'init',
@@ -113,6 +118,7 @@ export async function sessionStartTool(params, storageProvider) {
             worktreePath: actualWorktreePath,
             branchName: session.branchName,
             worktreeCreated,
+            workflow: workflowName,
         });
     }
     catch (error) {

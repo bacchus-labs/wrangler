@@ -24,6 +24,7 @@ export class MockSessionStorageProvider extends SessionStorageProvider {
   private sessions: Map<string, Session> = new Map();
   private checkpoints: Map<string, SessionCheckpoint> = new Map();
   private auditEntries: Map<string, AuditEntry[]> = new Map();
+  private blockers: Map<string, Record<string, unknown>> = new Map();
   private checkpointCounter = 1;
 
   // Control behavior for testing
@@ -157,11 +158,21 @@ export class MockSessionStorageProvider extends SessionStorageProvider {
     return `chk-${Date.now()}-${this.checkpointCounter++}`;
   }
 
+  async getBlocker(sessionId: string): Promise<Record<string, unknown> | null> {
+    const blocker = this.blockers.get(sessionId);
+    return blocker ? { ...blocker } : null;
+  }
+
   // Test helper methods
+  setBlocker(sessionId: string, blocker: Record<string, unknown>): void {
+    this.blockers.set(sessionId, { ...blocker });
+  }
+
   reset(): void {
     this.sessions.clear();
     this.checkpoints.clear();
     this.auditEntries.clear();
+    this.blockers.clear();
     this.checkpointCounter = 1;
     this.shouldThrowOnCreate = false;
     this.shouldThrowOnGet = false;
