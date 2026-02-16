@@ -235,7 +235,7 @@ export class WorkflowEngine {
     // 3. skipChecks (runtime skip all check steps)
     // Code steps are never skipped by skipChecks
     if (this.config.skipChecks) {
-      const type = ('type' in step ? step.type : undefined) as string | undefined;
+      const type = 'type' in step && typeof step.type === 'string' ? step.type : undefined;
       if (type !== 'code' && this.isCheckStep(step)) {
         return '--skip-checks';
       }
@@ -300,7 +300,7 @@ export class WorkflowEngine {
     await this.auditStepStart(step.name);
 
     try {
-      const type = ('type' in step ? step.type : undefined) as string | undefined;
+      const type = 'type' in step && typeof step.type === 'string' ? step.type : undefined;
 
       if (!type) {
         // Check if this is a new-style composed step (has prompt field) or legacy agent step
