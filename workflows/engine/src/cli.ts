@@ -61,8 +61,28 @@ program
         process.exit(1);
       }
 
+      // For new runs (not resume), create a git worktree for isolation.
+      // For resume, we use the existing working directory.
+      const specSlug = extractSpecSlug(specFile);
+      let effectiveWorkingDir = workingDir;
+      let effectiveBranchName = await getCurrentBranch(workingDir);
+
+      if (!options.resume) {
+        const crypto = await import('crypto');
+        const tempSessionId = `wf-${new Date().toISOString().slice(0, 10)}-${crypto.randomBytes(4).toString('hex')}`;
+        const worktreeResult = await createWorktree({
+          projectRoot: workingDir,
+          specSlug,
+          sessionId: tempSessionId,
+        });
+        if (worktreeResult.created) {
+          effectiveWorkingDir = worktreeResult.worktreePath;
+          effectiveBranchName = worktreeResult.branchName;
+        }
+      }
+
       const config: EngineConfig = {
-        workingDirectory: workingDir,
+        workingDirectory: effectiveWorkingDir,
         workflowBaseDir,
         defaults: {
           model: options.model,
@@ -70,14 +90,14 @@ program
           settingSources: ['project'],
         },
         dryRun: options.dryRun,
-        mcpServers: buildMcpConfig({ projectRoot: workingDir }),
+        mcpServers: buildMcpConfig({ projectRoot: effectiveWorkingDir }),
       };
 
       const sessionManager = new WorkflowSessionManager({
         basePath: workingDir,
         specFile: path.resolve(specFile),
-        worktreePath: workingDir,
-        branchName: await getCurrentBranch(workingDir),
+        worktreePath: effectiveWorkingDir,
+        branchName: effectiveBranchName,
       });
 
       // The plugin root is the parent of the engine directory (workflows/)
@@ -123,6 +143,8 @@ program
         console.log(`Session: ${sessionId}`);
         console.log(`Workflow: ${options.workflow}`);
         console.log(`Spec: ${specFile}`);
+        console.log(`Working directory: ${effectiveWorkingDir}`);
+        console.log(`Branch: ${effectiveBranchName}`);
         if (options.dryRun) console.log('Mode: dry-run (analyze + plan only)');
         console.log('---');
 
@@ -151,6 +173,72 @@ program
       process.exit(1);
     }
   });
+
+/**
+ * Extract a URL-safe slug from a spec file path.
+ * Strips the SPEC-NNNNN- prefix and normalizes to lowercase-with-dashes.
+ */
+export function extractSpecSlug(specFile: string): string {
+  const basename = path.basename(specFile, '.md');
+  // Remove common prefixes like SPEC-000001- or spec-
+  const cleanName = basename.replace(/^SPEC-\d+-/, '').replace(/^spec-/, '');
+  return cleanName
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/[\s_-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .substring(0, 50) || 'implementation';
+}
+
+/** Dependencies for createWorktree, injectable for testing. */
+export interface WorktreeDeps {
+  ensureDir: (dir: string) => Promise<void>;
+  execSync: (cmd: string, opts: Record<string, unknown>) => string;
+}
+
+/**
+ * Create a git worktree for isolated workflow execution.
+ * Falls back to the project root directory if worktree creation fails.
+ */
+export async function createWorktree(
+  opts: {
+    projectRoot: string;
+    specSlug: string;
+    sessionId: string;
+  },
+  deps?: WorktreeDeps,
+): Promise<{ worktreePath: string; branchName: string; created: boolean }> {
+  const { projectRoot, specSlug, sessionId } = opts;
+  const worktreePath = path.join(projectRoot, '.worktrees', specSlug);
+  const branchName = `wrangler/${specSlug}/${sessionId}`;
+
+  try {
+    const resolvedDeps = deps ?? await loadWorktreeDeps();
+    await resolvedDeps.ensureDir(path.join(projectRoot, '.worktrees'));
+
+    resolvedDeps.execSync(
+      `git worktree add -b "${branchName}" "${worktreePath}"`,
+      { cwd: projectRoot, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
+    );
+
+    return { worktreePath, branchName, created: true };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.warn(`Warning: Could not create git worktree, running in current directory. Reason: ${msg}`);
+    return { worktreePath: projectRoot, branchName: 'unknown', created: false };
+  }
+}
+
+/** Load real dependencies for createWorktree at runtime. */
+async function loadWorktreeDeps(): Promise<WorktreeDeps> {
+  const fsExtraMod = await import('fs-extra');
+  const fse = (fsExtraMod as any).default || fsExtraMod;
+  const cp = await import('child_process');
+  return {
+    ensureDir: (dir: string) => fse.ensureDir(dir),
+    execSync: (cmd: string, opts: Record<string, unknown>) => cp.execSync(cmd, opts) as unknown as string,
+  };
+}
 
 export function printResult(result: WorkflowResult): void {
   console.log('\n--- Workflow Complete ---');

@@ -1,8 +1,11 @@
 /**
- * Tests for CLI utility functions: printResult and getCurrentBranch.
+ * Tests for CLI utility functions: printResult, getCurrentBranch,
+ * extractSpecSlug, and createWorktree.
  *
  * printResult formats and logs workflow results to the console.
  * getCurrentBranch shells out to git rev-parse to determine the current branch.
+ * extractSpecSlug derives a URL-safe slug from a spec filename.
+ * createWorktree creates a git worktree for isolated workflow execution.
  */
 
 import { jest } from '@jest/globals';
@@ -327,5 +330,140 @@ describe('getCurrentBranch', () => {
     const branch = await getCurrentBranch('/some/dir');
 
     expect(branch).toBe('feature/auth-system');
+  });
+});
+
+// ================================================================
+// extractSpecSlug
+// ================================================================
+
+describe('extractSpecSlug', () => {
+  let extractSpecSlug: (specFile: string) => string;
+
+  beforeAll(async () => {
+    const cli = await import('../src/cli.js');
+    extractSpecSlug = cli.extractSpecSlug;
+  });
+
+  it('strips SPEC-NNNNN- prefix and returns lowercase slug', () => {
+    expect(extractSpecSlug('SPEC-000047-workflow-template-layering.md')).toBe(
+      'workflow-template-layering'
+    );
+  });
+
+  it('strips SPEC- prefix with variable digit count', () => {
+    expect(extractSpecSlug('SPEC-12-short-slug.md')).toBe('short-slug');
+  });
+
+  it('strips spec- prefix (lowercase)', () => {
+    expect(extractSpecSlug('spec-my-feature.md')).toBe('my-feature');
+  });
+
+  it('handles full path by using only basename', () => {
+    expect(
+      extractSpecSlug('/Users/sam/project/.wrangler/specifications/SPEC-000048-codify-steps.md')
+    ).toBe('codify-steps');
+  });
+
+  it('removes special characters and collapses separators', () => {
+    // Special chars are stripped (not replaced), so "chars" and "here" merge.
+    // Underscores and consecutive dashes collapse into single dashes.
+    expect(extractSpecSlug('SPEC-001-some_mixed--chars!!!here.md')).toBe(
+      'some-mixed-charshere'
+    );
+  });
+
+  it('truncates to 50 characters', () => {
+    const longName = 'SPEC-001-' + 'a'.repeat(60) + '.md';
+    const result = extractSpecSlug(longName);
+    expect(result.length).toBeLessThanOrEqual(50);
+  });
+
+  it('returns "implementation" for degenerate input', () => {
+    expect(extractSpecSlug('SPEC-001-.md')).toBe('implementation');
+  });
+
+  it('handles files without .md extension', () => {
+    expect(extractSpecSlug('SPEC-001-my-feature')).toBe('my-feature');
+  });
+});
+
+// ================================================================
+// createWorktree
+// ================================================================
+
+describe('createWorktree', () => {
+  let createWorktree: typeof import('../src/cli.js')['createWorktree'];
+  let mockDepsEnsureDir: jest.Mock<() => Promise<void>>;
+  let mockDepsExecSync: jest.Mock<() => string>;
+  let warnSpy: ReturnType<typeof jest.spyOn>;
+
+  beforeAll(async () => {
+    const cli = await import('../src/cli.js');
+    createWorktree = cli.createWorktree;
+  });
+
+  beforeEach(() => {
+    mockDepsEnsureDir = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
+    mockDepsExecSync = jest.fn<() => string>().mockReturnValue('');
+    warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
+  });
+
+  function makeDeps() {
+    return {
+      ensureDir: mockDepsEnsureDir as unknown as (dir: string) => Promise<void>,
+      execSync: mockDepsExecSync as unknown as (cmd: string, opts: Record<string, unknown>) => string,
+    };
+  }
+
+  it('creates a worktree at .worktrees/{specSlug} with the correct branch', async () => {
+    const result = await createWorktree({
+      projectRoot: '/project',
+      specSlug: 'my-feature',
+      sessionId: 'wf-2026-02-16-abc123',
+    }, makeDeps());
+
+    expect(result.created).toBe(true);
+    expect(result.worktreePath).toBe('/project/.worktrees/my-feature');
+    expect(result.branchName).toBe('wrangler/my-feature/wf-2026-02-16-abc123');
+    expect(mockDepsEnsureDir).toHaveBeenCalledWith('/project/.worktrees');
+    expect(mockDepsExecSync).toHaveBeenCalledWith(
+      'git worktree add -b "wrangler/my-feature/wf-2026-02-16-abc123" "/project/.worktrees/my-feature"',
+      expect.objectContaining({ cwd: '/project' })
+    );
+  });
+
+  it('falls back to projectRoot when git worktree add fails', async () => {
+    mockDepsExecSync.mockImplementation(() => {
+      throw new Error('not a git repository');
+    });
+
+    const result = await createWorktree({
+      projectRoot: '/project',
+      specSlug: 'my-feature',
+      sessionId: 'wf-2026-02-16-abc123',
+    }, makeDeps());
+
+    expect(result.created).toBe(false);
+    expect(result.worktreePath).toBe('/project');
+    expect(result.branchName).toBe('unknown');
+    expect(warnSpy).toHaveBeenCalled();
+  });
+
+  it('falls back when ensureDir fails', async () => {
+    mockDepsEnsureDir.mockRejectedValue(new Error('permission denied'));
+
+    const result = await createWorktree({
+      projectRoot: '/project',
+      specSlug: 'my-feature',
+      sessionId: 'wf-2026-02-16-abc123',
+    }, makeDeps());
+
+    expect(result.created).toBe(false);
+    expect(result.worktreePath).toBe('/project');
   });
 });
