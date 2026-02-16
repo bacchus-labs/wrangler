@@ -587,13 +587,12 @@ describe('Workflow schemas', () => {
       })).toThrow('Unknown step type: magic');
     });
 
-    it('should accept gate-group type for backward compat', () => {
-      const result = validateStep({
+    it('should reject gate-group type (removed)', () => {
+      expect(() => validateStep({
         name: 'review',
         type: 'gate-group',
         gates: 'gates/',
-      });
-      expect(result.name).toBe('review');
+      })).toThrow('Unknown step type: gate-group');
     });
 
     it('should throw for invalid agent step in per-task nested steps', () => {

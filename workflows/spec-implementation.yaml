@@ -1,14 +1,21 @@
 name: spec-implementation
-version: 1
+version: 2
 
 defaults:
+  agent: planner
   model: opus
   permissionMode: bypassPermissions
   settingSources: ["project"]
 
+safety:
+  maxLoopRetries: 3
+  maxStepTimeoutMs: 600000
+  failOnStepError: true
+
 phases:
   - name: analyze
-    agent: agents/analyzer.md
+    agent: planner
+    prompt: analyze-spec
     model: sonnet
     output: analysis
 
@@ -23,13 +30,23 @@ phases:
     steps:
 
       - name: implement
-        agent: agents/implementer.md
+        agent: implementer
+        prompt: implement-task
         input: task
 
       - name: review
-        type: gate-group
-        gates: review-gates/
+        type: parallel
         output: review
+        steps:
+          - name: code-quality-review
+            agent: reviewer
+            prompt: code-quality-review
+          - name: test-coverage-review
+            agent: reviewer
+            prompt: test-coverage-review
+          - name: security-review
+            agent: reviewer
+            prompt: security-review
 
       - name: fix
         type: loop
@@ -38,23 +55,35 @@ phases:
         onExhausted: escalate
         steps:
           - name: fix-issues
-            agent: agents/fixer.md
+            agent: implementer
+            prompt: fix-issues
             input: review.actionableIssues
 
           - name: re-review
-            type: gate-group
-            gates: review-gates/
+            type: parallel
             output: review
+            steps:
+              - name: code-quality-review
+                agent: reviewer
+                prompt: code-quality-review
+              - name: test-coverage-review
+                agent: reviewer
+                prompt: test-coverage-review
+              - name: security-review
+                agent: reviewer
+                prompt: security-review
 
       - name: checkpoint
         type: code
         handler: save-checkpoint
 
   - name: verify
-    agent: agents/verifier.md
+    agent: verifier
+    prompt: run-verification
     output: verification
     failWhen: verification.testSuite.exitCode != 0
 
   - name: publish
-    agent: agents/publisher.md
+    agent: planner
+    prompt: publish-changes
     output: publish

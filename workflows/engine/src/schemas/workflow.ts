@@ -217,12 +217,6 @@ export function validateStep(raw: unknown): StepDefinition {
       // Legacy: type: 'agent' is treated as agent+prompt step
       return AgentPromptStepSchema.parse(raw);
 
-    case 'gate-group': {
-      // Legacy: gate-group accepted for backward compat with existing workflows
-      const base = BaseStepSchema.parse(raw);
-      return { ...obj, ...base } as unknown as StepDefinition;
-    }
-
     case 'code':
       return CodeStepSchema.parse(raw);
 

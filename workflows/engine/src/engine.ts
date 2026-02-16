@@ -1,11 +1,12 @@
 /**
  * WorkflowEngine: Generic interpreter for YAML workflow definitions.
  *
- * Recursively executes 5 step types:
- * - agent:      Single query() call using a markdown agent definition
+ * Recursively executes step types:
+ * - agent+prompt: Composed agent/prompt step via WorkflowResolver
+ * - agent (legacy): Single query() call using a markdown agent definition
  * - code:       Runs a registered TypeScript handler function
  * - per-task:   Iterates over a list, runs nested steps for each item
- * - gate-group: Discovers all .md files in a directory, runs each as query()
+ * - parallel:   Runs nested steps concurrently
  * - loop:       Repeats nested steps while condition is true, up to maxRetries
  */
 
@@ -14,8 +15,6 @@ import { z } from 'zod';
 import {
   loadWorkflowYaml,
   loadAgentMarkdown,
-  loadGateMarkdown,
-  discoverGates,
   renderTemplate,
   resolveSchemaReference,
 } from './loader.js';
@@ -28,7 +27,6 @@ import {
   type LoopStep,
   type TaskDefinition,
 } from './schemas/index.js';
-import { aggregateGateResults, ReviewResultSchema, type ReviewResult } from './schemas/review.js';
 import { WorkflowResolver } from './resolver.js';
 import { loadAgentFile, loadPromptFile } from './loaders.js';
 import {
@@ -285,11 +283,6 @@ export class WorkflowEngine {
 
           case 'per-task':
             await this.runPerTask(step as PerTaskStep, ctx);
-            break;
-
-          case 'gate-group':
-            // Legacy support - gate-group is removed from the schema but still executed by the engine
-            await this.runGateGroup(step as StepDefinition & { gates: string }, ctx);
             break;
 
           case 'loop':
@@ -602,104 +595,6 @@ export class WorkflowEngine {
     );
   }
 
-
-  /**
-   * Execute a gate-group step: discover gates, run each, aggregate results.
-   */
-  private async runGateGroup(
-    step: StepDefinition & { gates: string; output?: string; minSeverity?: 'critical' | 'important' | 'minor' },
-    ctx: WorkflowContext
-  ): Promise<void> {
-    const gatesDir = path.resolve(this.config.workflowBaseDir, step.gates);
-    this.assertWithinWorkflowDir(gatesDir);
-    const gateFiles = await discoverGates(gatesDir);
-
-    if (gateFiles.length === 0) {
-      // No gates found, set empty result
-      if (step.output) {
-        ctx.set(step.output, {
-          assessment: 'approved',
-          issues: [],
-          strengths: [],
-          hasActionableIssues: false,
-          gateResults: [],
-        });
-      }
-      return;
-    }
-
-    const gateResults: Array<{ gate: string } & ReviewResult> = [];
-
-    for (const gateFile of gateFiles) {
-      const gateDef = await loadGateMarkdown(gateFile);
-
-      // Check enabled flag
-      if (gateDef.enabled === false) continue;
-
-      // Check runCondition
-      if (gateDef.runCondition === 'changed-files-match' && gateDef.filePatterns) {
-        if (!ctx.changedFilesMatch(gateDef.filePatterns)) continue;
-      }
-
-      // Run the gate agent
-      const result = await this.runSingleGate(gateDef, ctx);
-      gateResults.push({ gate: gateDef.name, ...result });
-    }
-
-    // Aggregate results with optional severity threshold
-    const aggregated = aggregateGateResults(gateResults, {
-      minSeverity: step.minSeverity,
-    });
-
-    if (step.output) {
-      ctx.set(step.output, aggregated);
-    }
-  }
-
-  /**
-   * Run a single review gate as a query() call.
-   */
-  private async runSingleGate(
-    gateDef: { name: string; tools: string[]; model?: string; prompt: string },
-    ctx: WorkflowContext
-  ): Promise<ReviewResult> {
-    const prompt = renderTemplate(gateDef.prompt, ctx.getTemplateVars());
-    const model = gateDef.model ?? this.activeDefaults.model;
-
-    const jsonSchema = z.toJSONSchema(ReviewResultSchema);
-
-    let result: ReviewResult | null = null;
-
-    const generator = this.queryFn({
-      prompt,
-      options: {
-        allowedTools: gateDef.tools,
-        outputFormat: {
-          type: 'json_schema',
-          schema: jsonSchema as Record<string, unknown>,
-        },
-        model,
-        cwd: this.config.workingDirectory,
-        permissionMode: this.activeDefaults.permissionMode,
-        allowDangerouslySkipPermissions: this.activeDefaults.permissionMode === 'bypassPermissions',
-        mcpServers: this.config.mcpServers,
-        settingSources: this.activeDefaults.settingSources,
-      },
-    });
-
-    for await (const message of generator) {
-      if (isResultMessage(message) && message.subtype === 'success' && message.structured_output != null) {
-        result = ReviewResultSchema.parse(message.structured_output);
-      }
-    }
-
-    return result ?? {
-      assessment: 'approved',
-      issues: [],
-      strengths: [],
-      hasActionableIssues: false,
-    };
-  }
 
   /**
    * Execute a loop step: repeat nested steps while condition is true.
