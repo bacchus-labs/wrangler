@@ -20,6 +20,7 @@ import {
   resolveProjectRoot,
   parseSemver,
   compareSemver,
+  parseGitignorePatterns,
 } from '../../../tools/workspace/init';
 
 // ─── Unit Tests for Semver Helpers ──────────────────────────────────
@@ -84,6 +85,68 @@ describe('compareSemver', () => {
   it('should handle malformed versions (treated as 0.0.0)', () => {
     expect(compareSemver('not-a-version', '1.0.0')).toBeLessThan(0);
     expect(compareSemver('1.0.0', 'not-a-version')).toBeGreaterThan(0);
+  });
+});
+
+// ─── Unit Tests for parseGitignorePatterns ──────────────────────────
+
+describe('parseGitignorePatterns', () => {
+  it('should parse simple patterns from lines', () => {
+    const result = parseGitignorePatterns('cache/\nlogs/\nsessions/\n');
+    expect(result).toEqual(new Set(['cache/', 'logs/', 'sessions/']));
+  });
+
+  it('should skip comment lines starting with #', () => {
+    const result = parseGitignorePatterns('# This is a comment\ncache/\n# Another comment\nlogs/\n');
+    expect(result).toEqual(new Set(['cache/', 'logs/']));
+    expect(result.has('# This is a comment')).toBe(false);
+  });
+
+  it('should skip blank lines', () => {
+    const result = parseGitignorePatterns('cache/\n\n\nlogs/\n\n');
+    expect(result).toEqual(new Set(['cache/', 'logs/']));
+  });
+
+  it('should trim whitespace from each line', () => {
+    const result = parseGitignorePatterns('  cache/  \n\tlogs/\t\n  sessions/\n');
+    expect(result).toEqual(new Set(['cache/', 'logs/', 'sessions/']));
+  });
+
+  it('should handle CRLF line endings', () => {
+    const result = parseGitignorePatterns('cache/\r\nlogs/\r\nsessions/\r\n');
+    expect(result).toEqual(new Set(['cache/', 'logs/', 'sessions/']));
+  });
+
+  it('should handle mixed LF and CRLF line endings', () => {
+    const result = parseGitignorePatterns('cache/\r\nlogs/\nsessions/\r\n');
+    expect(result).toEqual(new Set(['cache/', 'logs/', 'sessions/']));
+  });
+
+  it('should return empty set for empty string', () => {
+    const result = parseGitignorePatterns('');
+    expect(result.size).toBe(0);
+  });
+
+  it('should return empty set for content with only comments and blanks', () => {
+    const result = parseGitignorePatterns('# Header\n\n# Footer\n');
+    expect(result.size).toBe(0);
+  });
+
+  it('should not treat comment containing pattern text as a pattern', () => {
+    const result = parseGitignorePatterns('# ignore cache/ and logs/\nsessions/\n');
+    expect(result).toEqual(new Set(['sessions/']));
+    expect(result.has('cache/')).toBe(false);
+    expect(result.has('logs/')).toBe(false);
+  });
+
+  it('should handle negation patterns (lines starting with !)', () => {
+    const result = parseGitignorePatterns('cache/\n!cache/important/\n');
+    expect(result).toEqual(new Set(['cache/', '!cache/important/']));
+  });
+
+  it('should handle content without trailing newline', () => {
+    const result = parseGitignorePatterns('cache/\nlogs/');
+    expect(result).toEqual(new Set(['cache/', 'logs/']));
   });
 });
 
@@ -526,6 +589,192 @@ describe('initWorkspaceTool', () => {
       );
       expect(content).toContain('my-custom-dir/');
       expect(content).toContain('cache/');
+    });
+
+    // ─── FR-008: Line-based pattern parsing and diff ──────────────────
+
+    it('should parse patterns line-by-line, not by substring matching', async () => {
+      // Pre-create gitignore with a comment that contains a pattern as substring
+      fs.mkdirSync(path.join(projectRoot, '.wrangler'), { recursive: true });
+      fs.writeFileSync(
+        path.join(projectRoot, '.wrangler', '.gitignore'),
+        '# This comment mentions cache/ but is not a pattern\n'
+      );
+
+      const result = await initWorkspaceTool({ fix: false, projectRoot, pluginRoot });
+
+      const report = result.metadata as InitWorkspaceResult;
+      // "cache/" appears only in a comment line, so it should be reported as needing addition
+      expect(report.gitignore.patternsAdded).toContain('cache/');
+    });
+
+    it('should recognize patterns regardless of surrounding whitespace', async () => {
+      // Pattern with trailing whitespace should still be recognized
+      fs.mkdirSync(path.join(projectRoot, '.wrangler'), { recursive: true });
+      fs.writeFileSync(
+        path.join(projectRoot, '.wrangler', '.gitignore'),
+        'cache/  \nlogs/\n'
+      );
+
+      const result = await initWorkspaceTool({ fix: false, projectRoot, pluginRoot });
+
+      const report = result.metadata as InitWorkspaceResult;
+      // Both cache/ and logs/ exist (even with trailing whitespace on cache/)
+      expect(report.gitignore.existing).toContain('cache/');
+      expect(report.gitignore.existing).toContain('logs/');
+      // Only sessions/ should be missing
+      expect(report.gitignore.patternsAdded).toEqual(['sessions/']);
+    });
+
+    it('should skip blank lines and comment lines when checking existing patterns', async () => {
+      fs.mkdirSync(path.join(projectRoot, '.wrangler'), { recursive: true });
+      fs.writeFileSync(
+        path.join(projectRoot, '.wrangler', '.gitignore'),
+        '# Header comment\n\ncache/\n\n# Another comment\nlogs/\n'
+      );
+
+      const result = await initWorkspaceTool({ fix: false, projectRoot, pluginRoot });
+
+      const report = result.metadata as InitWorkspaceResult;
+      expect(report.gitignore.existing).toContain('cache/');
+      expect(report.gitignore.existing).toContain('logs/');
+      expect(report.gitignore.patternsAdded).toEqual(['sessions/']);
+    });
+
+    it('should append only missing patterns to an existing .gitignore with some patterns', async () => {
+      // Pre-create gitignore with only cache/ present
+      fs.mkdirSync(path.join(projectRoot, '.wrangler'), { recursive: true });
+      fs.writeFileSync(
+        path.join(projectRoot, '.wrangler', '.gitignore'),
+        'cache/\n'
+      );
+
+      await initWorkspaceTool({ fix: true, projectRoot, pluginRoot });
+
+      const content = fs.readFileSync(
+        path.join(projectRoot, '.wrangler', '.gitignore'),
+        'utf-8'
+      );
+      // cache/ should appear exactly once (not duplicated)
+      expect(content.match(/^cache\/$/gm)?.length).toBe(1);
+      // logs/ and sessions/ should be added
+      expect(content).toContain('logs/');
+      expect(content).toContain('sessions/');
+    });
+
+    it('should correctly report existing vs patternsAdded in metadata', async () => {
+      fs.mkdirSync(path.join(projectRoot, '.wrangler'), { recursive: true });
+      fs.writeFileSync(
+        path.join(projectRoot, '.wrangler', '.gitignore'),
+        'logs/\n'
+      );
+
+      const result = await initWorkspaceTool({ fix: false, projectRoot, pluginRoot });
+
+      const report = result.metadata as InitWorkspaceResult;
+      expect(report.gitignore.existing).toContain('logs/');
+      expect(report.gitignore.existing).not.toContain('cache/');
+      expect(report.gitignore.patternsAdded).toContain('cache/');
+      expect(report.gitignore.patternsAdded).toContain('sessions/');
+      expect(report.gitignore.patternsAdded).not.toContain('logs/');
+    });
+
+    it('should not treat inline comments containing a pattern as an existing pattern', async () => {
+      // Inline comment with pattern-like text
+      fs.mkdirSync(path.join(projectRoot, '.wrangler'), { recursive: true });
+      fs.writeFileSync(
+        path.join(projectRoot, '.wrangler', '.gitignore'),
+        '# ignore cache/ and logs/ directories\nsessions/\n'
+      );
+
+      const result = await initWorkspaceTool({ fix: false, projectRoot, pluginRoot });
+
+      const report = result.metadata as InitWorkspaceResult;
+      // sessions/ is a real pattern
+      expect(report.gitignore.existing).toContain('sessions/');
+      // cache/ and logs/ are only in comments, should need adding
+      expect(report.gitignore.patternsAdded).toContain('cache/');
+      expect(report.gitignore.patternsAdded).toContain('logs/');
+    });
+
+    // ─── FR-012: No overwriting / no duplication ──────────────────────
+
+    it('should handle .gitignore with Windows-style line endings (CRLF)', async () => {
+      fs.mkdirSync(path.join(projectRoot, '.wrangler'), { recursive: true });
+      fs.writeFileSync(
+        path.join(projectRoot, '.wrangler', '.gitignore'),
+        'cache/\r\nlogs/\r\n'
+      );
+
+      const result = await initWorkspaceTool({ fix: false, projectRoot, pluginRoot });
+
+      const report = result.metadata as InitWorkspaceResult;
+      expect(report.gitignore.existing).toContain('cache/');
+      expect(report.gitignore.existing).toContain('logs/');
+      expect(report.gitignore.patternsAdded).toEqual(['sessions/']);
+    });
+
+    it('should handle empty .gitignore file', async () => {
+      fs.mkdirSync(path.join(projectRoot, '.wrangler'), { recursive: true });
+      fs.writeFileSync(
+        path.join(projectRoot, '.wrangler', '.gitignore'),
+        ''
+      );
+
+      const result = await initWorkspaceTool({ fix: true, projectRoot, pluginRoot });
+
+      const report = result.metadata as InitWorkspaceResult;
+      // All patterns should be added
+      expect(report.gitignore.patternsAdded).toContain('cache/');
+      expect(report.gitignore.patternsAdded).toContain('logs/');
+      expect(report.gitignore.patternsAdded).toContain('sessions/');
+      expect(report.gitignore.existing).toEqual([]);
+
+      // Verify file content
+      const content = fs.readFileSync(
+        path.join(projectRoot, '.wrangler', '.gitignore'),
+        'utf-8'
+      );
+      expect(content).toContain('cache/');
+      expect(content).toContain('logs/');
+      expect(content).toContain('sessions/');
+    });
+
+    it('should handle .gitignore with all patterns already present', async () => {
+      fs.mkdirSync(path.join(projectRoot, '.wrangler'), { recursive: true });
+      fs.writeFileSync(
+        path.join(projectRoot, '.wrangler', '.gitignore'),
+        'cache/\nlogs/\nsessions/\n'
+      );
+
+      const result = await initWorkspaceTool({ fix: false, projectRoot, pluginRoot });
+
+      const report = result.metadata as InitWorkspaceResult;
+      expect(report.gitignore.patternsAdded).toEqual([]);
+      expect(report.gitignore.existing).toEqual(['cache/', 'logs/', 'sessions/']);
+    });
+
+    it('should not create .gitignore in report-only mode', async () => {
+      await initWorkspaceTool({ fix: false, projectRoot, pluginRoot });
+
+      const gitignorePath = path.join(projectRoot, '.wrangler', '.gitignore');
+      expect(fs.existsSync(gitignorePath)).toBe(false);
+    });
+
+    it('should trigger changes_needed status when gitignore patterns are missing', async () => {
+      // Create all directories and configs but leave gitignore incomplete
+      await initWorkspaceTool({ fix: true, projectRoot, pluginRoot });
+
+      // Remove sessions/ from gitignore
+      const gitignorePath = path.join(projectRoot, '.wrangler', '.gitignore');
+      const content = fs.readFileSync(gitignorePath, 'utf-8');
+      fs.writeFileSync(gitignorePath, content.replace('sessions/\n', ''));
+
+      const result = await initWorkspaceTool({ fix: false, projectRoot, pluginRoot });
+
+      const report = result.metadata as InitWorkspaceResult;
+      expect(report.status).toBe('changes_needed');
+      expect(report.gitignore.patternsAdded).toContain('sessions/');
     });
   });
 

@@ -325,7 +325,29 @@ interface GitignorePlan {
 }
 
 /**
+ * Parse a .gitignore file into a set of active (non-comment, non-blank) patterns.
+ * Handles both LF and CRLF line endings, trims whitespace from each line,
+ * and skips comment lines (starting with #) and blank lines.
+ */
+export function parseGitignorePatterns(content: string): Set<string> {
+  const patterns = new Set<string>();
+  const lines = content.split(/\r?\n/);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.length === 0 || trimmed.startsWith('#')) {
+      continue;
+    }
+    patterns.add(trimmed);
+  }
+  return patterns;
+}
+
+/**
  * Plan .gitignore updates.
+ *
+ * FR-008: Reads existing .wrangler/.gitignore, parses patterns line-by-line,
+ *         computes diff with schema gitignorePatterns, identifies missing patterns.
+ * FR-012: Only appends missing patterns; never duplicates existing ones.
  */
 function planGitignore(
   schema: WorkspaceSchema,
@@ -337,13 +359,14 @@ function planGitignore(
   const patternsAdded: string[] = [];
   const existing: string[] = [];
 
-  let currentContent = '';
+  let existingPatterns = new Set<string>();
   if (fs.existsSync(gitignorePath)) {
-    currentContent = fs.readFileSync(gitignorePath, 'utf-8');
+    const currentContent = fs.readFileSync(gitignorePath, 'utf-8');
+    existingPatterns = parseGitignorePatterns(currentContent);
   }
 
   for (const pattern of requiredPatterns) {
-    if (currentContent.includes(pattern)) {
+    if (existingPatterns.has(pattern)) {
       existing.push(pattern);
     } else {
       patternsAdded.push(pattern);
