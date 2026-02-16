@@ -29,6 +29,107 @@ export interface WorkflowResult {
   blockerDetails?: string;
 }
 
+// --- Condition Validation ---
+
+/**
+ * Validate a condition expression at load time without executing it.
+ * Returns an array of error strings (empty if valid).
+ */
+export function validateCondition(expr: string): string[] {
+  const errors: string[] = [];
+
+  const trimmed = expr.trim();
+  if (trimmed.length === 0) {
+    errors.push('Empty condition expression');
+    return errors;
+  }
+
+  // Check balanced parentheses
+  let depth = 0;
+  for (const ch of trimmed) {
+    if (ch === '(') depth++;
+    if (ch === ')') depth--;
+    if (depth < 0) {
+      errors.push('Unbalanced parentheses: unexpected closing paren');
+      break;
+    }
+  }
+  if (depth > 0) {
+    errors.push('Unbalanced parentheses: missing closing paren');
+  }
+
+  // Check for empty operands around || and &&
+  // Split on || first, then && within each clause
+  const orParts = splitTopLevel(trimmed, '||');
+  for (const orPart of orParts) {
+    const stripped = orPart.trim();
+    if (stripped.length === 0) {
+      errors.push('Empty operand in expression');
+      continue;
+    }
+    const andParts = splitTopLevel(stripped, '&&');
+    for (const andPart of andParts) {
+      const andStripped = andPart.trim();
+      if (andStripped.length === 0) {
+        errors.push('Empty operand in expression');
+        continue;
+      }
+      // Strip leading ! and parens, check if there is content
+      const leaf = stripOuterParens(andStripped).replace(/^!+/, '').trim();
+      if (leaf.length === 0) {
+        errors.push('Empty operand after negation');
+      }
+    }
+  }
+
+  return errors;
+}
+
+/**
+ * Split a string on a delimiter, respecting parenthesis nesting.
+ * Only splits at the top level (not inside parentheses).
+ */
+function splitTopLevel(expr: string, delimiter: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let current = '';
+
+  for (let i = 0; i < expr.length; i++) {
+    const ch = expr[i];
+    if (ch === '(') depth++;
+    if (ch === ')') depth--;
+
+    if (depth === 0 && expr.substring(i, i + delimiter.length) === delimiter) {
+      parts.push(current);
+      current = '';
+      i += delimiter.length - 1;
+    } else {
+      current += ch;
+    }
+  }
+  parts.push(current);
+  return parts;
+}
+
+/**
+ * Strip matching outer parentheses from an expression.
+ * e.g., "(a || b)" -> "a || b", but "(a) || (b)" stays as-is.
+ */
+function stripOuterParens(expr: string): string {
+  const trimmed = expr.trim();
+  if (!trimmed.startsWith('(') || !trimmed.endsWith(')')) return trimmed;
+
+  // Verify the outer parens actually match each other
+  let depth = 0;
+  for (let i = 0; i < trimmed.length; i++) {
+    if (trimmed[i] === '(') depth++;
+    if (trimmed[i] === ')') depth--;
+    // If depth hits 0 before the end, the outer parens don't wrap the whole expression
+    if (depth === 0 && i < trimmed.length - 1) return trimmed;
+  }
+  return trimmed.slice(1, -1).trim();
+}
+
 // --- Workflow Context ---
 
 /**
@@ -75,36 +176,91 @@ export class WorkflowContext {
 
   /**
    * Evaluate a condition expression.
-   * Supports simple truthy checks and basic comparisons.
+   * Supports boolean operators (&&, ||, !), parentheses, comparisons,
+   * and simple truthy checks. Missing/undefined properties evaluate to
+   * falsy rather than throwing errors.
+   *
+   * Operator precedence: ! > && > ||
    *
    * Examples:
    * - "review.hasActionableIssues" -> truthy check
    * - "verification.testSuite.exitCode != 0" -> comparison
+   * - "a.x || b.y" -> boolean OR
+   * - "a.x && b.y" -> boolean AND
+   * - "!review.allPassed" -> negation
+   * - "missing.prop" -> false (falsy-on-missing, no throw)
    */
   evaluate(condition: string): boolean {
-    // Check for comparison operators
-    const compMatch = condition.match(/^(.+?)\s*(!==|===|!=|==|>=|<=|>|<)\s*(.+)$/);
-    if (compMatch) {
-      const [, leftExpr, operator, rightExpr] = compMatch;
-      const left = this.resolveValue(leftExpr.trim());
-      const right = this.resolveValue(rightExpr.trim());
+    try {
+      return this.evaluateExpr(condition.trim());
+    } catch {
+      // Falsy-on-missing: any resolution error returns false
+      return false;
+    }
+  }
 
-      switch (operator) {
-        case '==': return left == right;   // eslint-disable-line eqeqeq
-        case '!=': return left != right;   // eslint-disable-line eqeqeq
-        case '===': return left === right;
-        case '!==': return left !== right;
-        case '>': return Number(left) > Number(right);
-        case '<': return Number(left) < Number(right);
-        case '>=': return Number(left) >= Number(right);
-        case '<=': return Number(left) <= Number(right);
-        default: return false;
-      }
+  /**
+   * Recursively evaluate an expression respecting operator precedence:
+   * || (lowest) > && > ! (highest), with parentheses for grouping.
+   */
+  private evaluateExpr(expr: string): boolean {
+    const trimmed = stripOuterParens(expr);
+
+    // Split on || at top level (lowest precedence)
+    const orClauses = splitTopLevel(trimmed, '||');
+    if (orClauses.length > 1) {
+      return orClauses.some(clause => this.evaluateExpr(clause.trim()));
     }
 
-    // Simple truthy check
-    const value = this.resolve(condition);
-    return Boolean(value);
+    // Split on && at top level (next precedence)
+    const andClauses = splitTopLevel(trimmed, '&&');
+    if (andClauses.length > 1) {
+      return andClauses.every(clause => this.evaluateExpr(clause.trim()));
+    }
+
+    // Handle ! prefix (highest precedence)
+    if (trimmed.startsWith('!')) {
+      return !this.evaluateExpr(trimmed.slice(1).trim());
+    }
+
+    // Leaf expression: comparison or truthy check
+    return this.evaluateLeaf(trimmed);
+  }
+
+  /**
+   * Evaluate a leaf expression (no boolean operators).
+   * Handles comparisons (==, !=, >, <, etc.) and simple truthy checks.
+   * Returns false for missing/undefined properties instead of throwing.
+   */
+  private evaluateLeaf(condition: string): boolean {
+    try {
+      // Check for comparison operators
+      const compMatch = condition.match(/^(.+?)\s*(!==|===|!=|==|>=|<=|>|<)\s*(.+)$/);
+      if (compMatch) {
+        const [, leftExpr, operator, rightExpr] = compMatch;
+        const left = this.resolveValue(leftExpr.trim());
+        const right = this.resolveValue(rightExpr.trim());
+
+        switch (operator) {
+          case '==': return left == right;   // eslint-disable-line eqeqeq
+          case '!=': return left != right;   // eslint-disable-line eqeqeq
+          case '===': return left === right;
+          case '!==': return left !== right;
+          case '>': return Number(left) > Number(right);
+          case '<': return Number(left) < Number(right);
+          case '>=': return Number(left) >= Number(right);
+          case '<=': return Number(left) <= Number(right);
+          default: return false;
+        }
+      }
+
+      // Simple truthy check
+      const value = this.resolve(condition);
+      return Boolean(value);
+    } catch {
+      // Falsy-on-missing
+      return false;
+    }
   }
 
   /**
@@ -282,4 +438,3 @@ export class WorkflowContext {
     return ctx;
   }
 }
-

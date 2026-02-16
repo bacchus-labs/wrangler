@@ -977,3 +977,271 @@ describe('WorkflowContext - per-task context isolation', () => {
     expect((childB.get('task') as TaskDefinition).title).toBe('Beta');
   });
 });
+
+// ================================================================
+// evaluate() - boolean operators and falsy-on-missing
+// ================================================================
+
+import { validateCondition } from '../src/state.js';
+
+describe('WorkflowContext - evaluate() boolean operators', () => {
+  // --- OR operator ---
+  it('evaluates OR: true || false -> true', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('a', { x: true });
+    ctx.set('b', { y: false });
+    expect(ctx.evaluate('a.x || b.y')).toBe(true);
+  });
+
+  it('evaluates OR: false || true -> true', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('a', { x: false });
+    ctx.set('b', { y: true });
+    expect(ctx.evaluate('a.x || b.y')).toBe(true);
+  });
+
+  it('evaluates OR: false || false -> false', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('a', { x: false });
+    ctx.set('b', { y: false });
+    expect(ctx.evaluate('a.x || b.y')).toBe(false);
+  });
+
+  it('evaluates OR: true || true -> true', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('a', { x: true });
+    ctx.set('b', { y: true });
+    expect(ctx.evaluate('a.x || b.y')).toBe(true);
+  });
+
+  // --- AND operator ---
+  it('evaluates AND: true && true -> true', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('a', { x: true });
+    ctx.set('b', { y: true });
+    expect(ctx.evaluate('a.x && b.y')).toBe(true);
+  });
+
+  it('evaluates AND: true && false -> false', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('a', { x: true });
+    ctx.set('b', { y: false });
+    expect(ctx.evaluate('a.x && b.y')).toBe(false);
+  });
+
+  it('evaluates AND: false && true -> false', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('a', { x: false });
+    ctx.set('b', { y: true });
+    expect(ctx.evaluate('a.x && b.y')).toBe(false);
+  });
+
+  // --- NOT operator ---
+  it('evaluates NOT: !review.allPassed when allPassed=true -> false', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('review', { allPassed: true });
+    expect(ctx.evaluate('!review.allPassed')).toBe(false);
+  });
+
+  it('evaluates NOT: !review.allPassed when allPassed=false -> true', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('review', { allPassed: false });
+    expect(ctx.evaluate('!review.allPassed')).toBe(true);
+  });
+
+  // --- Precedence: ! > && > || ---
+  it('evaluates precedence: a || b && c  (AND binds tighter)', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('a', false);
+    ctx.set('b', true);
+    ctx.set('c', false);
+    // false || (true && false) -> false
+    expect(ctx.evaluate('a || b && c')).toBe(false);
+  });
+
+  it('evaluates precedence: a || b && c (second case)', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('a', true);
+    ctx.set('b', false);
+    ctx.set('c', false);
+    // true || (false && false) -> true
+    expect(ctx.evaluate('a || b && c')).toBe(true);
+  });
+
+  // --- Combined with parentheses ---
+  it('evaluates parenthesized: (a || b) && c', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('a', { x: true });
+    ctx.set('b', { y: false });
+    ctx.set('c', { z: true });
+    expect(ctx.evaluate('(a.x || b.y) && c.z')).toBe(true);
+  });
+
+  it('evaluates parenthesized: a.x && (b.y || c.z)', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('a', { x: true });
+    ctx.set('b', { y: false });
+    ctx.set('c', { z: true });
+    expect(ctx.evaluate('a.x && (b.y || c.z)')).toBe(true);
+  });
+
+  it('evaluates nested parentheses: (a && (b || c))', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('a', true);
+    ctx.set('b', false);
+    ctx.set('c', true);
+    expect(ctx.evaluate('(a && (b || c))')).toBe(true);
+  });
+
+  // --- Comparison with OR ---
+  it('evaluates comparison with OR: count > 0 || hasIssues', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('count', 5);
+    ctx.set('hasIssues', false);
+    expect(ctx.evaluate('count > 0 || hasIssues')).toBe(true);
+  });
+
+  it('evaluates comparison with OR: count > 0 || hasIssues (both false)', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('count', 0);
+    ctx.set('hasIssues', false);
+    expect(ctx.evaluate('count > 0 || hasIssues')).toBe(false);
+  });
+
+  // --- NOT with comparison ---
+  it('evaluates NOT with comparison: !status == "failed" treated as (!status) == "failed"', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('review', { allPassed: true });
+    ctx.set('count', 5);
+    // !review.allPassed && count > 3 -> false && true -> false
+    expect(ctx.evaluate('!review.allPassed && count > 3')).toBe(false);
+  });
+
+  // --- Multiple OR clauses ---
+  it('evaluates triple OR: a || b || c', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('a', false);
+    ctx.set('b', false);
+    ctx.set('c', true);
+    expect(ctx.evaluate('a || b || c')).toBe(true);
+  });
+
+  // --- Multiple AND clauses ---
+  it('evaluates triple AND: a && b && c', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('a', true);
+    ctx.set('b', true);
+    ctx.set('c', true);
+    expect(ctx.evaluate('a && b && c')).toBe(true);
+  });
+
+  it('evaluates triple AND with one false: a && b && c', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('a', true);
+    ctx.set('b', false);
+    ctx.set('c', true);
+    expect(ctx.evaluate('a && b && c')).toBe(false);
+  });
+});
+
+describe('WorkflowContext - evaluate() falsy-on-missing', () => {
+  it('returns false for completely undefined variable', () => {
+    const ctx = new WorkflowContext();
+    expect(ctx.evaluate('undefinedVar.prop')).toBe(false);
+  });
+
+  it('returns false for deeply nested missing property', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('a', { b: undefined });
+    expect(ctx.evaluate('a.b.c.d.e')).toBe(false);
+  });
+
+  it('returns false for null.anything', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('obj', null);
+    expect(ctx.evaluate('obj.anything')).toBe(false);
+  });
+
+  it('returns false for missing in OR (both missing)', () => {
+    const ctx = new WorkflowContext();
+    expect(ctx.evaluate('missing1.prop || missing2.prop')).toBe(false);
+  });
+
+  it('returns true for missing OR true', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('exists', { val: true });
+    expect(ctx.evaluate('missing.prop || exists.val')).toBe(true);
+  });
+
+  it('returns false for missing in comparison (does not throw)', () => {
+    const ctx = new WorkflowContext();
+    expect(ctx.evaluate('missing.count > 0')).toBe(false);
+  });
+
+  it('returns false for missing AND existing', () => {
+    const ctx = new WorkflowContext();
+    ctx.set('exists', { val: true });
+    expect(ctx.evaluate('missing.prop && exists.val')).toBe(false);
+  });
+
+  it('negation of missing returns true', () => {
+    const ctx = new WorkflowContext();
+    expect(ctx.evaluate('!missing.prop')).toBe(true);
+  });
+});
+
+describe('validateCondition()', () => {
+  it('returns no errors for a valid simple expression', () => {
+    expect(validateCondition('review.hasIssues')).toEqual([]);
+  });
+
+  it('returns no errors for valid boolean expression', () => {
+    expect(validateCondition('a.x || b.y && !c.z')).toEqual([]);
+  });
+
+  it('returns no errors for valid comparison', () => {
+    expect(validateCondition('count > 0')).toEqual([]);
+  });
+
+  it('returns no errors for parenthesized expression', () => {
+    expect(validateCondition('(a || b) && c')).toEqual([]);
+  });
+
+  it('returns error for unbalanced open paren', () => {
+    const errors = validateCondition('(a || b');
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0]).toMatch(/paren/i);
+  });
+
+  it('returns error for unbalanced close paren', () => {
+    const errors = validateCondition('a || b)');
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0]).toMatch(/paren/i);
+  });
+
+  it('returns error for empty expression', () => {
+    const errors = validateCondition('');
+    expect(errors.length).toBeGreaterThan(0);
+  });
+
+  it('returns error for empty operand in OR', () => {
+    const errors = validateCondition('a ||');
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0]).toMatch(/empty/i);
+  });
+
+  it('returns error for empty operand in AND', () => {
+    const errors = validateCondition('&& b');
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0]).toMatch(/empty/i);
+  });
+
+  it('returns no errors for NOT operator', () => {
+    expect(validateCondition('!review.allPassed')).toEqual([]);
+  });
+
+  it('returns error for double NOT without operand', () => {
+    const errors = validateCondition('!!');
+    expect(errors.length).toBeGreaterThan(0);
+  });
+});
