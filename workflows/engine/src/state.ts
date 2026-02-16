@@ -153,6 +153,22 @@ export class WorkflowContext {
   }
 
   /**
+   * Populate built-in session context variables.
+   * Only provided fields are set; omitted fields are left unchanged.
+   */
+  setSessionContext(ctx: {
+    spec?: { id: string; title: string; content: string };
+    worktreePath?: string;
+    sessionId?: string;
+    branchName?: string;
+  }): void {
+    if (ctx.spec !== undefined) this.variables.spec = ctx.spec;
+    if (ctx.worktreePath !== undefined) this.variables.worktreePath = ctx.worktreePath;
+    if (ctx.sessionId !== undefined) this.variables.sessionId = ctx.sessionId;
+    if (ctx.branchName !== undefined) this.variables.branchName = ctx.branchName;
+  }
+
+  /**
    * Set a named output in the context.
    */
   set(name: string, value: unknown): void {
@@ -288,11 +304,14 @@ export class WorkflowContext {
 
   /**
    * Create a child context for a per-task iteration.
-   * The child inherits all parent variables and adds the current task.
+   * The child inherits all parent variables and adds the current task,
+   * plus optional taskIndex and taskCount for iteration tracking.
    */
-  withTask(task: TaskDefinition): WorkflowContext {
+  withTask(task: TaskDefinition, taskIndex?: number, taskCount?: number): WorkflowContext {
     const child = new WorkflowContext({ ...this.variables });
     child.set('task', task);
+    if (taskIndex !== undefined) child.set('taskIndex', taskIndex);
+    if (taskCount !== undefined) child.set('taskCount', taskCount);
     child.completedPhases = [...this.completedPhases];
     child.currentTaskId = task.id;
     child.changedFiles = [...this.changedFiles];
@@ -328,6 +347,13 @@ export class WorkflowContext {
     if (this.changedFiles.length === 0) return false;
     const isMatch = picomatch(patterns);
     return this.changedFiles.some(file => isMatch(file));
+  }
+
+  /**
+   * Replace the entire changed files list.
+   */
+  setChangedFiles(files: string[]): void {
+    this.changedFiles = [...files];
   }
 
   /**
@@ -377,7 +403,7 @@ export class WorkflowContext {
    * Get all template variables for rendering agent prompts.
    */
   getTemplateVars(): Record<string, unknown> {
-    return { ...this.variables };
+    return { ...this.variables, changedFiles: [...this.changedFiles] };
   }
 
   /**

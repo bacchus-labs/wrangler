@@ -676,7 +676,7 @@ describe('WorkflowContext - getTemplateVars()', () => {
     const ctx = new WorkflowContext({ a: 1, b: 'two' });
     ctx.set('c', [3]);
     const vars = ctx.getTemplateVars();
-    expect(vars).toEqual({ a: 1, b: 'two', c: [3] });
+    expect(vars).toEqual({ a: 1, b: 'two', c: [3], changedFiles: [] });
   });
 
   it('returns a copy, not the internal reference', () => {
@@ -688,7 +688,7 @@ describe('WorkflowContext - getTemplateVars()', () => {
 
   it('returns empty object for fresh context', () => {
     const ctx = new WorkflowContext();
-    expect(ctx.getTemplateVars()).toEqual({});
+    expect(ctx.getTemplateVars()).toEqual({ changedFiles: [] });
   });
 });
 
@@ -748,7 +748,7 @@ describe('WorkflowContext - toCheckpoint() and fromCheckpoint()', () => {
 
   it('restores from empty checkpoint data gracefully', () => {
     const restored = WorkflowContext.fromCheckpoint({});
-    expect(restored.getTemplateVars()).toEqual({});
+    expect(restored.getTemplateVars()).toEqual({ changedFiles: [] });
     expect(restored.getCompletedPhases()).toEqual([]);
     expect(restored.getCurrentTaskId()).toBeNull();
     expect(restored.getChangedFiles()).toEqual([]);
@@ -1243,5 +1243,214 @@ describe('validateCondition()', () => {
   it('returns error for double NOT without operand', () => {
     const errors = validateCondition('!!');
     expect(errors.length).toBeGreaterThan(0);
+  });
+});
+
+// ================================================================
+// setSessionContext()
+// ================================================================
+
+describe('WorkflowContext - setSessionContext()', () => {
+  it('populates spec object with title, id, and content', () => {
+    const ctx = new WorkflowContext();
+    ctx.setSessionContext({
+      spec: { id: 'SPEC-047', title: 'Template Layering', content: '## Overview\nLayering support' },
+      worktreePath: '/tmp/worktree',
+      sessionId: 'session-abc',
+      branchName: 'feature/layering',
+    });
+    const spec = ctx.get('spec') as Record<string, string>;
+    expect(spec.id).toBe('SPEC-047');
+    expect(spec.title).toBe('Template Layering');
+    expect(spec.content).toBe('## Overview\nLayering support');
+  });
+
+  it('populates worktreePath as a string', () => {
+    const ctx = new WorkflowContext();
+    ctx.setSessionContext({ worktreePath: '/home/user/worktrees/feat' });
+    expect(ctx.get('worktreePath')).toBe('/home/user/worktrees/feat');
+  });
+
+  it('populates sessionId as a string', () => {
+    const ctx = new WorkflowContext();
+    ctx.setSessionContext({ sessionId: 'sess-123' });
+    expect(ctx.get('sessionId')).toBe('sess-123');
+  });
+
+  it('populates branchName as a string', () => {
+    const ctx = new WorkflowContext();
+    ctx.setSessionContext({ branchName: 'main' });
+    expect(ctx.get('branchName')).toBe('main');
+  });
+
+  it('all session context variables appear in getTemplateVars()', () => {
+    const ctx = new WorkflowContext();
+    ctx.setSessionContext({
+      spec: { id: 'S1', title: 'My Spec', content: 'body' },
+      worktreePath: '/tmp/wt',
+      sessionId: 'sess-x',
+      branchName: 'dev',
+    });
+    const vars = ctx.getTemplateVars();
+    expect(vars.spec).toEqual({ id: 'S1', title: 'My Spec', content: 'body' });
+    expect(vars.worktreePath).toBe('/tmp/wt');
+    expect(vars.sessionId).toBe('sess-x');
+    expect(vars.branchName).toBe('dev');
+  });
+
+  it('partial session context only sets provided fields', () => {
+    const ctx = new WorkflowContext();
+    ctx.setSessionContext({ sessionId: 'partial' });
+    expect(ctx.get('sessionId')).toBe('partial');
+    expect(ctx.get('worktreePath')).toBeUndefined();
+    expect(ctx.get('spec')).toBeUndefined();
+    expect(ctx.get('branchName')).toBeUndefined();
+  });
+
+  it('session context variables are accessible via resolve() dot notation', () => {
+    const ctx = new WorkflowContext();
+    ctx.setSessionContext({
+      spec: { id: 'SPEC-001', title: 'Test', content: 'content here' },
+    });
+    expect(ctx.resolve('spec.title')).toBe('Test');
+    expect(ctx.resolve('spec.id')).toBe('SPEC-001');
+    expect(ctx.resolve('spec.content')).toBe('content here');
+  });
+
+  it('session context survives checkpoint round-trip', () => {
+    const ctx = new WorkflowContext();
+    ctx.setSessionContext({
+      spec: { id: 'S2', title: 'Checkpoint Spec', content: 'body' },
+      worktreePath: '/wt',
+      sessionId: 'sess-cp',
+      branchName: 'cp-branch',
+    });
+    const restored = WorkflowContext.fromCheckpoint(ctx.toCheckpoint());
+    expect(restored.get('spec')).toEqual({ id: 'S2', title: 'Checkpoint Spec', content: 'body' });
+    expect(restored.get('worktreePath')).toBe('/wt');
+    expect(restored.get('sessionId')).toBe('sess-cp');
+    expect(restored.get('branchName')).toBe('cp-branch');
+  });
+});
+
+// ================================================================
+// Per-task context: taskIndex and taskCount
+// ================================================================
+
+describe('WorkflowContext - withTask() taskIndex and taskCount', () => {
+  it('withTask sets task, taskIndex, and taskCount on child context', () => {
+    const ctx = new WorkflowContext();
+    const tasks = [
+      makeTask({ id: 't1', title: 'First' }),
+      makeTask({ id: 't2', title: 'Second' }),
+      makeTask({ id: 't3', title: 'Third' }),
+    ];
+    const child = ctx.withTask(tasks[1], 1, tasks.length);
+    expect(child.get('task')).toEqual(tasks[1]);
+    expect(child.get('taskIndex')).toBe(1);
+    expect(child.get('taskCount')).toBe(3);
+  });
+
+  it('taskIndex and taskCount appear in getTemplateVars()', () => {
+    const ctx = new WorkflowContext();
+    const task = makeTask({ id: 't1', title: 'Only Task' });
+    const child = ctx.withTask(task, 0, 1);
+    const vars = child.getTemplateVars();
+    expect(vars.taskIndex).toBe(0);
+    expect(vars.taskCount).toBe(1);
+    expect(vars.task).toEqual(task);
+  });
+
+  it('taskIndex and taskCount are accessible via resolve()', () => {
+    const ctx = new WorkflowContext();
+    const task = makeTask({ id: 't2', title: 'Task Two' });
+    const child = ctx.withTask(task, 1, 5);
+    expect(child.resolve('taskIndex')).toBe(1);
+    expect(child.resolve('taskCount')).toBe(5);
+    expect(child.resolve('task.title')).toBe('Task Two');
+  });
+});
+
+// ================================================================
+// changedFiles as template variable
+// ================================================================
+
+describe('WorkflowContext - changedFiles in template vars', () => {
+  it('changedFiles appears in getTemplateVars()', () => {
+    const ctx = new WorkflowContext();
+    ctx.addChangedFile('src/auth.ts');
+    ctx.addChangedFile('src/utils.ts');
+    const vars = ctx.getTemplateVars();
+    expect(vars.changedFiles).toEqual(['src/auth.ts', 'src/utils.ts']);
+  });
+
+  it('setChangedFiles replaces the current changed files list', () => {
+    const ctx = new WorkflowContext();
+    ctx.addChangedFile('old-file.ts');
+    ctx.setChangedFiles(['new-a.ts', 'new-b.ts']);
+    expect(ctx.getChangedFiles()).toEqual(['new-a.ts', 'new-b.ts']);
+    expect(ctx.getTemplateVars().changedFiles).toEqual(['new-a.ts', 'new-b.ts']);
+  });
+
+  it('empty changedFiles is an empty array in template vars', () => {
+    const ctx = new WorkflowContext();
+    const vars = ctx.getTemplateVars();
+    expect(vars.changedFiles).toEqual([]);
+  });
+});
+
+// ================================================================
+// Template rendering with built-in context variables
+// ================================================================
+
+describe('WorkflowContext - template rendering integration', () => {
+  // These tests verify that the built-in context variables work
+  // with the renderTemplate function from loader.ts
+  const { renderTemplate } = require('../src/loader.js');
+
+  it('renders {{spec.title}} from session context', () => {
+    const ctx = new WorkflowContext();
+    ctx.setSessionContext({
+      spec: { id: 'SPEC-047', title: 'Template Layering', content: 'body' },
+    });
+    const result = renderTemplate('Working on: {{spec.title}}', ctx.getTemplateVars());
+    expect(result).toBe('Working on: Template Layering');
+  });
+
+  it('renders {{worktreePath}} from session context', () => {
+    const ctx = new WorkflowContext();
+    ctx.setSessionContext({ worktreePath: '/tmp/my-worktree' });
+    const result = renderTemplate('Path: {{worktreePath}}', ctx.getTemplateVars());
+    expect(result).toBe('Path: /tmp/my-worktree');
+  });
+
+  it('renders {{sessionId}} and {{branchName}}', () => {
+    const ctx = new WorkflowContext();
+    ctx.setSessionContext({ sessionId: 'sess-42', branchName: 'feat/thing' });
+    const result = renderTemplate(
+      'Session {{sessionId}} on {{branchName}}',
+      ctx.getTemplateVars()
+    );
+    expect(result).toBe('Session sess-42 on feat/thing');
+  });
+
+  it('renders {{task.title}} in per-task context', () => {
+    const ctx = new WorkflowContext();
+    const task = makeTask({ id: 't1', title: 'Build Auth' });
+    const child = ctx.withTask(task, 0, 3);
+    const result = renderTemplate(
+      'Task {{taskIndex}} of {{taskCount}}: {{task.title}}',
+      child.getTemplateVars()
+    );
+    expect(result).toBe('Task 0 of 3: Build Auth');
+  });
+
+  it('renders {{#each changedFiles}} block', () => {
+    const ctx = new WorkflowContext();
+    ctx.addChangedFile('src/a.ts');
+    ctx.addChangedFile('src/b.ts');
+    const template = 'Files:{{#each changedFiles}} {{this}}{{/each}}';
+    const result = renderTemplate(template, ctx.getTemplateVars());
+    expect(result).toBe('Files: src/a.ts src/b.ts');
   });
 });
