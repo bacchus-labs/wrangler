@@ -123,8 +123,8 @@ Our implementation follows the same pattern but driven by the engine's audit ent
 - **FR-013:** Reporters MUST NOT block workflow execution -- comment update failures MUST be logged but not halt the workflow
 - **FR-014:** Multiple reporters MUST be supported simultaneously (e.g., GitHub comment + future Slack)
 - **FR-015:** Step definitions MUST support an optional `runOn` field for future execution environment selection, defaulting to `'local'`
-- **FR-016:** The `github-pr-comment` reporter MUST maintain a workflow progress tracker in the PR description using HTML comment markers (`<!-- WRANGLER_WORKFLOW_START -->` / `<!-- WRANGLER_WORKFLOW_END -->`)
-- **FR-017:** The PR description tracker MUST update on phase transitions, task completions, and fix loop iterations
+- **FR-016:** ~~DEFERRED~~ PR description tracker (HTML comment markers in PR body) moved to future work. The comment-based reporter provides sufficient visibility; a PR body tracker adds read-modify-write complexity with race condition risks.
+- **FR-017:** ~~DEFERRED~~ See FR-016.
 - **FR-018:** The workflow init phase MUST open a PR up front so the PR number is available to reporters from the start
 
 ### Non-Functional Requirements
@@ -176,27 +176,41 @@ export interface ReporterConfig {
 }
 
 export interface WorkflowReporter {
-  /** Called once when the workflow starts, with the full step tree */
-  initialize(workflow: WorkflowDefinition, context: ReporterContext): Promise<void>;
+  /** Reporter type identifier */
+  readonly type: string;
 
-  /** Called for each audit entry during execution */
-  onAuditEntry(entry: WorkflowAuditEntry, visibility: StepVisibility): Promise<void>;
+  /** Called once when the workflow starts, with context including step visibility */
+  initialize(context: ReporterContext): Promise<void>;
+
+  /**
+   * Called for each non-silent audit entry during execution.
+   * NOTE: The ReporterManager filters out silent entries before calling this --
+   * reporters never see silent steps. This keeps visibility logic centralized
+   * in the manager rather than duplicated across reporter implementations.
+   */
+  onAuditEntry(entry: WorkflowAuditEntry): Promise<void>;
 
   /** Called when workflow completes successfully */
   onComplete(summary: ExecutionSummary): Promise<void>;
 
   /** Called when workflow fails or pauses */
-  onError(error: Error, lastEntry?: WorkflowAuditEntry): Promise<void>;
+  onError(error: Error): Promise<void>;
 
   /** Cleanup (flush pending updates, etc.) */
   dispose(): Promise<void>;
 }
+
+export type ReporterFactory = (config: Record<string, unknown>) => WorkflowReporter;
 
 export interface ReporterContext {
   sessionId: string;
   specFile: string;
   branchName: string;
   worktreePath: string;
+  prNumber?: number;
+  prUrl?: string;
+  /** Pre-computed step visibility from the workflow definition */
+  steps: Array<{ name: string; visibility: StepVisibility }>;
 }
 ```
 
@@ -208,9 +222,10 @@ Manages the lifecycle of all reporters for a workflow run:
 
 - Instantiates reporters from workflow YAML config
 - Resolves `reportAs` visibility for each step (walking the step tree to build a step-name -> visibility map)
-- Fans out audit entries to all reporters with the correct visibility
-- Debounces rapid-fire entries (configurable, default 2s)
+- Filters out `silent` entries before fanning out to reporters (reporters never see silent steps)
+- Fans out audit entries to all active reporters
 - Catches and logs reporter errors without blocking the workflow
+- NOTE: Debouncing is owned by individual reporters, not the manager. The manager fans out every entry immediately; each reporter decides its own update cadence.
 - Calls `onComplete`/`onError` on all reporters when the workflow finishes
 
 ```typescript
@@ -219,15 +234,16 @@ export class ReporterManager {
   private visibilityMap: Map<string, StepVisibility>;
 
   constructor(
-    reporterConfigs: ReporterConfig[],
     workflow: WorkflowDefinition,
     registry: ReporterRegistry
   ) { ... }
 
-  async initialize(context: ReporterContext): Promise<void> { ... }
+  async initializeReporters(opts: ReporterManagerInitOptions): Promise<void> { ... }
+
+  /** Filters silent entries, then fans out to all reporters */
   async onAuditEntry(entry: WorkflowAuditEntry): Promise<void> { ... }
   async onComplete(summary: ExecutionSummary): Promise<void> { ... }
-  async onError(error: Error, lastEntry?: WorkflowAuditEntry): Promise<void> { ... }
+  async onError(error: Error): Promise<void> { ... }
   async dispose(): Promise<void> { ... }
 }
 ```
@@ -912,50 +928,11 @@ For a workflow running spec-implementation with GitHub dispatch, the PR comment 
 
 This gives the user a complete, readable audit trail right on the PR. Every step is visible, every agent response is captured, and the progress comment at top provides the summary view.
 
-### PR Description Workflow Tracker
+### PR Description Workflow Tracker (Future Work)
 
-In addition to the comment-based audit trail, the `github-pr-comment` reporter SHOULD maintain a **workflow progress tracker in the PR description itself**. This gives an at-a-glance view of workflow status directly in the PR summary, without scrolling through comments.
+> **DEFERRED:** This feature was descoped from the initial implementation. The PR comment-based reporter provides sufficient visibility for workflow progress. The PR description tracker would add value for at-a-glance status without scrolling through comments, but introduces read-modify-write complexity and race condition risks (GitHub REST API has no atomic update for PR bodies). See FR-016/FR-017.
 
-**Mechanism:** The reporter uses the GitHub REST API (`PATCH /repos/{owner}/{repo}/pulls/{pr}`) to update the PR body. It uses HTML comment markers to find and replace just the tracker section without touching the user's PR description:
-
-```markdown
-<!-- User's original PR description above -->
-
----
-<!-- WRANGLER_WORKFLOW_START:wf-2026-02-16-abc123 -->
-## Workflow Progress
-
-- [x] analyze -- 1m 13s
-- [x] plan -- 4m 21s
-- [ ] execute (3/8 tasks) ![spinner](...)
-  - [x] task-001: implement -> review -> fix (4m 32s)
-  - [x] task-002: implement -> review (3m 10s)
-  - [x] task-003: implement -> review (2m 48s)
-  - [ ] task-004: implement (in progress)
-  - [ ] task-005
-  - [ ] task-006
-  - [ ] task-007
-  - [ ] task-008
-- [ ] verify
-- [ ] publish
-<!-- WRANGLER_WORKFLOW_END -->
-```
-
-**Update logic:**
-1. Read current PR body via `GET /repos/{owner}/{repo}/pulls/{pr}`
-2. If `WRANGLER_WORKFLOW_START` marker exists, replace content between markers
-3. If marker doesn't exist, append tracker section at the end with `---` separator
-4. Write back via `PATCH` with updated body
-
-**Update triggers:** The reporter updates the PR description on "update-worthy" events:
-- Phase started/completed
-- Task implementation completed (checkbox checked)
-- Fix loop iteration (update a counter, e.g., "fix loop: attempt 2/3")
-- Workflow completed/failed/paused
-
-**PR body character limit:** 65,536 characters. A workflow tracker with dozens of steps is well within this.
-
-**Race condition note:** The read-modify-write pattern has no atomic guarantee. If the user edits the PR description while the reporter is updating, one write may clobber the other. This is a known GitHub API limitation (no ETag/If-Match support for PR bodies). In practice, this is unlikely -- the user is watching the workflow run, not editing the PR description simultaneously. The marker-based approach ensures the tracker section is isolated from user content.
+If implemented in the future, the reporter would use HTML comment markers (`<!-- WRANGLER_WORKFLOW_START -->` / `<!-- WRANGLER_WORKFLOW_END -->`) to maintain a progress section in the PR body via `PATCH /repos/{owner}/{repo}/pulls/{pr}`, updating on phase transitions and task completions.
 
 ### Backward Compatibility
 
@@ -1055,11 +1032,14 @@ All reporter operations are wrapped in try/catch. Errors are logged but never pr
 
 ```typescript
 async onAuditEntry(entry: WorkflowAuditEntry): Promise<void> {
+  const visibility = this.visibilityMap.get(entry.step) ?? 'visible';
+  if (visibility === 'silent') return; // Filter before fan-out
+
   for (const reporter of this.reporters) {
     try {
-      await reporter.onAuditEntry(entry, visibility);
+      await reporter.onAuditEntry(entry);
     } catch (err) {
-      console.error(`Reporter error (${reporter.constructor.name}):`, err);
+      console.warn(`[ReporterManager] Reporter "${reporter.type}" error in onAuditEntry: ${err.message}`);
     }
   }
 }
@@ -1126,7 +1106,7 @@ If reporter config is missing required fields (e.g., no token), the reporter log
 - [ ] Debouncing prevents API rate limit issues
 - [ ] Tests cover reporter interface, manager, and GitHub reporter
 - [ ] `runOn` field is accepted in schema validation (even if GitHub executor is not yet implemented)
-- [ ] PR description tracker updates on phase/task completions using HTML comment markers
+- [ ] ~~PR description tracker~~ (DEFERRED -- see FR-016/FR-017)
 - [ ] PR is created during workflow init phase, PR number captured in session context
 - [ ] Parallel review steps dispatch as separate GitHub Actions jobs (not serialized `@claude` comments)
 - [ ] Existing workflows without `reporters` or `runOn` continue to work unchanged
