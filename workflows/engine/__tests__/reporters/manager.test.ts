@@ -449,6 +449,159 @@ describe('ReporterManager', () => {
     });
   });
 
+  describe('config template resolution', () => {
+    it('resolves {{env.VAR}} from process.env', async () => {
+      process.env.TEST_REPORTER_TOKEN = 'secret-token-123';
+
+      let capturedConfig: Record<string, unknown> = {};
+      const captureRegistry = new ReporterRegistry();
+      captureRegistry.register('capture', (config) => {
+        capturedConfig = config;
+        return createMockReporter('capture');
+      });
+
+      const workflow = makeWorkflow([makeStep('s')], [
+        { type: 'capture', config: { token: '{{env.TEST_REPORTER_TOKEN}}' } },
+      ]);
+
+      const manager = new ReporterManager(workflow, captureRegistry);
+      await manager.initializeReporters({
+        sessionId: 's', specFile: 'f', branchName: 'b', worktreePath: '/w',
+      });
+
+      expect(capturedConfig.token).toBe('secret-token-123');
+      delete process.env.TEST_REPORTER_TOKEN;
+    });
+
+    it('resolves {{context.prNumber}} from init options', async () => {
+      let capturedConfig: Record<string, unknown> = {};
+      const captureRegistry = new ReporterRegistry();
+      captureRegistry.register('capture', (config) => {
+        capturedConfig = config;
+        return createMockReporter('capture');
+      });
+
+      const workflow = makeWorkflow([makeStep('s')], [
+        { type: 'capture', config: { prNumber: '{{context.prNumber}}' } },
+      ]);
+
+      const manager = new ReporterManager(workflow, captureRegistry);
+      await manager.initializeReporters({
+        sessionId: 's', specFile: 'f', branchName: 'b', worktreePath: '/w', prNumber: 42,
+      });
+
+      expect(capturedConfig.prNumber).toBe(42);
+    });
+
+    it('resolves {{context.sessionId}} and {{context.branchName}} from init options', async () => {
+      let capturedConfig: Record<string, unknown> = {};
+      const captureRegistry = new ReporterRegistry();
+      captureRegistry.register('capture', (config) => {
+        capturedConfig = config;
+        return createMockReporter('capture');
+      });
+
+      const workflow = makeWorkflow([makeStep('s')], [
+        { type: 'capture', config: { sid: '{{context.sessionId}}', branch: '{{context.branchName}}' } },
+      ]);
+
+      const manager = new ReporterManager(workflow, captureRegistry);
+      await manager.initializeReporters({
+        sessionId: 'sess-abc', specFile: 'spec.md', branchName: 'feat/cool', worktreePath: '/tmp/wt',
+      });
+
+      expect(capturedConfig.sid).toBe('sess-abc');
+      expect(capturedConfig.branch).toBe('feat/cool');
+    });
+
+    it('coerces resolved integer strings to numbers', async () => {
+      process.env.TEST_PR_NUM = '99';
+
+      let capturedConfig: Record<string, unknown> = {};
+      const captureRegistry = new ReporterRegistry();
+      captureRegistry.register('capture', (config) => {
+        capturedConfig = config;
+        return createMockReporter('capture');
+      });
+
+      const workflow = makeWorkflow([makeStep('s')], [
+        { type: 'capture', config: { pr: '{{env.TEST_PR_NUM}}' } },
+      ]);
+
+      const manager = new ReporterManager(workflow, captureRegistry);
+      await manager.initializeReporters({
+        sessionId: 's', specFile: 'f', branchName: 'b', worktreePath: '/w',
+      });
+
+      expect(capturedConfig.pr).toBe(99);
+      expect(typeof capturedConfig.pr).toBe('number');
+      delete process.env.TEST_PR_NUM;
+    });
+
+    it('replaces unresolved templates with empty string', async () => {
+      let capturedConfig: Record<string, unknown> = {};
+      const captureRegistry = new ReporterRegistry();
+      captureRegistry.register('capture', (config) => {
+        capturedConfig = config;
+        return createMockReporter('capture');
+      });
+
+      const workflow = makeWorkflow([makeStep('s')], [
+        { type: 'capture', config: { token: '{{env.NONEXISTENT_VAR_XYZ}}' } },
+      ]);
+
+      const manager = new ReporterManager(workflow, captureRegistry);
+      await manager.initializeReporters({
+        sessionId: 's', specFile: 'f', branchName: 'b', worktreePath: '/w',
+      });
+
+      expect(capturedConfig.token).toBe('');
+    });
+
+    it('passes non-string config values through unchanged', async () => {
+      let capturedConfig: Record<string, unknown> = {};
+      const captureRegistry = new ReporterRegistry();
+      captureRegistry.register('capture', (config) => {
+        capturedConfig = config;
+        return createMockReporter('capture');
+      });
+
+      const workflow = makeWorkflow([makeStep('s')], [
+        { type: 'capture', config: { retries: 3, enabled: true, tags: ['a', 'b'] } },
+      ]);
+
+      const manager = new ReporterManager(workflow, captureRegistry);
+      await manager.initializeReporters({
+        sessionId: 's', specFile: 'f', branchName: 'b', worktreePath: '/w',
+      });
+
+      expect(capturedConfig.retries).toBe(3);
+      expect(capturedConfig.enabled).toBe(true);
+      expect(capturedConfig.tags).toEqual(['a', 'b']);
+    });
+
+    it('passes config with no templates through unchanged', async () => {
+      let capturedConfig: Record<string, unknown> = {};
+      const captureRegistry = new ReporterRegistry();
+      captureRegistry.register('capture', (config) => {
+        capturedConfig = config;
+        return createMockReporter('capture');
+      });
+
+      const workflow = makeWorkflow([makeStep('s')], [
+        { type: 'capture', config: { token: 'literal-value', count: 5 } },
+      ]);
+
+      const manager = new ReporterManager(workflow, captureRegistry);
+      await manager.initializeReporters({
+        sessionId: 's', specFile: 'f', branchName: 'b', worktreePath: '/w',
+      });
+
+      expect(capturedConfig.token).toBe('literal-value');
+      expect(capturedConfig.count).toBe(5);
+    });
+  });
+
   describe('reporter context includes step visibility', () => {
     it('passes step visibility array to initialize', async () => {
       const workflow = makeWorkflow(

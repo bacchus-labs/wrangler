@@ -59,7 +59,8 @@ export class ReporterManager {
 
       let reporter: WorkflowReporter;
       try {
-        reporter = this.registry.create(rc.type, rc.config ?? {});
+        const resolvedConfig = this.resolveReporterConfig(rc.config ?? {}, opts);
+        reporter = this.registry.create(rc.type, resolvedConfig);
       } catch (err) {
         console.warn(`[ReporterManager] Failed to create reporter "${rc.type}": ${(err as Error).message}`);
         continue;
@@ -165,6 +166,52 @@ export class ReporterManager {
       }
     }
     return [];
+  }
+
+  /**
+   * Resolve template variables in reporter config.
+   * Supports {{env.VAR}} (from process.env) and {{context.KEY}} (from init options).
+   * Only resolves top-level string values. After resolution, attempts numeric
+   * coercion for strings that represent integers.
+   */
+  private resolveReporterConfig(
+    config: Record<string, unknown>,
+    opts: ReporterManagerInitOptions,
+  ): Record<string, unknown> {
+    const contextMap: Record<string, string | undefined> = {
+      sessionId: opts.sessionId,
+      specFile: opts.specFile,
+      branchName: opts.branchName,
+      worktreePath: opts.worktreePath,
+      prNumber: opts.prNumber != null ? String(opts.prNumber) : undefined,
+      prUrl: opts.prUrl,
+    };
+
+    const resolved: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(config)) {
+      if (typeof value !== 'string') {
+        resolved[key] = value;
+        continue;
+      }
+
+      const replaced = value.replace(/\{\{(env|context)\.([^}]+)\}\}/g, (_match, source: string, varName: string) => {
+        if (source === 'env') {
+          return process.env[varName] ?? '';
+        }
+        if (source === 'context') {
+          return contextMap[varName] ?? '';
+        }
+        return '';
+      });
+
+      // Attempt numeric coercion for pure integer strings
+      if (/^\d+$/.test(replaced)) {
+        resolved[key] = Number(replaced);
+      } else {
+        resolved[key] = replaced;
+      }
+    }
+    return resolved;
   }
 
   private buildStepVisibilityArray(): Array<{ name: string; visibility: StepVisibility }> {
