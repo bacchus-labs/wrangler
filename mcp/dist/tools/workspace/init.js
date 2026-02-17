@@ -8,70 +8,74 @@
  * (FR-001), supports report-only mode (FR-009) and apply mode (FR-010),
  * works on both fresh and existing projects (FR-013).
  */
-import * as path from 'path';
-import * as fs from 'fs';
-import { fileURLToPath } from 'url';
-import { z } from 'zod';
-import { createSuccessResponse, createErrorResponse, MCPErrorCode, } from '../../types/errors.js';
-import { getDefaultSchema } from '../../workspace-schema.js';
+import * as fs from "fs";
+import * as path from "path";
+import { z } from "zod";
+import { createErrorResponse, createSuccessResponse, MCPErrorCode, } from "../../types/errors.js";
+import { getDefaultSchema } from "../../workspace-schema.js";
 // ─── Input Schema ────────────────────────────────────────────────────
 export const initWorkspaceSchema = z.object({
     fix: z
         .boolean()
         .default(false)
-        .describe('When false (default), report what would be created without making changes. When true, apply all changes.'),
+        .describe("When false (default), report what would be created without making changes. When true, apply all changes."),
     projectRoot: z
         .string()
         .optional()
-        .describe('Project root directory. Defaults to git root or cwd.'),
+        .describe("Project root directory. Defaults to git root or cwd."),
     pluginRoot: z
         .string()
         .optional()
-        .describe('Plugin root directory containing workspace-schema.json and builtin assets.'),
+        .describe("Plugin root directory containing workspace-schema.json and builtin assets."),
 });
 // ─── Path Resolution ─────────────────────────────────────────────────
 /** System directories that must never be used as a workspace root. */
 const BLOCKED_SYSTEM_DIRS = new Set([
-    '/',
-    '/etc',
-    '/usr',
-    '/bin',
-    '/sbin',
-    '/lib',
-    '/lib64',
-    '/var',
-    '/proc',
-    '/sys',
-    '/dev',
-    '/boot',
-    '/tmp',
-    '/root',
-    '/home',
+    "/",
+    "/etc",
+    "/usr",
+    "/bin",
+    "/sbin",
+    "/lib",
+    "/lib64",
+    "/var",
+    "/proc",
+    "/sys",
+    "/dev",
+    "/boot",
+    "/tmp",
+    "/root",
+    "/home",
 ]);
 /**
  * Guard against obviously dangerous paths being used as workspace roots.
  * Throws if the resolved path is a well-known system directory.
  */
 function assertNotSystemDirectory(resolvedPath, label) {
-    const normalized = resolvedPath.replace(/\/$/, '') || '/';
+    const normalized = resolvedPath.replace(/\/$/, "") || "/";
     if (BLOCKED_SYSTEM_DIRS.has(normalized)) {
         throw new Error(`${label} resolved to a system directory (${resolvedPath}). ` +
-            'Refusing to initialize workspace in a system directory.');
+            "Refusing to initialize workspace in a system directory.");
     }
 }
 /**
  * Resolve the plugin root directory.
  * Uses the provided path or walks up from the module location.
+ *
+ * Issue #4: Uses __dirname which works in both CJS (ts-jest) and esbuild-bundled contexts
+ *   when bundling to bundle.cjs, so this works in both ESM and CJS output.
+ * Issue #1: Validates the resolved path is not a system directory.
  */
 export function resolvePluginRoot(explicitPath) {
     if (explicitPath) {
         const resolved = path.resolve(explicitPath);
-        assertNotSystemDirectory(resolved, 'pluginRoot');
+        assertNotSystemDirectory(resolved, "pluginRoot");
         return resolved;
     }
     // Walk up from this file's location to find the plugin root.
     // This file is at: mcp/tools/workspace/init.ts → plugin root is 3 levels up.
-    const thisDir = path.dirname(fileURLToPath(import.meta.url));
+    // __dirname works in both CJS (ts-jest) and esbuild-bundled contexts.
+    const thisDir = __dirname;
     let dir = thisDir;
     for (let i = 0; i < 3; i++) {
         dir = path.dirname(dir);
@@ -81,11 +85,13 @@ export function resolvePluginRoot(explicitPath) {
 /**
  * Resolve the project root directory.
  * Uses the provided path or attempts to find git root, falling back to cwd.
+ *
+ * Issue #1: Validates the resolved path is not a system directory.
  */
 export function resolveProjectRoot(explicitPath) {
     if (explicitPath) {
         const resolved = path.resolve(explicitPath);
-        assertNotSystemDirectory(resolved, 'projectRoot');
+        assertNotSystemDirectory(resolved, "projectRoot");
         return resolved;
     }
     return path.resolve(process.cwd());
@@ -96,10 +102,10 @@ export function resolveProjectRoot(explicitPath) {
  * Falls back to the default schema if the file is not found or invalid.
  */
 function loadSchemaFromPlugin(pluginRoot) {
-    const schemaPath = path.join(pluginRoot, '.wrangler', 'config', 'workspace-schema.json');
+    const schemaPath = path.join(pluginRoot, ".wrangler", "config", "workspace-schema.json");
     try {
         if (fs.existsSync(schemaPath)) {
-            const content = fs.readFileSync(schemaPath, 'utf-8');
+            const content = fs.readFileSync(schemaPath, "utf-8");
             return JSON.parse(content);
         }
     }
@@ -166,9 +172,9 @@ function applyDirectories(plan, projectRoot) {
     }
     // FR-003: Create .gitkeep files in git-tracked directories
     for (const dirPath of plan.gitkeepDirs) {
-        const gitkeepPath = path.join(projectRoot, dirPath, '.gitkeep');
+        const gitkeepPath = path.join(projectRoot, dirPath, ".gitkeep");
         if (!fs.existsSync(gitkeepPath)) {
-            fs.writeFileSync(gitkeepPath, '');
+            fs.writeFileSync(gitkeepPath, "");
         }
     }
 }
@@ -176,18 +182,26 @@ function applyDirectories(plan, projectRoot) {
 /**
  * Plan file copies from a source directory to a destination directory.
  *
- * Replaces the near-duplicate planAssets / planWorkflows pair with a single
- * function parameterized by file extensions.
+ * Issue #5/#6: Replaces the near-duplicate planAssets / planWorkflows pair with a
+ *   single function parameterized by file extensions.  The _kind parameter has
+ *   been removed; callers pass sourceSubdir and destSubdir directly.
  */
 function planFileCopy(pluginRoot, projectRoot, sourceSubdir, destSubdir, extensions) {
     const sourceDir = path.join(pluginRoot, sourceSubdir);
     const destDir = path.join(projectRoot, destSubdir);
-    const result = { copied: [], skipped: [], sourceDir, destDir };
+    const result = {
+        copied: [],
+        skipped: [],
+        sourceDir,
+        destDir,
+    };
     if (!fs.existsSync(sourceDir)) {
         return result;
     }
     try {
-        const files = fs.readdirSync(sourceDir).filter(f => extensions.some(ext => f.endsWith(ext)));
+        const files = fs
+            .readdirSync(sourceDir)
+            .filter((f) => extensions.some((ext) => f.endsWith(ext)));
         for (const file of files) {
             const destFile = path.join(destDir, file);
             if (fs.existsSync(destFile)) {
@@ -206,11 +220,16 @@ function planFileCopy(pluginRoot, projectRoot, sourceSubdir, destSubdir, extensi
 /**
  * Apply asset copies to disk.
  *
- * Uses sourceDir/destDir threaded from the plan phase instead of
- * re-deriving hardcoded paths.
+ * Issue #7: Uses sourceDir/destDir threaded from the plan phase instead of
+ *   re-deriving hardcoded paths, so applyAssets always stays in sync with
+ *   the plan regardless of future schema changes.
  */
 function applyAssets(assetsPlan) {
-    for (const kind of [assetsPlan.agents, assetsPlan.prompts, assetsPlan.workflows]) {
+    for (const kind of [
+        assetsPlan.agents,
+        assetsPlan.prompts,
+        assetsPlan.workflows,
+    ]) {
         if (kind.copied.length > 0) {
             fs.mkdirSync(kind.destDir, { recursive: true });
             for (const file of kind.copied) {
@@ -229,7 +248,7 @@ export function parseGitignorePatterns(content) {
     const lines = content.split(/\r?\n/);
     for (const line of lines) {
         const trimmed = line.trim();
-        if (trimmed.length === 0 || trimmed.startsWith('#')) {
+        if (trimmed.length === 0 || trimmed.startsWith("#")) {
             continue;
         }
         patterns.add(trimmed);
@@ -244,13 +263,17 @@ export function parseGitignorePatterns(content) {
  * FR-012: Only appends missing patterns; never duplicates existing ones.
  */
 function planGitignore(schema, projectRoot) {
-    const gitignorePath = path.join(projectRoot, '.wrangler', '.gitignore');
-    const requiredPatterns = schema.gitignorePatterns || ['cache/', 'logs/', 'sessions/'];
+    const gitignorePath = path.join(projectRoot, ".wrangler", ".gitignore");
+    const requiredPatterns = schema.gitignorePatterns || [
+        "cache/",
+        "logs/",
+        "sessions/",
+    ];
     const patternsAdded = [];
     const existing = [];
     let existingPatterns = new Set();
     if (fs.existsSync(gitignorePath)) {
-        const currentContent = fs.readFileSync(gitignorePath, 'utf-8');
+        const currentContent = fs.readFileSync(gitignorePath, "utf-8");
         existingPatterns = parseGitignorePatterns(currentContent);
     }
     for (const pattern of requiredPatterns) {
@@ -267,23 +290,27 @@ function planGitignore(schema, projectRoot) {
  * Apply .gitignore changes to disk.
  */
 function applyGitignore(plan, projectRoot, _schema) {
-    const gitignorePath = path.join(projectRoot, '.wrangler', '.gitignore');
+    const gitignorePath = path.join(projectRoot, ".wrangler", ".gitignore");
     // Ensure directory exists
-    fs.mkdirSync(path.join(projectRoot, '.wrangler'), { recursive: true });
-    // Early-exit whenever there's nothing to add, regardless of whether the file exists.
+    fs.mkdirSync(path.join(projectRoot, ".wrangler"), { recursive: true });
+    // Issue #3: Early-exit whenever there's nothing to add, regardless of whether the
+    // file exists.  The previous condition (patternsAdded.length === 0 && file exists)
+    // accidentally fell through and wrote an empty file when patternsAdded was empty
+    // but the file did not yet exist.
     if (plan.patternsAdded.length === 0) {
         return;
     }
-    let content = '';
+    let content = "";
     if (fs.existsSync(gitignorePath)) {
-        content = fs.readFileSync(gitignorePath, 'utf-8');
+        content = fs.readFileSync(gitignorePath, "utf-8");
     }
     // Add a header if the file is empty/new, otherwise ensure a trailing newline separator.
     if (content.length === 0) {
-        content = '# Wrangler gitignore - generated from workspace-schema.json\n\n# Runtime data (don\'t commit)\n';
+        content =
+            "# Wrangler gitignore - generated from workspace-schema.json\n\n# Runtime data (don't commit)\n";
     }
-    else if (!content.endsWith('\n')) {
-        content += '\n';
+    else if (!content.endsWith("\n")) {
+        content += "\n";
     }
     for (const pattern of plan.patternsAdded) {
         content += `${pattern}\n`;
@@ -297,12 +324,16 @@ function applyGitignore(plan, projectRoot, _schema) {
 export function parseSemver(version) {
     if (!version)
         return [0, 0, 0];
-    // Strip optional leading 'v' so both '1.2.3' and 'v1.2.3' are accepted.
-    const normalized = version.replace(/^v/, '');
+    // Issue #8: Strip optional leading 'v' so both '1.2.3' and 'v1.2.3' are accepted.
+    const normalized = version.replace(/^v/, "");
     const match = normalized.match(/^(\d+)\.(\d+)\.(\d+)/);
     if (!match)
         return [0, 0, 0];
-    return [parseInt(match[1], 10), parseInt(match[2], 10), parseInt(match[3], 10)];
+    return [
+        parseInt(match[1], 10),
+        parseInt(match[2], 10),
+        parseInt(match[3], 10),
+    ];
 }
 /**
  * Compare two semver versions.
@@ -325,8 +356,8 @@ export function compareSemver(a, b) {
  * FR-012: Checks for existing files to avoid overwriting
  */
 function planConfig(pluginRoot, projectRoot) {
-    const destSchemaPath = path.join(projectRoot, '.wrangler', 'config', 'workspace-schema.json');
-    const destWranglerConfigPath = path.join(projectRoot, '.wrangler', 'config', 'wrangler.json');
+    const destSchemaPath = path.join(projectRoot, ".wrangler", "config", "workspace-schema.json");
+    const destWranglerConfigPath = path.join(projectRoot, ".wrangler", "config", "wrangler.json");
     const schemaExists = fs.existsSync(destSchemaPath);
     const wranglerConfigExists = fs.existsSync(destWranglerConfigPath);
     // FR-011: Determine if schema needs to be copied or updated
@@ -338,10 +369,10 @@ function planConfig(pluginRoot, projectRoot) {
     else {
         // Schema exists - check if plugin version is newer
         try {
-            const pluginSchemaPath = path.join(pluginRoot, '.wrangler', 'config', 'workspace-schema.json');
+            const pluginSchemaPath = path.join(pluginRoot, ".wrangler", "config", "workspace-schema.json");
             if (fs.existsSync(pluginSchemaPath)) {
-                const destContent = JSON.parse(fs.readFileSync(destSchemaPath, 'utf-8'));
-                const pluginContent = JSON.parse(fs.readFileSync(pluginSchemaPath, 'utf-8'));
+                const destContent = JSON.parse(fs.readFileSync(destSchemaPath, "utf-8"));
+                const pluginContent = JSON.parse(fs.readFileSync(pluginSchemaPath, "utf-8"));
                 if (compareSemver(pluginContent.version, destContent.version) > 0) {
                     schemaUpdated = true;
                 }
@@ -364,14 +395,14 @@ function planConfig(pluginRoot, projectRoot) {
  * FR-012: Only creates files that don't already exist
  */
 function applyConfig(plan, pluginRoot, projectRoot, schema) {
-    const destConfigDir = path.join(projectRoot, '.wrangler', 'config');
+    const destConfigDir = path.join(projectRoot, ".wrangler", "config");
     if (plan.schemaUpdated || plan.wranglerConfigCreated) {
         fs.mkdirSync(destConfigDir, { recursive: true });
     }
     // Copy workspace-schema.json if needed
     if (plan.schemaUpdated) {
-        const srcSchemaPath = path.join(pluginRoot, '.wrangler', 'config', 'workspace-schema.json');
-        const destSchemaPath = path.join(destConfigDir, 'workspace-schema.json');
+        const srcSchemaPath = path.join(pluginRoot, ".wrangler", "config", "workspace-schema.json");
+        const destSchemaPath = path.join(destConfigDir, "workspace-schema.json");
         if (fs.existsSync(srcSchemaPath)) {
             fs.copyFileSync(srcSchemaPath, destSchemaPath);
         }
@@ -383,16 +414,16 @@ function applyConfig(plan, pluginRoot, projectRoot, schema) {
     }
     // FR-007: Generate wrangler.json with default configuration
     if (plan.wranglerConfigCreated) {
-        const destWranglerConfigPath = path.join(destConfigDir, 'wrangler.json');
+        const destWranglerConfigPath = path.join(destConfigDir, "wrangler.json");
         // Build directory map from schema
         const directories = {};
         for (const [key, dir] of Object.entries(schema.directories)) {
             directories[key] = dir.path;
         }
         const wranglerConfig = {
-            version: schema.version || '1.0.0',
+            version: schema.version || "1.0.0",
             workspace: {
-                root: schema.workspace?.root || '.wrangler',
+                root: schema.workspace?.root || ".wrangler",
                 directories,
             },
         };
@@ -406,6 +437,8 @@ function applyConfig(plan, pluginRoot, projectRoot, schema) {
  * In report-only mode (fix: false), returns what would be created.
  * In apply mode (fix: true), creates directories, copies assets, and manages config.
  */
+// Issue #2: Return type uses MCPResponse<InitWorkspaceResult> (union of success + error)
+// so the error path no longer needs an `as any` cast.
 export async function initWorkspaceTool(params) {
     try {
         const fix = params.fix ?? false;
@@ -415,9 +448,10 @@ export async function initWorkspaceTool(params) {
         const schema = loadSchemaFromPlugin(pluginRoot);
         // Plan all operations
         const dirPlan = planDirectories(schema, projectRoot);
-        const agentsPlan = planFileCopy(pluginRoot, projectRoot, 'workflows/agents', '.wrangler/orchestration/agents', ['.md']);
-        const promptsPlan = planFileCopy(pluginRoot, projectRoot, 'workflows/prompts', '.wrangler/orchestration/prompts', ['.md']);
-        const workflowsPlan = planFileCopy(pluginRoot, projectRoot, 'workflows', '.wrangler/orchestration/workflows', ['.yaml', '.yml']);
+        // Issue #5/#6: Use unified planFileCopy in place of separate planAssets/planWorkflows.
+        const agentsPlan = planFileCopy(pluginRoot, projectRoot, "workflows/agents", ".wrangler/orchestration/agents", [".md"]);
+        const promptsPlan = planFileCopy(pluginRoot, projectRoot, "workflows/prompts", ".wrangler/orchestration/prompts", [".md"]);
+        const workflowsPlan = planFileCopy(pluginRoot, projectRoot, "workflows", ".wrangler/orchestration/workflows", [".yaml", ".yml"]);
         const gitignorePlan = planGitignore(schema, projectRoot);
         const configPlan = planConfig(pluginRoot, projectRoot);
         // Determine status
@@ -430,18 +464,24 @@ export async function initWorkspaceTool(params) {
             configPlan.wranglerConfigCreated;
         let status;
         if (!hasChanges) {
-            status = 'compliant';
+            status = "compliant";
         }
         else if (fix) {
-            status = 'initialized';
+            status = "initialized";
         }
         else {
-            status = 'changes_needed';
+            status = "changes_needed";
         }
         // FR-010: Apply changes if fix mode is enabled
+        // Issue #7: Pass plan objects (with sourceDir/destDir) directly so applyAssets
+        // doesn't need to re-derive paths independently from the schema.
         if (fix && hasChanges) {
             applyDirectories(dirPlan, projectRoot);
-            applyAssets({ agents: agentsPlan, prompts: promptsPlan, workflows: workflowsPlan });
+            applyAssets({
+                agents: agentsPlan,
+                prompts: promptsPlan,
+                workflows: workflowsPlan,
+            });
             applyGitignore(gitignorePlan, projectRoot, schema);
             applyConfig(configPlan, pluginRoot, projectRoot, schema);
         }
@@ -455,17 +495,20 @@ export async function initWorkspaceTool(params) {
             assets: {
                 agents: { copied: agentsPlan.copied, skipped: agentsPlan.skipped },
                 prompts: { copied: promptsPlan.copied, skipped: promptsPlan.skipped },
-                workflows: { copied: workflowsPlan.copied, skipped: workflowsPlan.skipped },
+                workflows: {
+                    copied: workflowsPlan.copied,
+                    skipped: workflowsPlan.skipped,
+                },
             },
             config: configPlan,
             gitignore: gitignorePlan,
         };
         // Build human-readable text
         const textParts = [];
-        if (status === 'compliant') {
-            textParts.push('Workspace is fully compliant. No changes needed.');
+        if (status === "compliant") {
+            textParts.push("Workspace is fully compliant. No changes needed.");
         }
-        else if (status === 'initialized') {
+        else if (status === "initialized") {
             textParts.push(`Workspace initialized at ${projectRoot}`);
             if (dirPlan.created.length > 0) {
                 textParts.push(`Directories created: ${dirPlan.created.length}`);
@@ -478,9 +521,9 @@ export async function initWorkspaceTool(params) {
             }
         }
         else {
-            textParts.push('Workspace changes needed (run with fix: true to apply):');
+            textParts.push("Workspace changes needed (run with fix: true to apply):");
             if (dirPlan.created.length > 0) {
-                textParts.push(`  Directories to create: ${dirPlan.created.join(', ')}`);
+                textParts.push(`  Directories to create: ${dirPlan.created.join(", ")}`);
             }
             const totalAssets = agentsPlan.copied.length +
                 promptsPlan.copied.length +
@@ -489,11 +532,11 @@ export async function initWorkspaceTool(params) {
                 textParts.push(`  Assets to provision: ${totalAssets}`);
             }
         }
-        return createSuccessResponse(textParts.join('\n'), result);
+        return createSuccessResponse(textParts.join("\n"), result);
     }
     catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown error';
-        // No `as any` cast needed - error response is a valid MCPResponse.
+        const message = error instanceof Error ? error.message : "Unknown error";
+        // Issue #2: No `as any` cast needed - error response is a valid MCPResponse.
         return createErrorResponse(MCPErrorCode.TOOL_EXECUTION_ERROR, `Failed to initialize workspace: ${message}`);
     }
 }

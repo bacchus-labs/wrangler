@@ -24,6 +24,7 @@ import { issuesAllCompleteSchema, issuesAllCompleteTool } from './tools/issues/a
 import { markCompleteSchema, markCompleteIssueTool } from './tools/issues/mark-complete.js';
 import { sessionStartSchema, sessionStartTool, sessionPhaseSchema, sessionPhaseTool, sessionCheckpointSchema, sessionCheckpointTool, sessionCompleteSchema, sessionCompleteTool, sessionGetSchema, sessionGetTool, sessionStatusSchema, sessionStatusTool, } from './tools/session/index.js';
 import { SessionStorageProvider } from './providers/session-storage.js';
+import { initWorkspaceSchema, initWorkspaceTool, } from './tools/workspace/index.js';
 export class WranglerMCPServer {
     server;
     config;
@@ -123,6 +124,10 @@ export class WranglerMCPServer {
                         break;
                     case 'session_status':
                         result = await sessionStatusTool(sessionStatusSchema.parse(args), this.sessionStorage);
+                        break;
+                    // Workspace management tools
+                    case 'init_workspace':
+                        result = await initWorkspaceTool(initWorkspaceSchema.parse(args));
                         break;
                     default:
                         throw new Error(`Unknown tool: ${name}`);
@@ -262,6 +267,12 @@ export class WranglerMCPServer {
                 name: 'session_status',
                 description: 'Get detailed status of a workflow session including active step, progress, and duration.',
                 inputSchema: zodToJsonSchema(sessionStatusSchema),
+            },
+            // Workspace management tools
+            {
+                name: 'init_workspace',
+                description: 'Initialize or verify the .wrangler/ workspace directory structure. In report-only mode (default), shows what would be created. With fix=true, creates directories, provisions assets, and manages configuration idempotently.',
+                inputSchema: zodToJsonSchema(initWorkspaceSchema),
             },
         ];
     }

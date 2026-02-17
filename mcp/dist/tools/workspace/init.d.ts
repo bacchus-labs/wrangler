@@ -8,8 +8,8 @@
  * (FR-001), supports report-only mode (FR-009) and apply mode (FR-010),
  * works on both fresh and existing projects (FR-013).
  */
-import { z } from 'zod';
-import { MCPResponse } from '../../types/errors.js';
+import { z } from "zod";
+import { MCPResponse } from "../../types/errors.js";
 export declare const initWorkspaceSchema: z.ZodObject<{
     fix: z.ZodDefault<z.ZodBoolean>;
     projectRoot: z.ZodOptional<z.ZodString>;
@@ -29,7 +29,7 @@ interface AssetCopyResult {
     skipped: string[];
 }
 export interface InitWorkspaceResult {
-    status: 'compliant' | 'initialized' | 'changes_needed';
+    status: "compliant" | "initialized" | "changes_needed";
     directories: {
         created: string[];
         existing: string[];
@@ -52,11 +52,17 @@ export interface InitWorkspaceResult {
 /**
  * Resolve the plugin root directory.
  * Uses the provided path or walks up from the module location.
+ *
+ * Issue #4: Uses __dirname which works in both CJS (ts-jest) and esbuild-bundled contexts
+ *   when bundling to bundle.cjs, so this works in both ESM and CJS output.
+ * Issue #1: Validates the resolved path is not a system directory.
  */
 export declare function resolvePluginRoot(explicitPath?: string): string;
 /**
  * Resolve the project root directory.
  * Uses the provided path or attempts to find git root, falling back to cwd.
+ *
+ * Issue #1: Validates the resolved path is not a system directory.
  */
 export declare function resolveProjectRoot(explicitPath?: string): string;
 /**

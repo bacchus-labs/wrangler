@@ -22,25 +22,8 @@ if [ ! -f "$ENGINE_CLI" ]; then
     (cd "$PLUGIN_ROOT" && npm run build:engine 2>/dev/null) || true
 fi
 
-# Thin bootstrap: create minimal .wrangler/issues/ so the MCP server can start.
-# Full workspace initialization is delegated to the init_workspace MCP tool.
-bootstrap_workspace() {
-    # Find git repository root
-    if ! GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null); then
-        # Not in a git repo - skip bootstrap gracefully
-        return 0
-    fi
-
-    # Create minimal structure required for MCP server to function.
-    # The init_workspace MCP tool (with fix:true) handles the full
-    # schema-driven directory creation, asset provisioning, config
-    # generation, and .gitignore management.
-    mkdir -p "${GIT_ROOT}/.wrangler/issues"
-    touch "${GIT_ROOT}/.wrangler/issues/.gitkeep"
-}
-
-# Run workspace bootstrap
-bootstrap_workspace
+# Workspace initialization is user-triggered via /wrangler:init-workspace
+# or by calling the init_workspace MCP tool directly.
 
 # Check if legacy skills directory exists and build warning
 warning_message=""
