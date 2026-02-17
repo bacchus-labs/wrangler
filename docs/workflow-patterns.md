@@ -430,42 +430,20 @@ phases:
 
 ## Future Evolution
 
-### **Workflow Engine (v2.0 Vision)**
+### **Workflow Engine**
 
-Eventually, workflows could be **declarative** rather than **procedural**:
+The workflow engine exists at `workflows/engine/` and provides declarative YAML-driven workflow execution. It supports:
 
-```yaml
-# housekeeping-workflow.yaml
-workflow:
-  name: housekeeping
-  phases:
-    - id: prep
-      type: sequential
-      agent: roadmap-updater
+- **Step types**: agent, code, loop, per-task, and parallel execution
+- **Session management**: audit trail, checkpoints, pause/resume
+- **Configurable reporters**: workflows declare output surfaces (e.g., `github-pr-comment`) that receive live progress updates as phases and tasks complete
+- **CLI**: `wrangler-engine run <workflow.yaml>` with `--spec`, `--dry-run`, `--resume` options
 
-    - id: reconcile
-      type: parallel
-      depends_on: [prep]
-      agents:
-        - issues-reconciler
-        - file-organizer
-        - drift-detector
+The reporter system is pluggable -- each reporter implements a common interface (`onPhaseStart`, `onPhaseEnd`, `onTaskUpdate`, `onWorkflowComplete`) and is instantiated from the `reporters` block in the workflow YAML. Template variables (`{{env.*}}`, `{{context.*}}`) allow dynamic configuration.
 
-    - id: report
-      type: sequential
-      depends_on: [reconcile]
-      agent: report-generator
-```
+Run the engine test suite with `npm test` from `workflows/engine/` (500+ tests).
 
-**Workflow engine would:**
-- Parse workflow definition
-- Resolve dependencies
-- Schedule agents
-- Collect metrics automatically
-- Provide real-time progress
-- Enable workflow composition
-
-### **Advanced Features**
+### **Advanced Features (Future)**
 
 **Conditional execution:**
 ```yaml

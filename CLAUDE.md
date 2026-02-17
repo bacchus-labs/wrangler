@@ -332,7 +332,11 @@ rm -rf mcp/dist && npm run build:mcp
 
 ### Workflow Engine
 
-The workflow engine at `workflows/engine/` provides spec-to-implementation automation. It has its own test suite (run from `workflows/engine/`). The Agent SDK is installed with `--legacy-peer-deps` due to a zod v3/v4 conflict.
+The workflow engine at `workflows/engine/` provides spec-to-implementation automation with configurable reporters for live progress updates (e.g., GitHub PR comments). It has its own test suite (run from `workflows/engine/`). The Agent SDK is installed with `--legacy-peer-deps` due to a zod v3/v4 conflict.
+
+Known reporter limitations:
+- Resume sessions don't restore PR number for reporters (reporters self-disable on resume)
+- Template variable resolution only supports `{{env.*}}` and `{{context.*}}` namespaces
 
 ### General
 
