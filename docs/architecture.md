@@ -167,11 +167,7 @@ The `.wrangler/` directory is the centralized workspace for all project governan
 │   ├── CODING_STANDARDS.md  # Project coding standards
 │   ├── TESTING_STANDARDS.md # Testing standards and patterns
 │   ├── claude-code-reference/  # Claude Code system reference
-│   └── knowledge-base/
-│       └── reference-prompts/  # Reference prompt library
-│           ├── agents/         # Agent role definitions
-│           ├── commands/       # Command prompt references
-│           └── skills/         # Skill prompt references
+│   └── knowledge-base/     # Long-term memory for agent reference (migrated incrementally from notes/ to preserve learnings)
 │
 ├── memos/                   # Working notes, analyses, retrospectives
 │   ├── {date}-{topic}.md    # Dated memo files

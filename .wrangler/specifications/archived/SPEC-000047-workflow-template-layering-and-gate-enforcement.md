@@ -2,7 +2,7 @@
 id: SPEC-000047
 title: Workflow Template Layering, Agent/Prompt Separation, and Step Enforcement
 type: specification
-status: open
+status: closed
 priority: high
 labels:
   - specification
@@ -106,7 +106,7 @@ correctness, and adherence to project conventions. You provide structured
 feedback with actionable issues categorized by severity.
 ```
 
-Agent files define: identity (system prompt in the body), default tools, and default model. An agent does not define *what* to do -- that comes from the prompt.
+Agent files define: identity (system prompt in the body), default tools, and default model. An agent does not define _what_ to do -- that comes from the prompt.
 
 **FR-2.2**: A **prompt** is a markdown file that defines a specific task:
 
@@ -121,7 +121,7 @@ Review the recent changes for:
 1. Code readability and clarity
 2. Function length (flag functions >50 lines)
 3. Naming conventions
-...
+   ...
 
 ## Context
 
@@ -131,12 +131,13 @@ Task: {{ task.title }}
 ## Output
 
 Return a JSON object with:
+
 - `hasActionableIssues` (boolean): whether any issues were found
 - `actionableIssues` (array): list of issues with `severity`, `file`, `line`, `message`
 - `summary` (string): brief overview of findings
 ```
 
-Prompt files define: task instructions (body) and template variables. Output format is described in natural language within the prompt body -- there is no engine-level schema enforcement. A prompt does not define *who* executes it -- that comes from the agent.
+Prompt files define: task instructions (body) and template variables. Output format is described in natural language within the prompt body -- there is no engine-level schema enforcement. A prompt does not define _who_ executes it -- that comes from the agent.
 
 **FR-2.3**: A workflow step combines an agent with a prompt:
 
@@ -381,7 +382,7 @@ Prompt = markdown file defining task instructions (body, output schema, template
 
 A workflow is a sequence of steps. The engine executes them in order. Some steps dispatch subagents by combining an agent with a prompt. Some run code (code steps). Some iterate (loop, per-task). Some fan out (parallel).
 
-**Agent vs Prompt**: An agent is *who* does the work (persona, capabilities). A prompt is *what* work to do (task instructions). The same agent can execute many different prompts. The same prompt can be executed by different agents. A workflow step binds them together.
+**Agent vs Prompt**: An agent is _who_ does the work (persona, capabilities). A prompt is _what_ work to do (task instructions). The same agent can execute many different prompts. The same prompt can be executed by different agents. A workflow step binds them together.
 
 ### Template Resolution
 
@@ -559,6 +560,7 @@ and git log to understand what changed.
 ```
 
 **Frontmatter fields:**
+
 - `name`: Agent identifier (referenced by workflow steps)
 - `description`: Human-readable description
 - `tools`: Default tool set available to this agent
@@ -589,7 +591,7 @@ Review the recent changes for:
 1. Code readability and clarity
 2. Function length (flag functions >50 lines)
 3. Naming conventions
-...
+   ...
 
 ## Context
 
@@ -602,6 +604,7 @@ Return structured JSON with issues found.
 ```
 
 **Frontmatter fields:**
+
 - `name`: Prompt identifier (referenced by workflow steps)
 - `description`: Human-readable description
 
@@ -634,6 +637,7 @@ It does the following:
 The working directory is always the worktree. Subagents don't need to know they're in a worktree -- they just work in the directory they're given. The engine handles the plumbing.
 
 This separation means a project can:
+
 - Override the `reviewer` agent to be stricter, without touching any prompts
 - Override the `code-quality-review` prompt to add HIPAA checks, without changing the agent
 - Add a new `hipaa-compliance-review.md` prompt that reuses the existing `reviewer` agent
@@ -642,16 +646,16 @@ This separation means a project can:
 
 The engine provides these variables to all prompt templates via Mustache interpolation. Step outputs (stored via `output:` fields) are also available by name.
 
-| Variable | Type | Available | Description |
-|----------|------|-----------|-------------|
-| `spec` | object | Always | Parsed spec file: `spec.title`, `spec.id`, `spec.content` (full markdown body) |
-| `worktreePath` | string | Always | Absolute path to the session's git worktree |
-| `sessionId` | string | Always | Current session identifier |
-| `branchName` | string | Always | Git branch name for this session |
-| `task` | object | In `per-task` steps | Current task: `task.id`, `task.title`, `task.description` |
-| `taskIndex` | number | In `per-task` steps | Zero-based index of current task in the list |
-| `taskCount` | number | In `per-task` steps | Total number of tasks |
-| `changedFiles` | string[] | After implementation steps | Files modified since the worktree was created (via `git diff --name-only`) |
+| Variable       | Type     | Available                  | Description                                                                    |
+| -------------- | -------- | -------------------------- | ------------------------------------------------------------------------------ |
+| `spec`         | object   | Always                     | Parsed spec file: `spec.title`, `spec.id`, `spec.content` (full markdown body) |
+| `worktreePath` | string   | Always                     | Absolute path to the session's git worktree                                    |
+| `sessionId`    | string   | Always                     | Current session identifier                                                     |
+| `branchName`   | string   | Always                     | Git branch name for this session                                               |
+| `task`         | object   | In `per-task` steps        | Current task: `task.id`, `task.title`, `task.description`                      |
+| `taskIndex`    | number   | In `per-task` steps        | Zero-based index of current task in the list                                   |
+| `taskCount`    | number   | In `per-task` steps        | Total number of tasks                                                          |
+| `changedFiles` | string[] | After implementation steps | Files modified since the worktree was created (via `git diff --name-only`)     |
 
 Step outputs are available by their `output:` name. For example, after a step with `output: codeQualityReview`, subsequent prompts can reference `{{ codeQualityReview }}` or use it in conditions.
 

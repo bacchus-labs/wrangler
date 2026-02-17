@@ -312,7 +312,7 @@ export WRANGLER_DEBUG_VERSION=true
 ### Support
 
 - **Issues**: https://github.com/wrangler-marketplace/wrangler/issues
-- **Documentation**: See `docs/mcp-usage.md` for MCP features
+- **Documentation**: See `docs/MCP-USAGE.md` for MCP features
 - **Plugin**: Check `.claude-plugin/plugin.json` for plugin configuration
 
 ---

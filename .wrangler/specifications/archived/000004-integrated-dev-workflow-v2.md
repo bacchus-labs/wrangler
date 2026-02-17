@@ -2,7 +2,7 @@
 id: "SPEC-IDWF-V2"
 title: "Integrated Development Workflow v2 - Draft-First PRs, Automated Reviews, and Unified Implementation"
 type: "specification"
-status: "open"
+status: "closed"
 priority: "high"
 labels: ["specification", "workflow", "github", "automation", "configuration"]
 assignee: ""
@@ -24,6 +24,7 @@ wranglerContext:
 **Why:** Current wrangler workflows require too much manual prompting for common steps (running tests, using worktrees, creating PRs). The implementation flow is fragmented across multiple skills without clear orchestration. There's no automated code review integration, and settings can't be customized per-project without modifying skill files.
 
 **Scope:**
+
 - **Included:** Draft-first PR pattern, GitHub Actions for automated review, unified implement command, layered config system, template overrides, PR summary templates with progress tracking
 - **Excluded:** Enterprise SSO integration, visual regression testing, automated fix application (human reviews fixes initially), Figma design system changes
 
@@ -51,6 +52,7 @@ wranglerContext:
 ### Problem Statement
 
 Current pain points:
+
 1. User must repeatedly prompt for steps: "run the tests", "use a worktree", "create a PR", "do code review"
 2. No clear orchestration between planning, implementing, reviewing, and completing work
 3. PR creation happens at end, missing opportunity for incremental progress tracking
@@ -136,7 +138,7 @@ User: "implement it" (referring to spec/issue in context)
 
 #### FR-500: Template Override System
 
-- **FR-501:** System MUST resolve templates in order: project (.wrangler/templates/) → plugin (skills/*/templates/)
+- **FR-501:** System MUST resolve templates in order: project (.wrangler/templates/) → plugin (skills/\*/templates/)
 - **FR-502:** PR summary template MUST be customizable
 - **FR-503:** Issue templates MUST be customizable
 - **FR-504:** System MUST provide command to copy built-in template for customization
@@ -221,15 +223,18 @@ User: "implement it" (referring to spec/issue in context)
 **Responsibility:** Detect context, determine artifact type, load config, route to appropriate workflow
 
 **Interfaces:**
+
 - Input: User message ("implement it", "implement SPEC-000041", "implement issue 42")
 - Output: Routing decision with scope and config
 
 **Dependencies:**
+
 - MCP issues_get, issues_list tools
 - Config file reader
 - Conversation context
 
 **Key behaviors:**
+
 - Scan last 5 messages for artifact references
 - Call MCP to determine type (spec vs issue)
 - For specs, check if issues exist
@@ -241,15 +246,18 @@ User: "implement it" (referring to spec/issue in context)
 **Responsibility:** Execute implementation with draft-first PR, progress tracking, test execution
 
 **Interfaces:**
+
 - Input: Routing decision, scope, config
 - Output: Completed implementation with PR
 
 **Dependencies:**
+
 - Git/gh CLI
 - Test runner
 - Template resolver
 
 **Key behaviors:**
+
 - Create worktree if enabled
 - Create draft PR after first commit
 - Implement each issue sequentially
@@ -262,14 +270,17 @@ User: "implement it" (referring to spec/issue in context)
 **Responsibility:** Trigger Claude-based code review on PR events, post findings
 
 **Interfaces:**
+
 - Input: PR webhook event (opened, synchronize, ready_for_review)
 - Output: PR review comments
 
 **Dependencies:**
+
 - Anthropic API (Claude)
 - GitHub API (review comments)
 
 **Key behaviors:**
+
 - Fetch PR diff
 - Construct code review prompt (following wrangler code-review skill)
 - Call Claude API
@@ -281,6 +292,7 @@ User: "implement it" (referring to spec/issue in context)
 **Responsibility:** Provide layered configuration with caching
 
 **File Structure:**
+
 ```
 .wrangler/config/
 ├── settings.json           # User-specific (gitignored)
@@ -289,6 +301,7 @@ User: "implement it" (referring to spec/issue in context)
 ```
 
 **Key behaviors:**
+
 - Read config at skill start (once)
 - Merge: user > team > defaults
 - Cache in shell environment variables
@@ -299,10 +312,12 @@ User: "implement it" (referring to spec/issue in context)
 **Responsibility:** Resolve templates with project-override priority
 
 **Resolution Order:**
+
 1. \`.wrangler/templates/{template-name}\`
 2. \`skills/{skill-name}/templates/{template-name}\`
 
 **Key behaviors:**
+
 - Check project override first
 - Fall back to built-in
 - Substitute placeholders
@@ -348,7 +363,8 @@ User: "implement it" (referring to spec/issue in context)
 ## Implementation Progress
 
 | Issue | Title | Status |
-|-------|-------|--------|
+| ----- | ----- | ------ |
+
 {ISSUE_TABLE}
 
 ## Test Results
@@ -434,29 +450,29 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-    
+
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
+
       - name: Get PR diff
         id: diff
         run: |
           git diff origin/${{ github.base_ref }}...${{ github.sha }} > pr.diff
           echo "DIFF_SIZE=$(wc -c < pr.diff)" >> $GITHUB_OUTPUT
-      
+
       - name: Run Claude Code Review
         if: steps.diff.outputs.DIFF_SIZE > 0
         uses: anthropics/claude-code-action@beta
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          model: 'claude-sonnet-4-5-20250514'
+          model: "claude-sonnet-4-5-20250514"
           direct_prompt: |
             You are a code reviewer following the wrangler code-review skill.
-            
+
             ## Review Framework
-            
+
             Analyze this PR using these phases:
             1. **Plan Alignment** - Does implementation match requirements?
             2. **Code Quality** - Clean, maintainable, follows patterns?
@@ -464,27 +480,27 @@ jobs:
             4. **Testing/TDD** - Tests written first? Adequate coverage?
             5. **Security/Performance** - Any vulnerabilities? Performance issues?
             6. **Documentation** - Comments where needed?
-            
+
             ## Output Format
-            
+
             Categorize findings:
             - **CRITICAL** - Must fix before merge
             - **IMPORTANT** - Should fix, discuss if not
             - **MINOR** - Nice to have, optional
-            
+
             For each finding:
             - File and line number
             - Issue description
             - Suggested fix
-            
+
             ## PR Context
-            
+
             Title: ${{ github.event.pull_request.title }}
-            
+
             ## Diff
-            
+
             $(cat pr.diff | head -5000)
-      
+
       - name: Handle large diffs
         if: steps.diff.outputs.DIFF_SIZE > 100000
         run: |
@@ -523,7 +539,7 @@ fi
 1. Check for project override:
    \`\`\`bash
    if [ -f .wrangler/templates/pr-summary.md ]; then
-     TEMPLATE=$(cat .wrangler/templates/pr-summary.md)
+   TEMPLATE=$(cat .wrangler/templates/pr-summary.md)
    else
      TEMPLATE=$(cat ${CLAUDE_PLUGIN_ROOT}/skills/implement/templates/pr-summary.md)
    fi
@@ -615,12 +631,12 @@ fi
 
 ### Resolved Decisions
 
-| Decision | Options Considered | Chosen | Rationale |
-|----------|-------------------|--------|-----------|
-| Config format | YAML, JSON, TOML | JSON | JSON Schema validation, jq parsing, no extra deps |
-| Template syntax | Mustache, Handlebars, Simple | Simple ({NAME}) | Minimal complexity, easy to understand |
-| Review timing | Per-commit, End of impl | End of impl | Simpler initial implementation |
-| Action framework | Custom, claude-code-action | claude-code-action | Official Anthropic support |
+| Decision         | Options Considered           | Chosen             | Rationale                                         |
+| ---------------- | ---------------------------- | ------------------ | ------------------------------------------------- |
+| Config format    | YAML, JSON, TOML             | JSON               | JSON Schema validation, jq parsing, no extra deps |
+| Template syntax  | Mustache, Handlebars, Simple | Simple ({NAME})    | Minimal complexity, easy to understand            |
+| Review timing    | Per-commit, End of impl      | End of impl        | Simpler initial implementation                    |
+| Action framework | Custom, claude-code-action   | claude-code-action | Official Anthropic support                        |
 
 ### Open Questions
 
@@ -641,13 +657,13 @@ fi
 
 ## Risks & Mitigations
 
-| Risk | Probability | Impact | Mitigation |
-|------|------------|--------|------------|
-| GitHub Action API rate limits | Medium | Medium | Batch comments, cache results, exponential backoff |
-| Large PR diffs exceed Claude context | Medium | High | Truncate diff, split review by file, warn user |
-| User forgets to set ANTHROPIC_API_KEY | High | Medium | Clear error message, setup documentation |
-| Config breaking changes | Low | High | Versioned schema, migration path |
-| Template placeholder conflicts | Low | Low | Use distinctive syntax {WRANGLER_*} |
+| Risk                                  | Probability | Impact | Mitigation                                         |
+| ------------------------------------- | ----------- | ------ | -------------------------------------------------- |
+| GitHub Action API rate limits         | Medium      | Medium | Batch comments, cache results, exponential backoff |
+| Large PR diffs exceed Claude context  | Medium      | High   | Truncate diff, split review by file, warn user     |
+| User forgets to set ANTHROPIC_API_KEY | High        | Medium | Clear error message, setup documentation           |
+| Config breaking changes               | Low         | High   | Versioned schema, migration path                   |
+| Template placeholder conflicts        | Low         | Low    | Use distinctive syntax {WRANGLER\_\*}              |
 
 ## Success Criteria
 

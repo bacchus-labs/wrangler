@@ -2,7 +2,7 @@
 id: SPEC-000007
 title: Figma Design Workflow Integration for Wrangler
 type: specification
-status: open
+status: closed
 priority: high
 labels:
   - specification
@@ -11,13 +11,14 @@ labels:
   - design-system
   - workflow
   - mcp-integration
-createdAt: '2025-11-22T04:02:36.567Z'
-updatedAt: '2025-11-22T04:18:18.899Z'
+createdAt: "2025-11-22T04:02:36.567Z"
+updatedAt: "2025-11-22T04:18:18.899Z"
 project: Wrangler Design Workflow
 wranglerContext:
   agentId: spec-writer-agent
   estimatedEffort: 4 weeks (1 developer full-time)
 ---
+
 # Specification: Figma Design Workflow Integration
 
 ## Executive Summary
@@ -27,6 +28,7 @@ wranglerContext:
 **Why:** There's a critical gap in wrangler's development process between specification and implementation. The goal is to **improve frontend application development results** by adding a design step that reduces alignment issues between users and agents. By having reviewed/approved Figma mocks before implementation, users can expect pixel-perfect implementation with verifiable gates (comparing implementation against signed-off mocks). This systematic approach aims to bridge the design-implementation gap and enable better verification throughout the development process.
 
 **Scope:**
+
 - **Included:**
   - Integration with official Figma MCP server
   - Three new wrangler skills: `design-system-setup`, `figma-design-workflow`, `design-system-governance`
@@ -37,7 +39,6 @@ wranglerContext:
   - Specification → Figma mockup workflow with issue tracking
   - Design system component library management (hierarchical: master design system + feature files)
   - Figma native versioning integration
-  
 - **Excluded:**
   - Visual regression testing (future phase - will enable pixel-perfect verification)
   - Code generation from Figma designs (relies on official Figma MCP capabilities)
@@ -151,7 +152,7 @@ wranglerContext:
 ✅ Automated drift detection prevents divergence  
 ✅ Visual specifications captured in Figma, accessible to agents  
 ✅ Standalone skills allow gradual workflow integration  
-✅ Foundation for future pixel-perfect verification (visual regression testing)  
+✅ Foundation for future pixel-perfect verification (visual regression testing)
 
 ## Requirements
 
@@ -318,17 +319,17 @@ wrangler/
 
 ### Resolved Decisions
 
-| Decision | Options Considered | Chosen | Rationale | Date |
-|----------|-------------------|--------|-----------|------|
-| Which Figma MCP server? | Official, GLips, oO, grab, custom | Official Figma MCP | Best long-term support, no maintenance burden | 2025-11-21 |
-| Mockup automation level? | Fully automated, semi-automated, manual, hybrid | Fully automated | User requested, aiming for high quality without mandatory refinement | 2025-11-21 |
-| Visual regression testing? | Include in v1, defer to v2 | Defer to v2 | Reduces scope, allows standalone skill adoption first; future phase enables pixel-perfect verification | 2025-11-21 |
-| Testing tool? | Applitools, Percy, Playwright, Argos | Deferred (no testing v1) | Not applicable until visual regression phase | 2025-11-21 |
-| Design system templates? | None, 3 templates, 10+ templates | 3 templates | Minimal, modern, vibrant covers 80% of use cases | 2025-11-21 |
-| Auto-detect design system? | Auto-prompt, explicit command, silent auto-setup | Auto-prompt with choice | User chooses Q&A or template+AI; balances automation with control | 2025-11-21 |
-| Multiple Figma files? | Single file, multiple files, hierarchical | Hierarchical | Master design system + child feature files; aligns with Figma component library system | 2025-11-21 |
-| Drift auto-fix? | Report only, auto-fix with approval, configurable | Report only | Safe default; creates issues for manual resolution | 2025-11-21 |
-| Design system versioning? | Semantic versioning, timestamp, Figma native | Figma native versioning | Simplest; leverages Figma's built-in file history | 2025-11-21 |
+| Decision                   | Options Considered                                | Chosen                   | Rationale                                                                                              | Date       |
+| -------------------------- | ------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------ | ---------- |
+| Which Figma MCP server?    | Official, GLips, oO, grab, custom                 | Official Figma MCP       | Best long-term support, no maintenance burden                                                          | 2025-11-21 |
+| Mockup automation level?   | Fully automated, semi-automated, manual, hybrid   | Fully automated          | User requested, aiming for high quality without mandatory refinement                                   | 2025-11-21 |
+| Visual regression testing? | Include in v1, defer to v2                        | Defer to v2              | Reduces scope, allows standalone skill adoption first; future phase enables pixel-perfect verification | 2025-11-21 |
+| Testing tool?              | Applitools, Percy, Playwright, Argos              | Deferred (no testing v1) | Not applicable until visual regression phase                                                           | 2025-11-21 |
+| Design system templates?   | None, 3 templates, 10+ templates                  | 3 templates              | Minimal, modern, vibrant covers 80% of use cases                                                       | 2025-11-21 |
+| Auto-detect design system? | Auto-prompt, explicit command, silent auto-setup  | Auto-prompt with choice  | User chooses Q&A or template+AI; balances automation with control                                      | 2025-11-21 |
+| Multiple Figma files?      | Single file, multiple files, hierarchical         | Hierarchical             | Master design system + child feature files; aligns with Figma component library system                 | 2025-11-21 |
+| Drift auto-fix?            | Report only, auto-fix with approval, configurable | Report only              | Safe default; creates issues for manual resolution                                                     | 2025-11-21 |
+| Design system versioning?  | Semantic versioning, timestamp, Figma native      | Figma native versioning  | Simplest; leverages Figma's built-in file history                                                      | 2025-11-21 |
 
 ### Open Questions
 
@@ -356,38 +357,42 @@ None remaining - all questions resolved.
 ### Success Metrics (Post-Launch)
 
 **Adoption:**
+
 - 30% of new specifications use Figma mockup workflow within 3 months
 - 50% of projects with design systems run governance checks monthly within 3 months
 
 **Quality:**
+
 - 90% of generated mockups approved after ≤2 refinement iterations
 - Drift detection false positive rate <5%
 - Improved frontend implementation quality (measured by user satisfaction)
 
 **Performance:**
+
 - Design system setup p95 < 2 minutes
 - Mockup generation p95 < 5 minutes (for specs with <10 pages)
 - Drift detection p95 < 30 seconds
 
 **User satisfaction:**
+
 - Positive feedback on design system templates (survey or GitHub issues)
 - Reduced alignment issues in frontend development
 - <10 support issues related to Figma integration per month
 
 ## Timeline & Milestones
 
-| Milestone | Target Date | Status | Dependencies |
-|-----------|-------------|--------|--------------|
-| Specification approved | 2025-11-21 | ✅ Complete | User review |
-| Git worktree created | Week 1 Day 1 | Not started | Spec approval |
-| Design system templates created | Week 1 | Not started | Worktree |
-| Token parsers implemented | Week 1 | Not started | - |
-| design-system-setup skill | Week 2 | Not started | Templates, parsers |
-| figma-design-workflow skill | Week 3 | Not started | design-system-setup |
-| design-system-governance skill | Week 3 | Not started | Parsers |
-| Integration testing | Week 4 | Not started | All skills |
-| Documentation | Week 4 | Not started | All skills |
-| Pull request created | Week 4 | Not started | All above |
+| Milestone                       | Target Date  | Status      | Dependencies        |
+| ------------------------------- | ------------ | ----------- | ------------------- |
+| Specification approved          | 2025-11-21   | ✅ Complete | User review         |
+| Git worktree created            | Week 1 Day 1 | Not started | Spec approval       |
+| Design system templates created | Week 1       | Not started | Worktree            |
+| Token parsers implemented       | Week 1       | Not started | -                   |
+| design-system-setup skill       | Week 2       | Not started | Templates, parsers  |
+| figma-design-workflow skill     | Week 3       | Not started | design-system-setup |
+| design-system-governance skill  | Week 3       | Not started | Parsers             |
+| Integration testing             | Week 4       | Not started | All skills          |
+| Documentation                   | Week 4       | Not started | All skills          |
+| Pull request created            | Week 4       | Not started | All above           |
 
 **Estimated total effort:** 4 weeks (assuming 1 developer full-time)
 

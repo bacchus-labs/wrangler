@@ -24,6 +24,7 @@ wranglerContext:
 **Why:** Currently, users cannot customize PR summaries, issue templates, or other generated content without modifying the wrangler plugin itself. This creates friction for teams with specific formatting requirements (Jira integration, custom sections, team-specific checklists).
 
 **Scope:**
+
 - **Included:** Template resolution logic, built-in default templates, project override mechanism, template copying command, placeholder substitution
 - **Excluded:** Template inheritance/extension (replace only), template versioning, template marketplace
 
@@ -49,6 +50,7 @@ wranglerContext:
 ### Problem Statement
 
 Teams have specific requirements for PR formats:
+
 - Jira ticket references
 - Custom review checklists
 - Team-specific sections
@@ -59,6 +61,7 @@ Currently, the only way to customize is to fork wrangler or manually edit PR con
 ### Current State
 
 Templates are embedded in skill directories:
+
 - \`skills/create-new-issue/templates/\` - Issue templates
 - \`skills/writing-specifications/templates/\` - Spec templates
 - \`skills/sitrep/templates/\` - Report templates
@@ -68,6 +71,7 @@ Skills reference templates by relative path. No override mechanism exists.
 ### Proposed State
 
 Two-tier resolution:
+
 1. Check \`.wrangler/templates/{name}\` (project override)
 2. Fall back to \`skills/{skill}/templates/{name}\` (built-in)
 
@@ -142,27 +146,28 @@ wrangler/skills/
 
 ### Standard Template Names
 
-| Template Name | Purpose | Used By |
-|--------------|---------|---------|
-| pr-summary.md | Pull request body | implement, finishing-a-development-branch |
-| issue.md | Task issue creation | create-new-issue |
-| bug-issue.md | Bug report | create-new-issue |
-| specification.md | Spec creation | writing-specifications |
-| idea.md | Idea capture | capture-new-idea |
+| Template Name    | Purpose             | Used By                                   |
+| ---------------- | ------------------- | ----------------------------------------- |
+| pr-summary.md    | Pull request body   | implement, finishing-a-development-branch |
+| issue.md         | Task issue creation | create-new-issue                          |
+| bug-issue.md     | Bug report          | create-new-issue                          |
+| specification.md | Spec creation       | writing-specifications                    |
+| idea.md          | Idea capture        | capture-new-idea                          |
 
 ## Implementation Details
 
 ### Slash Command: /wrangler:list-templates
 
 Output:
+
 ```markdown
 ## Available Templates
 
-| Template | Built-in Location | Override |
-|----------|-------------------|----------|
-| pr-summary.md | skills/implement/templates/ | .wrangler/templates/pr-summary.md |
-| issue.md | skills/create-new-issue/templates/TASK_ISSUE_TEMPLATE.md | (none) |
-| bug-issue.md | skills/create-new-issue/templates/BUG_ISSUE_TEMPLATE.md | (none) |
+| Template      | Built-in Location                                        | Override                          |
+| ------------- | -------------------------------------------------------- | --------------------------------- |
+| pr-summary.md | skills/implement/templates/                              | .wrangler/templates/pr-summary.md |
+| issue.md      | skills/create-new-issue/templates/TASK_ISSUE_TEMPLATE.md | (none)                            |
+| bug-issue.md  | skills/create-new-issue/templates/BUG_ISSUE_TEMPLATE.md  | (none)                            |
 
 To customize, run: /wrangler:copy-template <name>
 ```
@@ -172,6 +177,7 @@ To customize, run: /wrangler:copy-template <name>
 Usage: \`/wrangler:copy-template pr-summary\`
 
 Behavior:
+
 1. Find built-in template
 2. Create .wrangler/templates/ if needed
 3. Copy with standardized name
@@ -194,6 +200,7 @@ Behavior:
 ```
 
 **Supported Placeholders:**
+
 - \`{SUMMARY}\` - Generated summary
 - \`{CHANGES}\` - List of changes
 - \`{ISSUE_TABLE}\` - Progress table for spec PRs
@@ -209,7 +216,7 @@ Behavior:
 1. Check for project override:
    \`\`\`bash
    if [ -f .wrangler/templates/pr-summary.md ]; then
-     TEMPLATE=$(cat .wrangler/templates/pr-summary.md)
+   TEMPLATE=$(cat .wrangler/templates/pr-summary.md)
    else
      TEMPLATE=$(cat \${CLAUDE_PLUGIN_ROOT}/skills/implement/templates/pr-summary.md)
    fi

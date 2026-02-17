@@ -10,11 +10,12 @@ labels:
   - workspace
   - governance
   - skills-refactoring
-createdAt: '2026-02-16T05:55:20.008Z'
-updatedAt: '2026-02-16T05:55:20.008Z'
+createdAt: "2026-02-16T05:55:20.008Z"
+updatedAt: "2026-02-16T05:55:20.008Z"
 project: Wrangler Core
 ---
-# Specification: Codify Procedural Skill Steps and Add workspace_sync
+
+# Proposal: Codify Procedural Skill Steps and Add workspace_sync
 
 ## Executive Summary
 
@@ -23,6 +24,7 @@ project: Wrangler Core
 **Why:** Today, skills like `verifying-governance`, `refreshing-metrics`, `setting-up-git-hooks`, and `initializing-governance` spend 70-85% of their token budget instructing agents through deterministic file operations (create directory, check file exists, count issues, substitute template placeholder). These steps are error-prone when agent-executed (missed `chmod`, forgotten directory, wrong count) and expensive in tokens. Moving them to code makes outcomes deterministic, reduces token cost, and lets skills focus on what agents are good at: judgment, interaction, and synthesis.
 
 **Scope:**
+
 - Included: New MCP tools for governance verification, metrics calculation, workspace sync, and issue archival. Refactoring of affected skills to call these tools instead of spelling out procedural steps.
 - Excluded: Judgment-heavy skills (constitutional alignment, specification writing, roadmap validation) remain as-is. No changes to the MCP protocol or storage provider abstractions.
 
@@ -52,6 +54,7 @@ Skills currently contain two very different kinds of content mixed together:
 2. **Judgment guidance** -- "Ask the user about their project mission", "Determine if this feature aligns with constitutional principles", "Decide whether this issue is truly complete"
 
 When agents execute procedural instructions from natural language, failure modes include:
+
 - Forgetting steps (especially in 10+ step procedures)
 - Getting file paths slightly wrong
 - Missing permissions (`chmod +x`)
@@ -67,13 +70,13 @@ These are all problems that code solves trivially.
 
 **Skills with highest procedural content:**
 
-| Skill | Procedural % | Steps | Token cost |
-|-------|-------------|-------|------------|
-| `refreshing-metrics` | 85% | 14 steps | ~400 lines |
-| `setting-up-git-hooks` | 85% | 10 steps | ~500 lines |
-| `verifying-governance` | 80% | 10 steps | ~350 lines |
-| `initializing-governance` | 70% | 12 steps | ~400 lines |
-| `housekeeping` | 60% | 10 steps | ~300 lines |
+| Skill                     | Procedural % | Steps    | Token cost |
+| ------------------------- | ------------ | -------- | ---------- |
+| `refreshing-metrics`      | 85%          | 14 steps | ~400 lines |
+| `setting-up-git-hooks`    | 85%          | 10 steps | ~500 lines |
+| `verifying-governance`    | 80%          | 10 steps | ~350 lines |
+| `initializing-governance` | 70%          | 12 steps | ~400 lines |
+| `housekeeping`            | 60%          | 10 steps | ~300 lines |
 
 ### Proposed State
 
@@ -105,6 +108,7 @@ The system MUST provide a `workspace_sync` MCP tool that:
 - Accepts an optional `fix` parameter: when true, renames legacy directories to canonical names; when false (default), only reports drift
 
 **Non-lossy guarantees:**
+
 - Existing files in directories are never modified or deleted
 - Existing `.gitignore` entries are preserved (new patterns appended)
 - User-created subdirectories within `.wrangler/` are preserved
@@ -207,10 +211,12 @@ The following skills MUST be refactored to call the new MCP tools instead of con
 **Location:** `mcp/tools/workspace/sync.ts`
 
 **Interfaces:**
+
 - Input: `{ fix?: boolean }` (default false = report only)
 - Output: `{ status: 'compliant' | 'synced' | 'drift_detected', created: string[], existing: string[], legacy: { from: string, to: string }[], gitignore_added: string[] }`
 
 **Key behaviors:**
+
 - Reads schema from plugin directory (not project directory)
 - Creates directories with `mkdir -p` (naturally idempotent)
 - Appends to `.gitignore` without duplicating
@@ -224,6 +230,7 @@ The following skills MUST be refactored to call the new MCP tools instead of con
 **Location:** `mcp/tools/workspace/verify.ts`
 
 **Interfaces:**
+
 - Input: `{}` (no parameters)
 - Output: `{ status: 'COMPLIANT' | 'DRIFT_DETECTED' | 'CRITICAL', missing_directories: string[], missing_files: string[], legacy_paths: { current: string, expected: string }[], missing_gitignore_patterns: string[] }`
 
@@ -236,8 +243,10 @@ The following skills MUST be refactored to call the new MCP tools instead of con
 **Location:** `mcp/tools/workspace/metrics.ts`
 
 **Interfaces:**
+
 - Input: `{ velocity_days?: number }` (default 7)
 - Output:
+
 ```typescript
 {
   issues: {
@@ -270,6 +279,7 @@ The following skills MUST be refactored to call the new MCP tools instead of con
 **Location:** `mcp/tools/issues/archive.ts`
 
 **Interfaces:**
+
 - Input: `{ dry_run?: boolean }` (default true)
 - Output: `{ candidates: string[], moved: string[], count: number }`
 
@@ -335,11 +345,11 @@ All new tools MUST use the existing `assertWithinWorkspace()` pattern from `Mark
 
 ### Resolved Decisions
 
-| Decision | Options Considered | Chosen | Rationale |
-|----------|-------------------|--------|-----------|
-| Where to put new tools | `tools/governance/` vs `tools/workspace/` | `tools/workspace/` | "Governance" implies judgment; "workspace" implies structure |
-| Schema location at runtime | Ship with plugin vs copy to project | Ship with plugin | Single source of truth, no drift between plugin and project schema |
-| Hook generation approach | MCP tool vs standalone script | Defer to implementation | Need to evaluate whether template substitution is better in TS or shell |
+| Decision                   | Options Considered                        | Chosen                  | Rationale                                                               |
+| -------------------------- | ----------------------------------------- | ----------------------- | ----------------------------------------------------------------------- |
+| Where to put new tools     | `tools/governance/` vs `tools/workspace/` | `tools/workspace/`      | "Governance" implies judgment; "workspace" implies structure            |
+| Schema location at runtime | Ship with plugin vs copy to project       | Ship with plugin        | Single source of truth, no drift between plugin and project schema      |
+| Hook generation approach   | MCP tool vs standalone script             | Defer to implementation | Need to evaluate whether template substitution is better in TS or shell |
 
 ### Open Questions
 
@@ -360,12 +370,12 @@ All new tools MUST use the existing `assertWithinWorkspace()` pattern from `Mark
 
 ## Risks & Mitigations
 
-| Risk | Probability | Impact | Mitigation |
-|------|------------|--------|------------|
-| Breaking existing workspaces during migration | Medium | High | Non-lossy guarantees enforced by tests; `fix` defaults to false |
-| Schema divergence between plugin versions | Low | Medium | Schema ships with plugin; version field enables compatibility checks |
-| Token cost savings smaller than expected | Low | Low | Even modest savings compound across every session |
-| Skills become too thin to be useful | Low | Medium | Skills retain judgment, interaction, and presentation logic |
+| Risk                                          | Probability | Impact | Mitigation                                                           |
+| --------------------------------------------- | ----------- | ------ | -------------------------------------------------------------------- |
+| Breaking existing workspaces during migration | Medium      | High   | Non-lossy guarantees enforced by tests; `fix` defaults to false      |
+| Schema divergence between plugin versions     | Low         | Medium | Schema ships with plugin; version field enables compatibility checks |
+| Token cost savings smaller than expected      | Low         | Low    | Even modest savings compound across every session                    |
+| Skills become too thin to be useful           | Low         | Medium | Skills retain judgment, interaction, and presentation logic          |
 
 ## Success Criteria
 
@@ -407,16 +417,19 @@ All new tools MUST use the existing `assertWithinWorkspace()` pattern from `Mark
 ### Skills Affected (Full Inventory)
 
 **Will be refactored (call new tools):**
+
 - `verifying-governance` -- calls `governance_verify` + `workspace_sync`
 - `refreshing-metrics` -- calls `governance_metrics`
 - `housekeeping` -- calls `governance_metrics` + `issues_archive` + `governance_verify`
 - `initializing-governance` -- calls `workspace_sync` for scaffolding
 
 **Deferred (separate spec recommended):**
+
 - `setting-up-git-hooks` -- hook template generation is complex enough for its own spec
 - `updating-git-hooks` -- depends on hooks spec
 
 **No changes needed (judgment-heavy):**
+
 - `checking-constitutional-alignment` (85% judgment)
 - `validating-roadmaps` (75% judgment)
 - `writing-specifications` (70% judgment)

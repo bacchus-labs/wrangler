@@ -2,7 +2,7 @@
 id: "000001"
 title: "Testing & Verification Skills Enhancement: Prevent Premature Completion Claims"
 type: "specification"
-status: "open"
+status: "closed"
 priority: "critical"
 labels: ["testing", "verification", "frontend", "enforcement", "skills"]
 createdAt: "2025-11-20T00:00:00.000Z"
@@ -24,6 +24,7 @@ Agents are claiming work is "done" without proper testing/verification, leading 
 ## Research Foundation
 
 Based on comprehensive analysis of:
+
 - Testing skills (TDD, anti-patterns, run-the-tests, condition-based-waiting)
 - Verification skills (verification-before-completion, code-review framework)
 - Modern frontend testing practices (2024-2025)
@@ -34,9 +35,11 @@ See: `.wrangler/memos/2025-11-20-*.md` (4 detailed research documents)
 ## Objectives
 
 ### Primary Goal
+
 **Make premature "done" claims structurally impossible** through verification enforcement and comprehensive testing guidance.
 
 ### Secondary Goals
+
 1. Close verification gaps (evidence requirements, TDD compliance)
 2. Add frontend testing skills (visual regression, accessibility, E2E)
 3. Make code review mandatory across all workflows
@@ -165,6 +168,7 @@ All skills MUST work across:
 **Testing Tools**: Playwright, Selenium, Cypress, Jest, pytest, Vitest, etc.
 
 **Key Principles** (universal):
+
 1. Test user behavior, not implementation
 2. Use semantic selectors (accessible roles/labels)
 3. Wait for conditions, not time
@@ -175,20 +179,24 @@ All skills MUST work across:
 ## Success Metrics
 
 ### Metric 1: Verification Completeness (Target: 100%)
+
 - ✓ Agent provides test output before "done" claim
 - ✓ Agent provides TDD certification
 - ✓ Agent obtains code review approval
 
 ### Metric 2: TDD Compliance (Target: 100%)
+
 - ✓ Agent can attest to watching each test fail first
 - ✓ Tests written before implementation (commit evidence)
 
 ### Metric 3: Frontend Quality (Target: 95%+)
+
 - ✓ UI changes include screenshot evidence
 - ✓ Accessibility tests passing (0 violations)
 - ✓ DevTools console shows no errors
 
 ### Metric 4: Early Detection (Target: >80%)
+
 - ✓ Issues caught during implementation (not at end)
 - ✓ Code review happens before merge (not after)
 
@@ -203,12 +211,14 @@ All skills MUST work across:
 ## References
 
 **Research Memos**:
+
 - `.wrangler/memos/2025-11-20-testing-skills-analysis.md` (2,089 lines)
 - `.wrangler/memos/2025-11-20-verification-completion-skills-analysis.md` (1,311 lines)
 - `.wrangler/memos/2025-11-20-frontend-testing-research.md` (1,692 lines)
 - `.wrangler/memos/2025-11-20-testing-verification-improvement-recommendations.md` (641 lines)
 
 **Skills to Update**:
+
 - verification-before-completion
 - test-driven-development
 - testing-anti-patterns
@@ -219,6 +229,7 @@ All skills MUST work across:
 - condition-based-waiting (optional)
 
 **Skills to Create**:
+
 - frontend-visual-regression-testing
 - frontend-accessibility-verification
 - frontend-e2e-user-journeys

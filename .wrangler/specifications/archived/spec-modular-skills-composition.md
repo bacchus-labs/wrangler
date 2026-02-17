@@ -2,7 +2,7 @@
 id: "spec-modular-skills-composition"
 title: "Modular Skills Composition System"
 type: "specification"
-status: "open"
+status: "closed"
 priority: "high"
 labels: ["architecture", "skills", "dx", "modularity"]
 createdAt: "2025-11-22T15:45:00.000Z"
@@ -29,6 +29,7 @@ This specification proposes a modular composition system for Wrangler's 49 skill
 - **Zero runtime overhead**: No changes to how Claude loads or executes skills
 
 **Key Metrics:**
+
 - **Current state:** ~13,327 total lines across 49 skills, significant duplication
 - **Estimated reduction:** 20-30% fewer lines through fragment reuse
 - **Build time:** <2 seconds for full compilation
@@ -56,6 +57,7 @@ This specification proposes a modular composition system for Wrangler's 49 skill
 **Skill Discovery & Loading:**
 
 Claude Code discovers skills through:
+
 1. **Directory scanning:** Reads `skills/` directory recursively
 2. **YAML frontmatter:** Parses `name` and `description` from each `SKILL.md`
 3. **Semantic matching:** Loads skills when `description` matches task context
@@ -68,19 +70,20 @@ Claude Code discovers skills through:
 name: skill-name-with-hyphens
 description: Use when [triggers] - [what it does]
 ---
-
 # Markdown Content
 
 [Pure markdown with no preprocessing]
 ```
 
 **Critical constraints:**
+
 - Must be valid markdown (no custom syntax that breaks parsers)
 - Frontmatter limited to 1024 chars total
 - Files must be standalone (no external dependencies at runtime)
 - No references to other files that Claude must resolve
 
 **Current directory structure:**
+
 ```
 skills/
   skill-name/
@@ -133,6 +136,7 @@ Skills that reference TDD have varying levels of detail:
 **Pattern 3: Verification Checklists**
 
 Multiple skills include "before completion" checklists:
+
 - `verification-before-completion/SKILL.md`: 626 lines (master checklist)
 - `test-driven-development/SKILL.md`: 15-line verification section
 - `systematic-debugging/SKILL.md`: Custom verification steps
@@ -145,6 +149,7 @@ Multiple skills include "before completion" checklists:
 **Pattern 4: Subagent Dispatch Templates**
 
 Skills that coordinate subagents repeat similar patterns:
+
 - `implement/SKILL.md`: Task dispatch templates (3 variations)
 - `code-review/SKILL.md`: Reviewer dispatch template
 - `housekeeping/SKILL.md`: Parallel agent dispatch (3 agents)
@@ -161,6 +166,7 @@ Skills that coordinate subagents repeat similar patterns:
 **Problem 1: Cross-skill updates**
 
 When TDD workflow changes (e.g., adding "TDD Compliance Certification"):
+
 - Updated `test-driven-development/SKILL.md` ✅
 - Must update `implement/SKILL.md` manually ❌
 - Must update `systematic-debugging/SKILL.md` manually ❌
@@ -169,11 +175,13 @@ When TDD workflow changes (e.g., adding "TDD Compliance Certification"):
 **Problem 2: Long files**
 
 Longest skills:
+
 - `implement/SKILL.md`: 1,222 lines
 - `writing-skills/SKILL.md`: 869 lines
 - `testing-anti-patterns/SKILL.md`: 846 lines
 
 **Issues:**
+
 - Hard to scan/maintain
 - Mixing concerns (workflow + templates + examples)
 - IDE performance degrades
@@ -187,6 +195,7 @@ Current workaround: "REQUIRED SUB-SKILL" references
 ```
 
 **Limitations:**
+
 - Delegates to Claude to "figure it out"
 - No guarantee subagent has same understanding
 - Can't extract specific sections (e.g., "just the RED phase")
@@ -201,17 +210,20 @@ Current workaround: "REQUIRED SUB-SKILL" references
 **Option A: markedpp** ([GitHub](https://github.com/commenthol/markedpp))
 
 **Features:**
+
 - `!include(path/to/file.md)` directive
 - Line range support: `!include(file.md)[10:20]`
 - Language specification for code blocks
 - Recursive includes
 
 **Pros:**
+
 - Mature (active since 2013)
 - Simple directive syntax
 - npm package, integrates with Node.js builds
 
 **Cons:**
+
 - Limited to includes (no variables, conditionals)
 - No validation of references
 
@@ -220,11 +232,13 @@ Current workaround: "REQUIRED SUB-SKILL" references
 **Option B: markdown-it + markdown-it-directive**
 
 **Features:**
+
 - Generic directive syntax following CommonMark spec
 - Inline and block directives
 - Plugin architecture for custom processing
 
 **Example:**
+
 ```markdown
 ::include[fragments/tdd-workflow.md]
 
@@ -234,11 +248,13 @@ Content here
 ```
 
 **Pros:**
+
 - Extensible (can add custom directives)
 - Standard CommonMark extension
 - Large ecosystem
 
 **Cons:**
+
 - Requires custom plugin for includes
 - More complex setup
 
@@ -249,29 +265,34 @@ Content here
 **Concept:** Author in MDX, compile to plain markdown
 
 **Features:**
+
 - Import/export statements
 - Component composition
 - Full JavaScript at build time
 
 **Example:**
+
 ```mdx
-import TDDWorkflow from './fragments/tdd-workflow.mdx'
-import SkillAnnouncement from './fragments/announcement.mdx'
+import TDDWorkflow from "./fragments/tdd-workflow.mdx";
+import SkillAnnouncement from "./fragments/announcement.mdx";
 
 <SkillAnnouncement name="test-driven-development" />
 
 ## Overview
+
 ...
 
 <TDDWorkflow />
 ```
 
 **Pros:**
+
 - Powerful composition
 - TypeScript support
 - Popular ecosystem ([Next.js MDX](https://nextjs.org/docs/pages/building-your-application/configuring/mdx), [Remix MDX](https://remix.run/docs/en/main/guides/mdx))
 
 **Cons:**
+
 - Overkill for simple includes
 - Must compile MDX → Markdown (extra step)
 - Harder to author (requires JSX knowledge)
@@ -281,11 +302,13 @@ import SkillAnnouncement from './fragments/announcement.mdx'
 **Option D: Custom Preprocessor**
 
 **Features:**
+
 - Wrangler-specific directives
 - Built exactly for our use case
 - Integration with skill validation
 
 **Example:**
+
 ```markdown
 {{include: fragments/skill-announcement.md}}
 
@@ -295,11 +318,13 @@ import SkillAnnouncement from './fragments/announcement.mdx'
 ```
 
 **Pros:**
+
 - Total control
 - Optimized for Wrangler workflow
 - Can add skill-specific validation
 
 **Cons:**
+
 - Must build and maintain
 - No ecosystem support
 - Reinventing wheel
@@ -322,6 +347,7 @@ import SkillAnnouncement from './fragments/announcement.mdx'
 - Build-time execution, static output
 
 **Lessons:**
+
 - Simple `{{directive}}` syntax is intuitive
 - Line range includes are valuable
 - Build-time validation prevents broken references
@@ -330,12 +356,12 @@ import SkillAnnouncement from './fragments/announcement.mdx'
 
 ### 2.3 Comparison Matrix
 
-| Tool | Syntax | Validation | Ecosystem | Complexity | Best For |
-|------|--------|------------|-----------|------------|----------|
-| **markedpp** | `!include()` | None | Mature npm | Low | Simple includes |
-| **markdown-it-directive** | `::include[]` | Plugin-based | Large | Medium | Extensible system |
-| **MDX → MD** | `import X` | TypeScript | Huge | High | Complex composition |
-| **Custom** | `{{include:}}` | Full control | None | Medium | Wrangler-specific |
+| Tool                      | Syntax         | Validation   | Ecosystem  | Complexity | Best For            |
+| ------------------------- | -------------- | ------------ | ---------- | ---------- | ------------------- |
+| **markedpp**              | `!include()`   | None         | Mature npm | Low        | Simple includes     |
+| **markdown-it-directive** | `::include[]`  | Plugin-based | Large      | Medium     | Extensible system   |
+| **MDX → MD**              | `import X`     | TypeScript   | Huge       | High       | Complex composition |
+| **Custom**                | `{{include:}}` | Full control | None       | Medium     | Wrangler-specific   |
 
 ---
 
@@ -346,6 +372,7 @@ import SkillAnnouncement from './fragments/announcement.mdx'
 **Use markedpp with custom validation wrapper**
 
 **Rationale:**
+
 1. **Simple includes:** 90% of use case is "insert fragment here"
 2. **Proven tool:** markedpp is battle-tested, maintained
 3. **Low complexity:** Easy to understand, easy to debug
@@ -353,6 +380,7 @@ import SkillAnnouncement from './fragments/announcement.mdx'
 5. **Fast:** Processes all 49 skills in <2 seconds
 
 **Custom wrapper adds:**
+
 - Validation: Ensure all `!include()` references exist
 - Fragment registry: Warn if fragments aren't used
 - Metrics: Track duplication reduction
@@ -503,9 +531,11 @@ Major changes create new fragments (e.g., `tdd-workflow-v2.md`), old skills migr
 
 ```markdown
 ## Overview
+
 !include(skills-fragments/overview-template.md)
 
 ## TDD Process
+
 !include(skills-fragments/tdd/red-phase.md)
 !include(skills-fragments/tdd/green-phase.md)
 !include(skills-fragments/tdd/refactor-phase.md)
@@ -549,18 +579,21 @@ Compiles to:
    - `npm install --save-dev glob`
 
 3. **Build script v1 (basic)**
+
    ```javascript
    // scripts/build-skills.js
-   const markedpp = require('markedpp');
-   const glob = require('glob');
-   const fs = require('fs-extra');
+   const markedpp = require("markedpp");
+   const glob = require("glob");
+   const fs = require("fs-extra");
 
    async function buildSkills() {
-     const sources = glob.sync('skills-src/**/*.mdpp');
+     const sources = glob.sync("skills-src/**/*.mdpp");
 
      for (const src of sources) {
-       const output = src.replace('skills-src/', 'skills/').replace('.mdpp', '.md');
-       const content = await fs.readFile(src, 'utf8');
+       const output = src
+         .replace("skills-src/", "skills/")
+         .replace(".mdpp", ".md");
+       const content = await fs.readFile(src, "utf8");
        const compiled = markedpp.render(content);
        await fs.outputFile(output, compiled);
        console.log(`✓ ${src} → ${output}`);
@@ -577,6 +610,7 @@ Compiles to:
    - Verify output in `skills/test-skill/SKILL.md`
 
 **Success criteria:**
+
 - Build completes without errors
 - Output matches input (no directives yet)
 - Git ignores nothing (all directories tracked)
@@ -592,6 +626,7 @@ Compiles to:
 1. **Create fragment**
 
    `skills-fragments/skill-announcement.md`:
+
    ```markdown
    ## Skill Usage Announcement
 
@@ -612,6 +647,7 @@ Compiles to:
 2. **Update 3 pilot skills**
 
    Edit `skills-src/test-driven-development/SKILL.mdpp`:
+
    ```markdown
    ---
    name: test-driven-development
@@ -623,6 +659,7 @@ Compiles to:
    !include(skills-fragments/skill-announcement.md, skill-name="test-driven-development")
 
    ## Overview
+
    ...
    ```
 
@@ -638,7 +675,7 @@ Compiles to:
 
      // Simple variable replacement
      Object.entries(vars).forEach(([key, value]) => {
-       result = result.replace(new RegExp(`\\{${key}\\}`, 'g'), value);
+       result = result.replace(new RegExp(`\\{${key}\\}`, "g"), value);
      });
 
      return result;
@@ -651,6 +688,7 @@ Compiles to:
    - Commit both source and output
 
 **Success criteria:**
+
 - 3 skills compile with fragment
 - Output is byte-identical to original
 - Fragment reduces 45 lines to 1 directive
@@ -666,6 +704,7 @@ Compiles to:
 1. **Create TDD fragments**
 
    `skills-fragments/tdd/`:
+
    ```
    tdd/
    ├── red-phase.md           # RED phase explanation + examples
@@ -679,6 +718,7 @@ Compiles to:
 2. **Update test-driven-development skill**
 
    Make `test-driven-development/SKILL.mdpp` the canonical source:
+
    ```markdown
    ---
    name: test-driven-development
@@ -690,18 +730,22 @@ Compiles to:
    !include(skills-fragments/skill-announcement.md, skill-name="test-driven-development")
 
    ## Overview
+
    ...
 
    ## Red-Green-Refactor
+
    !include(skills-fragments/tdd/full-workflow.md)
 
    ## TDD Compliance Certification
+
    !include(skills-fragments/tdd/compliance-cert.md)
    ```
 
 3. **Update dependent skills**
 
    `systematic-debugging/SKILL.mdpp`:
+
    ```markdown
    ### Phase 4: Implementation
 
@@ -715,20 +759,22 @@ Compiles to:
    ```
 
    `implement/SKILL.mdpp`:
+
    ```markdown
    ## Task Executor Workflow
 
    Instructions for implementation subagent:
 
    \`\`\`markdown
+
    ## Your Job
 
    1. **Follow TDD**:
-   !include(skills-fragments/tdd/full-workflow.md)[10:100]
+      !include(skills-fragments/tdd/full-workflow.md)[10:100]
 
    2. **Create TDD Compliance Certification**:
-   !include(skills-fragments/tdd/compliance-cert.md)
-   \`\`\`
+      !include(skills-fragments/tdd/compliance-cert.md)
+      \`\`\`
    ```
 
 4. **Build and test**
@@ -737,6 +783,7 @@ Compiles to:
    - Run Claude Code with test task to verify skills still work
 
 **Success criteria:**
+
 - TDD workflow maintained in one place
 - 8 skills reference fragments (not duplicate)
 - Total line reduction: ~400 lines
@@ -758,14 +805,14 @@ Compiles to:
 
      let match;
      while ((match = includeRegex.exec(content)) !== null) {
-       const fragmentPath = match[1].split(',')[0].trim();
-       const fullPath = path.join(__dirname, '..', fragmentPath);
+       const fragmentPath = match[1].split(",")[0].trim();
+       const fullPath = path.join(__dirname, "..", fragmentPath);
 
        if (!fs.existsSync(fullPath)) {
          errors.push({
            file: sourcePath,
            fragment: fragmentPath,
-           message: `Fragment not found: ${fragmentPath}`
+           message: `Fragment not found: ${fragmentPath}`,
          });
        }
      }
@@ -775,12 +822,12 @@ Compiles to:
 
    // In buildSkills():
    for (const src of sources) {
-     const content = await fs.readFile(src, 'utf8');
+     const content = await fs.readFile(src, "utf8");
      const errors = validateIncludes(content, src);
 
      if (errors.length > 0) {
        console.error(`❌ Validation failed for ${src}:`);
-       errors.forEach(e => console.error(`   - ${e.message}`));
+       errors.forEach((e) => console.error(`   - ${e.message}`));
        process.exit(1);
      }
 
@@ -798,13 +845,13 @@ Compiles to:
      let match;
 
      while ((match = includeRegex.exec(content)) !== null) {
-       const fragment = match[1].split(',')[0].trim();
+       const fragment = match[1].split(",")[0].trim();
        fragmentUsage.set(fragment, (fragmentUsage.get(fragment) || 0) + 1);
      }
    }
 
    // After processing all files:
-   console.log('\n📊 Fragment Usage:');
+   console.log("\n📊 Fragment Usage:");
    Array.from(fragmentUsage.entries())
      .sort((a, b) => b[1] - a[1])
      .forEach(([fragment, count]) => {
@@ -816,31 +863,35 @@ Compiles to:
 
    ```javascript
    function generateMetrics() {
-     const srcLines = countLines('skills-src/**/*.mdpp');
-     const fragmentLines = countLines('skills-fragments/**/*.md');
-     const outputLines = countLines('skills/**/*.md');
+     const srcLines = countLines("skills-src/**/*.mdpp");
+     const fragmentLines = countLines("skills-fragments/**/*.md");
+     const outputLines = countLines("skills/**/*.md");
 
      const report = {
        source_lines: srcLines,
        fragment_lines: fragmentLines,
        output_lines: outputLines,
        duplication_eliminated: srcLines + fragmentLines - outputLines,
-       reduction_percent: ((1 - outputLines / (srcLines + fragmentLines)) * 100).toFixed(1)
+       reduction_percent: (
+         (1 - outputLines / (srcLines + fragmentLines)) *
+         100
+       ).toFixed(1),
      };
 
-     console.log('\n📈 Build Metrics:');
+     console.log("\n📈 Build Metrics:");
      console.log(`   Source: ${report.source_lines} lines`);
      console.log(`   Fragments: ${report.fragment_lines} lines`);
      console.log(`   Output: ${report.output_lines} lines`);
      console.log(`   Reduction: ${report.reduction_percent}%`);
 
-     fs.writeJsonSync('skills-metrics.json', report);
+     fs.writeJsonSync("skills-metrics.json", report);
    }
    ```
 
 4. **CI integration**
 
    `.github/workflows/validate-skills.yml`:
+
    ```yaml
    name: Validate Skills
 
@@ -853,7 +904,7 @@ Compiles to:
          - uses: actions/checkout@v3
          - uses: actions/setup-node@v3
            with:
-             node-version: '20'
+             node-version: "20"
          - run: npm install
          - run: npm run validate:skills
          - run: npm run build:skills
@@ -867,6 +918,7 @@ Compiles to:
    ```
 
 **Success criteria:**
+
 - Build fails on missing fragments
 - Metrics report shows reduction
 - CI catches uncommitted compiled output
@@ -919,6 +971,7 @@ Compiles to:
 1. **Fragment catalog**
 
    `skills-fragments/README.md`:
+
    ```markdown
    # Wrangler Skill Fragments
 
@@ -927,10 +980,12 @@ Compiles to:
    ## Available Fragments
 
    ### Core Templates
+
    - `skill-announcement.md` - Standard skill announcement (used by all skills)
    - `overview-template.md` - Overview section structure
 
    ### TDD Workflow
+
    - `tdd/full-workflow.md` - Complete RED-GREEN-REFACTOR cycle
    - `tdd/red-phase.md` - RED phase only (lines 1-150)
    - `tdd/green-phase.md` - GREEN phase only (lines 151-250)
@@ -938,10 +993,12 @@ Compiles to:
    - `tdd/compliance-cert.md` - TDD Compliance Certification template
 
    ### Verification
+
    - `verification/before-completion.md` - Pre-completion checklist
    - `verification/evidence-template.md` - Evidence requirement pattern
 
    ### Subagent Templates
+
    - `subagent-templates/implementation.md` - Implementation subagent prompt
    - `subagent-templates/code-review.md` - Code review subagent prompt
    - `subagent-templates/fix-attempt.md` - Fix subagent prompt
@@ -949,16 +1006,19 @@ Compiles to:
    ## Usage
 
    ### Basic Include
+
    \`\`\`markdown
    !include(skills-fragments/skill-announcement.md)
    \`\`\`
 
    ### With Variables
+
    \`\`\`markdown
    !include(skills-fragments/skill-announcement.md, skill-name="my-skill")
    \`\`\`
 
    ### Specific Lines
+
    \`\`\`markdown
    !include(skills-fragments/tdd/full-workflow.md)[1:100]
    \`\`\`
@@ -975,12 +1035,14 @@ Compiles to:
 2. **Authoring guide**
 
    Update `skills/writing-skills/SKILL.md` with fragment authoring section:
+
    ```markdown
    ## Using Fragments in Skills
 
    ### When to Extract a Fragment
 
    Extract content as a fragment when:
+
    - Used by 2+ skills
    - Likely to be reused in future skills
    - Complex enough to justify maintenance overhead (>20 lines)
@@ -989,6 +1051,7 @@ Compiles to:
    ### Fragment Design
 
    Good fragments:
+
    - Are context-free (work in any skill)
    - Use minimal variables (prefer specific to generic)
    - Have clear purpose (one concern per fragment)
@@ -996,12 +1059,12 @@ Compiles to:
 
    ### Building Skills
 
-   After editing skills-src/*.mdpp:
+   After editing skills-src/\*.mdpp:
 
    \`\`\`bash
-   npm run build:skills        # Compile all
-   npm run watch:skills        # Watch mode
-   npm run validate:skills     # Check references
+   npm run build:skills # Compile all
+   npm run watch:skills # Watch mode
+   npm run validate:skills # Check references
    \`\`\`
 
    Always commit both source (.mdpp) and compiled (.md) files together.
@@ -1010,6 +1073,7 @@ Compiles to:
 3. **Migration guide** for future skills
 
    `docs/SKILL-AUTHORING.md`:
+
    ```markdown
    # Skill Authoring Guide
 
@@ -1036,6 +1100,7 @@ Compiles to:
    ```
 
 **Success criteria:**
+
 - Fragment catalog is complete
 - Authoring guide is clear
 - Team can create new skills using fragments
@@ -1086,39 +1151,48 @@ NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST
 Write code before the test? Delete it. Start over.
 
 **No exceptions:**
+
 - Don't keep it as "reference"
 - Don't "adapt" it while writing tests
-...
+  ...
 
 ## Red-Green-Refactor
 
 [150 lines of workflow explanation]
 
 ### RED - Write Failing Test
+
 [50 lines]
 
 ### Verify RED - Watch It Fail (MANDATORY EVIDENCE)
+
 [80 lines]
 
 ### GREEN - Minimal Code
+
 [40 lines]
 
 ### Verify GREEN - Watch It Pass (MANDATORY EVIDENCE)
+
 [60 lines]
 
 ### REFACTOR - Clean Up
+
 [30 lines]
 
 ## TDD Compliance Certification
+
 [100 lines of certification requirements]
 
 ## Common Rationalizations
+
 [80 lines of rationalization table]
 
 ...
 ```
 
 **Problems:**
+
 - Everything in one file
 - Workflow duplicated in other skills
 - Hard to reuse specific sections
@@ -1171,6 +1245,7 @@ NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST
 **Supporting fragments:**
 
 `skills-fragments/tdd/full-workflow.md`:
+
 ```markdown
 ### RED - Write Failing Test
 
@@ -1216,6 +1291,7 @@ Write simplest code to pass the test.
 ```
 
 **Benefits:**
+
 - Source is 200 lines (vs 550)
 - Workflow fragment used by 8 skills
 - Easy to update workflow in one place
@@ -1238,11 +1314,13 @@ description: Use when encountering any bug...
 !include(skills-fragments/skill-announcement.md, skill-name="systematic-debugging")
 
 ## Overview
+
 ...
 
 ## The Four Phases
 
 ### Phase 1: Root Cause Investigation
+
 ...
 
 ### Phase 4: Implementation
@@ -1269,6 +1347,7 @@ description: Use when encountering any bug...
 **Compiles to full markdown with all sections expanded.**
 
 **Benefits:**
+
 - Reuses TDD phases (don't duplicate)
 - Extracts specific line ranges (fine-grained control)
 - If TDD workflow changes, both skills update automatically
@@ -1302,7 +1381,7 @@ You are implementing Task {task_number}: {task_title}
    For each function you implement, document:
 
    | Function | Test File | Watched Fail? | Watched Pass? | Notes |
-   |----------|-----------|---------------|---------------|-------|
+   | -------- | --------- | ------------- | ------------- | ----- |
    | funcName | test.ts:L | YES/NO        | YES/NO        | ...   |
 
 3. **Verify implementation works**
@@ -1337,18 +1416,19 @@ Use the Task tool:
 Tool: Task
 Description: "Implement Task [N]: [title]"
 Prompt: |
-  !include(skills-fragments/subagent-templates/implementation.md,
-    task_number="5",
-    task_title="Add authentication middleware",
-    task_description="...",
-    acceptance_criteria="..."
-  )
+!include(skills-fragments/subagent-templates/implementation.md,
+task_number="5",
+task_title="Add authentication middleware",
+task_description="...",
+acceptance_criteria="..."
+)
 
-  Work from: [current directory]
+Work from: [current directory]
 \`\`\`
 ```
 
 **Benefits:**
+
 - Consistent subagent instructions across all workflow skills
 - Single source of truth for implementation expectations
 - Easy to evolve (add new requirements once, all skills update)
@@ -1381,6 +1461,7 @@ This skill demonstrates fragment usage.
 **Referenced fragments:**
 
 `skills-fragments/skill-announcement.md`:
+
 ```markdown
 ## Skill Usage Announcement
 
@@ -1393,12 +1474,18 @@ This skill demonstrates fragment usage.
 ```
 
 `skills-fragments/tdd/full-workflow.md`:
+
 ```markdown
 ### RED - Write Failing Test
+
 ...
+
 ### GREEN - Minimal Code
+
 ...
+
 ### REFACTOR - Clean Up
+
 ...
 ```
 
@@ -1467,10 +1554,11 @@ Write simplest code to pass the test.
 ### REFACTOR - Clean Up
 
 After green only:
+
 - Remove duplication
 - Improve names
 - Extract helpers
-...
+  ...
 ```
 
 **Claude Code loads the compiled output** (`skills/test-skill/SKILL.md`) exactly as before. No changes to runtime behavior.
@@ -1536,6 +1624,7 @@ diff skills/test-driven-development/SKILL.md skills/test-driven-development/SKIL
 ```
 
 If differences:
+
 - Review changes
 - If unintended, adjust source
 - Rebuild
@@ -1595,6 +1684,7 @@ rm skills/test-driven-development/SKILL.md.backup
 **If issues arise:**
 
 1. **Revert build artifacts:**
+
    ```bash
    git checkout HEAD -- skills/
    ```
@@ -1620,6 +1710,7 @@ git revert <migration-commit>
 **Before migration:**
 
 Email to team:
+
 ```
 Subject: Skills Architecture Upgrade - No Impact to Usage
 
@@ -1655,6 +1746,7 @@ Questions? Reply or see docs/SKILL-AUTHORING.md
 **During migration:**
 
 Daily status updates in Slack:
+
 ```
 Skills Migration Update - Day 5
 ✅ 12/49 skills migrated
@@ -1666,6 +1758,7 @@ Skills Migration Update - Day 5
 **After migration:**
 
 Summary email:
+
 ```
 Subject: Skills Migration Complete ✅
 
@@ -1699,36 +1792,36 @@ Thanks!
 
 ### 7.1 Technical Risks
 
-| Risk | Likelihood | Impact | Mitigation |
-|------|-----------|--------|------------|
-| **Build breaks on edge case** | Medium | Medium | Comprehensive test suite, validation before commit |
-| **Fragment not found at build time** | Low | High | Pre-build validation, fail fast with clear error |
-| **Output differs from input** | Low | High | Byte-for-byte diff validation, rollback if issues |
-| **Claude can't load compiled skills** | Very Low | Critical | Test with Claude after each migration, revert if issues |
-| **Build performance degrades** | Low | Low | Benchmark, optimize if >5 seconds |
-| **Circular dependencies in fragments** | Very Low | Medium | Fragment design guidelines prevent nesting |
+| Risk                                   | Likelihood | Impact   | Mitigation                                              |
+| -------------------------------------- | ---------- | -------- | ------------------------------------------------------- |
+| **Build breaks on edge case**          | Medium     | Medium   | Comprehensive test suite, validation before commit      |
+| **Fragment not found at build time**   | Low        | High     | Pre-build validation, fail fast with clear error        |
+| **Output differs from input**          | Low        | High     | Byte-for-byte diff validation, rollback if issues       |
+| **Claude can't load compiled skills**  | Very Low   | Critical | Test with Claude after each migration, revert if issues |
+| **Build performance degrades**         | Low        | Low      | Benchmark, optimize if >5 seconds                       |
+| **Circular dependencies in fragments** | Very Low   | Medium   | Fragment design guidelines prevent nesting              |
 
 ---
 
 ### 7.2 Process Risks
 
-| Risk | Likelihood | Impact | Mitigation |
-|------|-----------|--------|------------|
-| **Team forgets to build after editing** | Medium | Low | Pre-commit hook, CI validation, clear docs |
-| **Source and output diverge** | Medium | Medium | CI checks for uncommitted changes, fail PR |
-| **Fragment changes break multiple skills** | Medium | High | Fragment versioning (v1, v2), gradual migration |
-| **Confusing which file to edit** | Medium | Low | Clear naming (.mdpp vs .md), docs, training |
-| **Over-fragmentation** | Low | Medium | Guidelines: fragment only if 2+ usages, >20 lines |
+| Risk                                       | Likelihood | Impact | Mitigation                                        |
+| ------------------------------------------ | ---------- | ------ | ------------------------------------------------- |
+| **Team forgets to build after editing**    | Medium     | Low    | Pre-commit hook, CI validation, clear docs        |
+| **Source and output diverge**              | Medium     | Medium | CI checks for uncommitted changes, fail PR        |
+| **Fragment changes break multiple skills** | Medium     | High   | Fragment versioning (v1, v2), gradual migration   |
+| **Confusing which file to edit**           | Medium     | Low    | Clear naming (.mdpp vs .md), docs, training       |
+| **Over-fragmentation**                     | Low        | Medium | Guidelines: fragment only if 2+ usages, >20 lines |
 
 ---
 
 ### 7.3 Adoption Risks
 
-| Risk | Likelihood | Impact | Mitigation |
-|------|-----------|--------|------------|
-| **Team resists new workflow** | Low | Medium | Emphasize benefits, provide training, simple docs |
-| **New contributors confused** | Medium | Low | SKILL-AUTHORING.md guide, examples, onboarding |
-| **Migration fatigue** | Low | Low | Automate what we can, clear milestones, celebrate progress |
+| Risk                          | Likelihood | Impact | Mitigation                                                 |
+| ----------------------------- | ---------- | ------ | ---------------------------------------------------------- |
+| **Team resists new workflow** | Low        | Medium | Emphasize benefits, provide training, simple docs          |
+| **New contributors confused** | Medium     | Low    | SKILL-AUTHORING.md guide, examples, onboarding             |
+| **Migration fatigue**         | Low        | Low    | Automate what we can, clear milestones, celebrate progress |
 
 ---
 
@@ -1777,6 +1870,7 @@ Instead of simple includes, add conditional logic:
 ```
 
 Fragment has two versions:
+
 - `depth="detailed"` → full 150 lines
 - `depth="summary"` → abbreviated 30 lines
 
@@ -1789,16 +1883,20 @@ Fragment has two versions:
 Fragments can reference other fragments:
 
 `skills-fragments/verification/complete-checklist.md`:
+
 ```markdown
 ## Verification Checklist
 
 ### TDD Compliance
+
 !include(tdd/compliance-cert.md)
 
 ### Code Quality
+
 !include(code-quality-checks.md)
 
 ### Documentation
+
 !include(docs-checklist.md)
 ```
 
@@ -1809,6 +1907,7 @@ Fragments can reference other fragments:
 **Live preview:**
 
 VS Code extension for `.mdpp` files:
+
 - Shows compiled output in side panel
 - Highlights fragment boundaries
 - Click to navigate to fragment source
@@ -1855,6 +1954,7 @@ Output: skills-dependencies.svg
 ```
 
 Shows:
+
 - Skills as nodes
 - Fragments as nodes (different color)
 - Edges show `!include()` relationships
@@ -1894,6 +1994,7 @@ Extract these fragments? [y/N]
 Move beyond markdown includes to declarative composition:
 
 `skills-src/new-skill/skill.yaml`:
+
 ```yaml
 name: advanced-debugging
 description: Multi-phase debugging workflow
@@ -1921,6 +2022,7 @@ sections:
 Build script compiles YAML → Markdown.
 
 **Benefits:**
+
 - More structured than free-form includes
 - Enables validation (required sections, valid references)
 - Could generate skill tests automatically
@@ -1936,6 +2038,7 @@ npm install @wrangler/skill-fragments
 ```
 
 `skills-src/my-skill/SKILL.mdpp`:
+
 ```markdown
 !include(@wrangler/skill-fragments/tdd/workflow.md)
 ```
@@ -1949,6 +2052,7 @@ npm install @wrangler/skill-fragments
 Fragments specifically tuned for Claude's behavior:
 
 `skills-fragments/tdd/workflow-optimized.md`:
+
 - Shorter (50% reduction)
 - High information density
 - Structured for easy scanning
@@ -1967,6 +2071,7 @@ Semantic versioning for fragments:
 ```
 
 Breaking changes create new major version:
+
 - `v1.x.x` - Original workflow (deprecated)
 - `v2.x.x` - Added compliance certification (current)
 - `v3.x.x` - Future enhancements
@@ -1984,22 +2089,22 @@ Skills can opt into new versions gradually.
 ```javascript
 #!/usr/bin/env node
 
-const markedpp = require('markedpp');
-const fs = require('fs-extra');
-const path = require('path');
-const glob = require('glob');
-const chokidar = require('chokidar');
+const markedpp = require("markedpp");
+const fs = require("fs-extra");
+const path = require("path");
+const glob = require("glob");
+const chokidar = require("chokidar");
 
 // Configuration
-const SRC_DIR = 'skills-src';
-const FRAGMENTS_DIR = 'skills-fragments';
-const OUTPUT_DIR = 'skills';
+const SRC_DIR = "skills-src";
+const FRAGMENTS_DIR = "skills-fragments";
+const OUTPUT_DIR = "skills";
 
 // Parse CLI args
 const args = process.argv.slice(2);
-const watchMode = args.includes('--watch');
-const validateOnly = args.includes('--validate-only');
-const showMetrics = args.includes('--metrics');
+const watchMode = args.includes("--watch");
+const validateOnly = args.includes("--validate-only");
+const showMetrics = args.includes("--metrics");
 
 // Fragment usage tracking
 const fragmentUsage = new Map();
@@ -2016,15 +2121,15 @@ function validateIncludes(content, sourcePath) {
 
   let match;
   while ((match = includeRegex.exec(content)) !== null) {
-    const fragmentPath = match[1].split(',')[0].trim();
-    const fullPath = path.join(__dirname, '..', fragmentPath);
+    const fragmentPath = match[1].split(",")[0].trim();
+    const fullPath = path.join(__dirname, "..", fragmentPath);
 
     if (!fs.existsSync(fullPath)) {
       errors.push({
         file: sourcePath,
         fragment: fragmentPath,
-        line: content.substring(0, match.index).split('\n').length,
-        message: `Fragment not found: ${fragmentPath}`
+        line: content.substring(0, match.index).split("\n").length,
+        message: `Fragment not found: ${fragmentPath}`,
       });
     }
 
@@ -2042,7 +2147,7 @@ function processVariables(content, vars = {}) {
   let result = content;
 
   Object.entries(vars).forEach(([key, value]) => {
-    const regex = new RegExp(`\\{${key}\\}`, 'g');
+    const regex = new RegExp(`\\{${key}\\}`, "g");
     result = result.replace(regex, value);
   });
 
@@ -2070,7 +2175,7 @@ function parseIncludeVars(includeStr) {
  */
 async function processSkill(srcPath) {
   try {
-    const content = await fs.readFile(srcPath, 'utf8');
+    const content = await fs.readFile(srcPath, "utf8");
 
     // Validate includes
     const errors = validateIncludes(content, srcPath);
@@ -2080,7 +2185,10 @@ async function processSkill(srcPath) {
 
     // Determine output path
     const relativePath = path.relative(SRC_DIR, srcPath);
-    const outputPath = path.join(OUTPUT_DIR, relativePath.replace('.mdpp', '.md'));
+    const outputPath = path.join(
+      OUTPUT_DIR,
+      relativePath.replace(".mdpp", ".md"),
+    );
 
     // Process with markedpp
     let compiled = markedpp.render(content);
@@ -2097,14 +2205,14 @@ async function processSkill(srcPath) {
     await fs.ensureDir(path.dirname(outputPath));
 
     // Write compiled output
-    await fs.writeFile(outputPath, compiled, 'utf8');
+    await fs.writeFile(outputPath, compiled, "utf8");
 
     console.log(`✓ ${srcPath} → ${outputPath}`);
   } catch (error) {
     console.error(`❌ Error processing ${srcPath}:`, error.message);
     validationErrors.push({
       file: srcPath,
-      message: error.message
+      message: error.message,
     });
   }
 }
@@ -2116,9 +2224,9 @@ function countLines(pattern) {
   const files = glob.sync(pattern);
   let total = 0;
 
-  files.forEach(file => {
-    const content = fs.readFileSync(file, 'utf8');
-    total += content.split('\n').length;
+  files.forEach((file) => {
+    const content = fs.readFileSync(file, "utf8");
+    total += content.split("\n").length;
   });
 
   return total;
@@ -2133,11 +2241,12 @@ function generateMetrics() {
   const outputLines = countLines(`${OUTPUT_DIR}/**/*.md`);
 
   const duplicatedLines = srcLines + fragmentLines - outputLines;
-  const reductionPercent = duplicatedLines > 0
-    ? ((duplicatedLines / (srcLines + fragmentLines)) * 100).toFixed(1)
-    : 0;
+  const reductionPercent =
+    duplicatedLines > 0
+      ? ((duplicatedLines / (srcLines + fragmentLines)) * 100).toFixed(1)
+      : 0;
 
-  console.log('\n📈 Build Metrics:');
+  console.log("\n📈 Build Metrics:");
   console.log(`   Source: ${srcLines} lines`);
   console.log(`   Fragments: ${fragmentLines} lines`);
   console.log(`   Output: ${outputLines} lines`);
@@ -2152,10 +2261,10 @@ function generateMetrics() {
     output_lines: outputLines,
     duplication_eliminated: duplicatedLines,
     reduction_percent: parseFloat(reductionPercent),
-    fragment_usage: Object.fromEntries(fragmentUsage)
+    fragment_usage: Object.fromEntries(fragmentUsage),
   };
 
-  fs.writeJsonSync('skills-metrics.json', metrics, { spaces: 2 });
+  fs.writeJsonSync("skills-metrics.json", metrics, { spaces: 2 });
 }
 
 /**
@@ -2164,10 +2273,11 @@ function generateMetrics() {
 function showFragmentUsage() {
   if (fragmentUsage.size === 0) return;
 
-  console.log('\n📊 Fragment Usage:');
+  console.log("\n📊 Fragment Usage:");
 
-  const sorted = Array.from(fragmentUsage.entries())
-    .sort((a, b) => b[1] - a[1]);
+  const sorted = Array.from(fragmentUsage.entries()).sort(
+    (a, b) => b[1] - a[1],
+  );
 
   sorted.forEach(([fragment, count]) => {
     console.log(`   ${fragment}: ${count} usage(s)`);
@@ -2180,9 +2290,9 @@ function showFragmentUsage() {
 function showValidationErrors() {
   if (validationErrors.length === 0) return true;
 
-  console.error('\n❌ Validation Errors:\n');
+  console.error("\n❌ Validation Errors:\n");
 
-  validationErrors.forEach(error => {
+  validationErrors.forEach((error) => {
     if (error.line) {
       console.error(`   ${error.file}:${error.line} - ${error.message}`);
     } else {
@@ -2198,7 +2308,7 @@ function showValidationErrors() {
  * Build all skills
  */
 async function buildAll() {
-  console.log('Building skills...\n');
+  console.log("Building skills...\n");
 
   // Reset tracking
   fragmentUsage.clear();
@@ -2208,7 +2318,7 @@ async function buildAll() {
   const sources = glob.sync(`${SRC_DIR}/**/*.mdpp`);
 
   if (sources.length === 0) {
-    console.warn('⚠️  No .mdpp files found in skills-src/');
+    console.warn("⚠️  No .mdpp files found in skills-src/");
     return;
   }
 
@@ -2229,9 +2339,9 @@ async function buildAll() {
       generateMetrics();
     }
 
-    console.log('\n✅ Build complete\n');
+    console.log("\n✅ Build complete\n");
   } else {
-    console.log('\n✅ Validation passed\n');
+    console.log("\n✅ Validation passed\n");
   }
 }
 
@@ -2239,19 +2349,19 @@ async function buildAll() {
  * Watch mode
  */
 function watch() {
-  console.log('👀 Watching for changes...\n');
+  console.log("👀 Watching for changes...\n");
 
-  const watcher = chokidar.watch([
-    `${SRC_DIR}/**/*.mdpp`,
-    `${FRAGMENTS_DIR}/**/*.md`
-  ], {
-    ignoreInitial: true
-  });
+  const watcher = chokidar.watch(
+    [`${SRC_DIR}/**/*.mdpp`, `${FRAGMENTS_DIR}/**/*.md`],
+    {
+      ignoreInitial: true,
+    },
+  );
 
-  watcher.on('change', async (filePath) => {
+  watcher.on("change", async (filePath) => {
     console.log(`\n📝 Changed: ${filePath}\n`);
 
-    if (filePath.endsWith('.mdpp')) {
+    if (filePath.endsWith(".mdpp")) {
       await processSkill(filePath);
     } else {
       // Fragment changed, rebuild all skills that use it
@@ -2259,7 +2369,7 @@ function watch() {
     }
   });
 
-  watcher.on('add', async (filePath) => {
+  watcher.on("add", async (filePath) => {
     console.log(`\n➕ Added: ${filePath}\n`);
     await buildAll();
   });
@@ -2279,7 +2389,7 @@ async function main() {
       await buildAll();
     }
   } catch (error) {
-    console.error('Fatal error:', error);
+    console.error("Fatal error:", error);
     process.exit(1);
   }
 }
@@ -2321,6 +2431,7 @@ main();
 **Variables:** `{skill-name}`
 
 **Content:**
+
 ```markdown
 ## Skill Usage Announcement
 
@@ -2345,6 +2456,7 @@ This creates an audit trail showing which skills were applied during the session
 **Usage:** Guidance for skill overview sections (optional)
 
 **Content:**
+
 ```markdown
 ## Overview
 
@@ -2366,6 +2478,7 @@ This creates an audit trail showing which skills were applied during the session
 **Lines:** 350
 
 **Content:**
+
 ```markdown
 ### RED - Write Failing Test
 
@@ -2381,10 +2494,10 @@ test('retries failed operations 3 times', async () => {
     return 'success';
   };
 
-  const result = await retryOperation(operation);
+const result = await retryOperation(operation);
 
-  expect(result).toBe('success');
-  expect(attempts).toBe(3);
+expect(result).toBe('success');
+expect(attempts).toBe(3);
 });
 \`\`\`
 Clear name, tests real behavior, one thing
@@ -2405,6 +2518,7 @@ Vague name, tests mock not code
 </Bad>
 
 **Requirements:**
+
 - One behavior
 - Clear name
 - Real code (no mocks unless unavoidable)
@@ -2416,9 +2530,13 @@ BEFORE proceeding to GREEN phase:
 1. **Execute test command**:
    \`\`\`bash
    npm test -- path/to/test.test.ts
+
    # or
+
    pytest path/to/test.py::test_function_name
+
    # or
+
    cargo test test_function_name
    \`\`\`
 
@@ -2442,17 +2560,17 @@ Running RED phase verification:
 $ npm test -- retry.test.ts
 
 FAIL tests/retry.test.ts
-  ✕ retries failed operations 3 times (2 ms)
+✕ retries failed operations 3 times (2 ms)
 
-  ● retries failed operations 3 times
+● retries failed operations 3 times
 
     ReferenceError: retryOperation is not defined
 
       at Object.<anonymous> (tests/retry.test.ts:15:5)
 
 Test Suites: 1 failed, 1 total
-Tests:       1 failed, 1 total
-Time:        0.234s
+Tests: 1 failed, 1 total
+Time: 0.234s
 Exit code: 1
 
 This is the expected failure - function doesn't exist yet.
@@ -2530,11 +2648,11 @@ Running GREEN phase verification:
 $ npm test -- retry.test.ts
 
 PASS tests/retry.test.ts
-  ✓ retries failed operations 3 times (145 ms)
+✓ retries failed operations 3 times (145 ms)
 
 Test Suites: 1 passed, 1 total
-Tests:       1 passed, 1 total
-Time:        0.189s
+Tests: 1 passed, 1 total
+Time: 0.189s
 Exit code: 0
 
 Test now passes. Proceeding to REFACTOR phase.
@@ -2549,6 +2667,7 @@ If you cannot provide this output, you have NOT completed the GREEN phase.
 ### REFACTOR - Clean Up
 
 After green only:
+
 - Remove duplication
 - Improve names
 - Extract helpers
@@ -2585,6 +2704,7 @@ Next failing test for next feature.
 **Lines:** 100
 
 **Content:**
+
 ```markdown
 ## TDD Compliance Certification
 
@@ -2611,11 +2731,13 @@ For each new function/method implemented:
   - **Refactored**: YES (extracted delay logic)
 
 **Requirements:**
+
 - If ANY "NO" answers: Work is NOT complete. Delete and restart with TDD.
 - This certification MUST be included in your completion message.
 - One entry required for each new function/method.
 
 **Why this matters:**
+
 - Required by verification-before-completion skill
 - Proves you followed TDD (not just testing after)
 - Creates audit trail for code review
@@ -2635,6 +2757,7 @@ For each new function/method implemented:
 **Lines:** 150
 
 **Content:**
+
 ```markdown
 ## Verification Checklist
 
@@ -2662,6 +2785,7 @@ Can't check all boxes? You skipped TDD. Start over.
 **Lines:** 50
 
 **Content:**
+
 ```markdown
 **YOU MUST provide evidence before proceeding:**
 
@@ -2718,6 +2842,7 @@ If you cannot provide this output, you have NOT completed this step.
 **Lines:** 100
 
 **Content:**
+
 ```markdown
 You are reviewing code for Task {task_number}.
 
@@ -2743,9 +2868,11 @@ Follow the code-review skill framework:
 3. **Provide assessment**:
 
    ### Strengths
+
    [What was done well]
 
    ### Issues
+
    [List with category and specific fix instructions]
 
    **Critical:**
@@ -2777,6 +2904,7 @@ See requesting-code-review skill for full template.
 **Lines:** 60
 
 **Content:**
+
 ```markdown
 You are fixing a code review issue (Attempt {attempt_number}).
 
@@ -2821,6 +2949,7 @@ You are fixing a code review issue (Attempt {attempt_number}).
 ### C.1 Quantitative Metrics
 
 **Baseline (before migration):**
+
 - Total lines: 13,327
 - Duplication estimate: 2,000-3,000 lines (15-22%)
 - Number of skills: 49
@@ -2828,6 +2957,7 @@ You are fixing a code review issue (Attempt {attempt_number}).
 - Build time: N/A (no build)
 
 **Target (after migration):**
+
 - Source lines: ~9,500 (29% reduction from manual editing)
 - Fragment lines: ~2,100
 - Output lines: 13,327 (unchanged, Claude sees same content)
@@ -2837,6 +2967,7 @@ You are fixing a code review issue (Attempt {attempt_number}).
 - Build time: <2 seconds
 
 **Quality metrics:**
+
 - Fragment reuse: Avg 5 skills per fragment (top fragments >10 usages)
 - Validation coverage: 100% (all includes validated)
 - Build success rate: >99%
@@ -2847,18 +2978,21 @@ You are fixing a code review issue (Attempt {attempt_number}).
 ### C.2 Qualitative Metrics
 
 **Developer Experience:**
+
 - ✅ Easier to find and update common patterns
 - ✅ Faster skill authoring (reuse vs write)
 - ✅ Clearer separation of concerns
 - ✅ Better IDE navigation (jump to fragment source)
 
 **Maintainability:**
+
 - ✅ Single source of truth for TDD workflow
 - ✅ Consistent skill announcements across all skills
 - ✅ Easier to evolve patterns (update fragment once)
 - ✅ Less risk of inconsistency
 
 **Discoverability:**
+
 - ✅ Fragment catalog documents reusable components
 - ✅ Skills more scannable (less boilerplate)
 - ✅ Build metrics highlight high-value fragments
@@ -2870,31 +3004,37 @@ You are fixing a code review issue (Attempt {attempt_number}).
 **Phase gates:**
 
 ✅ **Phase 1 complete when:**
+
 - Build script runs without errors
 - Can process dummy skill with fragment
 - CI integration validated
 
 ✅ **Phase 2 complete when:**
+
 - 3 pilot skills migrated
 - Output byte-identical to original
 - Claude Code loads skills successfully
 
 ✅ **Phase 3 complete when:**
+
 - TDD fragments extracted
 - 8 dependent skills use fragments
 - No regressions in skill behavior
 
 ✅ **Phase 4 complete when:**
+
 - Validation catches missing fragments
 - Metrics report generated
 - CI fails on uncommitted changes
 
 ✅ **Phase 5 complete when:**
+
 - All 49 skills migrated
 - Duplication reduced by 20%+
 - Build completes in <2 seconds
 
 ✅ **Phase 6 complete when:**
+
 - Fragment catalog documented
 - Authoring guide published
 - Team trained on new workflow

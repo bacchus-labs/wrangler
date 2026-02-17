@@ -4,16 +4,17 @@ title: >-
   init_workspace MCP tool - Idempotent .wrangler/ directory initialization and
   builtin asset provisioning
 type: specification
-status: open
+status: closed
 priority: high
 labels:
   - specification
   - mcp
   - workspace
   - init
-createdAt: '2026-02-16T20:47:06.807Z'
-updatedAt: '2026-02-16T20:58:36.925Z'
+createdAt: "2026-02-16T20:47:06.807Z"
+updatedAt: "2026-02-16T20:58:36.925Z"
 ---
+
 # Specification: init_workspace MCP Tool
 
 ## Executive Summary
@@ -21,12 +22,14 @@ updatedAt: '2026-02-16T20:58:36.925Z'
 **What:** An MCP tool (`init_workspace`) that initializes and maintains the `.wrangler/` directory structure in any project. It creates directories, provisions builtin assets (agents, prompts, workflows), generates config files, and manages `.gitignore` -- all idempotently, never overwriting existing content.
 
 **Why:** Today's `session-start.sh` uses a brittle one-shot check (`if .wrangler/issues/ exists, skip everything`). This means:
+
 - New directories added to `workspace-schema.json` are never created in existing projects
 - Builtin agents/prompts/workflows are not available for project-level customization
 - No config file is generated for the project
 - No way to run initialization on-demand or in report-only mode
 
 **Scope:**
+
 - Included: Directory creation, builtin asset copying, config generation, .gitignore management, report-only mode, session-start.sh simplification
 - Excluded: Governance file generation (constitution, roadmap -- that's the `initializing-governance` skill), issue/spec template creation, workflow engine configuration
 
@@ -57,6 +60,7 @@ updatedAt: '2026-02-16T20:58:36.925Z'
 ### Current State
 
 `hooks/session-start.sh` line 125-126:
+
 ```bash
 if [ -d "${GIT_ROOT}/.wrangler/issues" ]; then
     return 0  # Already initialized - skip
@@ -64,6 +68,7 @@ fi
 ```
 
 This means:
+
 1. If `.wrangler/issues/` exists, ALL initialization is skipped
 2. Adding `sessions/` to the schema (as was done recently) has no effect on existing projects
 3. Builtin agents/prompts/workflows live only in `workflows/agents/`, `workflows/prompts/` -- users cannot customize them per-project
@@ -72,6 +77,7 @@ This means:
 ### Proposed State
 
 An MCP tool that:
+
 1. Reads `workspace-schema.json` from the **plugin directory** (single source of truth)
 2. Creates any missing directories via `mkdir -p` (naturally idempotent)
 3. Copies builtin assets (agents, prompts, workflow YAML) into `.wrangler/orchestration/` subdirectories only if the target file does not already exist
@@ -82,15 +88,19 @@ An MCP tool that:
 ### Builtin Assets to Provision
 
 **From `workflows/agents/` (6 files):**
+
 - `analyzer.md`, `fixer.md`, `implementer.md`, `publisher.md`, `reviewer.md`, `verifier.md`
 
 **From `workflows/prompts/` (13 files):**
+
 - `analyze-diff.md`, `analyze-spec.md`, `code-quality-review.md`, `consolidate-review.md`, `fix-issues.md`, `implement-task.md`, `publish-changes.md`, `review-code-quality.md`, `review-security.md`, `review-testing.md`, `run-verification.md`, `security-review.md`, `test-coverage-review.md`
 
 **From `workflows/*.yaml` (2 files):**
+
 - `spec-implementation.yaml`, `code-review.yaml`
 
 **Target locations in project:**
+
 - `.wrangler/orchestration/agents/` -- agent definitions
 - `.wrangler/orchestration/prompts/` -- prompt templates
 - `.wrangler/orchestration/workflows/` -- workflow YAML files
@@ -127,6 +137,7 @@ An MCP tool that:
 **Location:** `mcp/tools/workspace/init.ts`
 
 **Input Schema:**
+
 ```typescript
 {
   fix?: boolean  // default: false (report-only mode)
@@ -134,6 +145,7 @@ An MCP tool that:
 ```
 
 **Output Schema:**
+
 ```typescript
 {
   status: 'compliant' | 'initialized' | 'changes_needed',
@@ -158,6 +170,7 @@ An MCP tool that:
 ```
 
 **Key behaviors:**
+
 1. Resolves `pluginRoot` from its own module location (same pattern as `cli.ts` line 86)
 2. Resolves `projectRoot` from git root (`git rev-parse --show-toplevel`) or cwd
 3. Reads schema from `{pluginRoot}/.wrangler/config/workspace-schema.json`
@@ -170,6 +183,7 @@ An MCP tool that:
 ### Default Config Template
 
 `.wrangler/config/wrangler.json`:
+
 ```json
 {
   "version": "1.0.0",
@@ -194,6 +208,7 @@ The `initialize_workspace()` function in `session-start.sh` (lines 117-207) shou
 ### Registration
 
 Register in `mcp/server.ts`:
+
 - Tool name: `init_workspace`
 - Add to `getAvailableTools()` list
 - Add case in the tool dispatch switch
@@ -201,6 +216,7 @@ Register in `mcp/server.ts`:
 ### Directory in workspace-schema.json
 
 The schema needs a new `orchestration` directory entry with three subdirectories:
+
 ```json
 "orchestration": {
   "path": ".wrangler/orchestration",
@@ -226,6 +242,7 @@ The schema needs a new `orchestration` directory entry with three subdirectories
 ### Resolver Update
 
 The workflow engine's `WorkflowResolver` 2-tier search must be updated to look in the new location:
+
 1. `{projectRoot}/.wrangler/orchestration/{kind}/` (project-level, was `.wrangler/{kind}/`)
 2. `{pluginRoot}/workflows/{kind}/` (builtin fallback, unchanged)
 
@@ -271,9 +288,9 @@ Follow archive-wingman's pattern: copy individual files, not directories. Check 
 
 ```typescript
 for (const file of builtinAgents) {
-  const dest = path.join(projectRoot, '.wrangler/orchestration/agents', file);
-  if (!await fs.pathExists(dest)) {
-    await fs.copy(path.join(pluginRoot, 'workflows/agents', file), dest);
+  const dest = path.join(projectRoot, ".wrangler/orchestration/agents", file);
+  if (!(await fs.pathExists(dest))) {
+    await fs.copy(path.join(pluginRoot, "workflows/agents", file), dest);
     report.assets.agents.copied.push(file);
   } else {
     report.assets.agents.skipped.push(file);
@@ -286,6 +303,7 @@ This is more granular than wingman's `isDirectoryEmpty()` check -- it allows par
 ### Resolver Integration
 
 The workflow engine's `WorkflowResolver` already implements 2-tier search:
+
 1. `{projectRoot}/.wrangler/orchestration/{kind}/` (project-level)
 2. `{pluginRoot}/workflows/{kind}/` (builtin fallback)
 
@@ -298,33 +316,40 @@ This section catalogs all code, tests, and documentation that must be updated as
 ### Critical Path: Workflow Engine
 
 **`workflows/engine/src/resolver.ts` (2 code changes)**
+
 - Line 48: `path.join(this.projectRoot, '.wrangler', kind, filename)` --> must insert `'orchestration'` segment
 - Line 63: Error hint string `".wrangler/${kind}/"` --> `".wrangler/orchestration/${kind}/"`
 - This is the **single choke point** -- all agent/prompt/workflow resolution flows through here
 
 **`workflows/engine/src/cli.ts` (comment only)**
+
 - Lines 83-84: Comment says "which contains agents/, prompts/, and workflow YAML files" -- should clarify the builtin vs. project-level distinction. No code change needed.
 
 ### Critical Path: MCP Schema
 
 **`mcp/workspace-schema.ts`**
+
 - `getDefaultSchema()` function (lines ~115-230): Add `orchestration` directory definition with `agents`, `prompts`, `workflows` subdirectories
 - Must stay in sync with the JSON schema file
 
 **`.wrangler/config/workspace-schema.json`**
+
 - Add `orchestration` entry to `directories` object with three subdirectories (see Architecture section above)
 - Bump version from `1.2.0`
 
 ### Tests Requiring Updates
 
 **`workflows/engine/__tests__/resolver.test.ts` (~13 assertion changes)**
+
 - All test cases constructing project-level paths like `path.join(projectRoot, '.wrangler', 'workflows')` must add `'orchestration'` segment
 - Affected: `resolveWorkflow`, `resolveAgent`, `resolvePrompt` describe blocks, error message assertions
 
 **`workflows/engine/__tests__/integration/engine-e2e.test.ts` (7 fixture paths)**
+
 - `setupComposedWorkflowFiles()` function creates test fixtures at `.wrangler/agents/` and `.wrangler/prompts/` -- must change to `.wrangler/orchestration/agents/` and `.wrangler/orchestration/prompts/`
 
 **`mcp/__tests__/workspace-schema.test.ts`**
+
 - Add assertions for `orchestration` directory in `getInitializationDirectories()` tests
 - Add assertions for `orchestration` subdirs in `getGitTrackedDirectories()` tests
 - Update essential directories list to include `orchestration`
@@ -332,6 +357,7 @@ This section catalogs all code, tests, and documentation that must be updated as
 ### Documentation Updates
 
 **`workflows/engine/docs/builtin-agents-prompts.md` (~6 path references)**
+
 - 2-tier resolution path description (lines ~19-23): `.wrangler/agents/` --> `.wrangler/orchestration/agents/`
 - Override example directory tree (lines ~250-259): add `orchestration/` nesting
 - All "Hint" text showing project-level paths
