@@ -1,7 +1,6 @@
 # Session Hooks System
 
-**Version**: 1.2.0
-**Last Updated**: 2025-12-07
+> Last Updated: 2026-02-17 | Version: 1.2.0
 
 This document explains wrangler's session hooks system and how it manages plugin state across Claude Code sessions.
 
@@ -620,9 +619,9 @@ cat /tmp/hook-debug.log
 
 ## Related Documentation
 
-- [MCP Server Usage](MCP-USAGE.md) - How MCP interacts with workspace directories
-- [Governance Framework](GOVERNANCE.md) - How governance files use workspace structure
-- [Versioning](VERSIONING.md) - Version tracking and updates
+- [MCP Server Usage](mcp-usage.md) - How MCP interacts with workspace directories
+- [Governance Framework](governance.md) - How governance files use workspace structure
+- [Versioning](versioning.md) - Version tracking and updates
 
 ---
 

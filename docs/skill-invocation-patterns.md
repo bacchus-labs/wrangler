@@ -1,5 +1,7 @@
 # Skill Invocation Patterns
 
+> Last Updated: 2026-02-17 | Version: 1.2.0
+
 This document maps common task patterns to the skills that should be invoked. Use this to validate whether appropriate skills were used during a session.
 
 **Purpose**: Enable compliance validation - did the agent use the right skills for the task?

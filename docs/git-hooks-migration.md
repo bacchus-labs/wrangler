@@ -1,5 +1,7 @@
 # Migration Guide: Moving to Wrangler Git Hooks
 
+> Last Updated: 2026-02-17 | Version: 1.2.0
+
 This guide helps you migrate from existing hook management systems to wrangler's Git Hooks Enforcement Framework.
 
 ## Overview

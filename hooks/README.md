@@ -91,5 +91,5 @@ If the hook script hangs or times out, it can block Claude Code from starting.
 ## See Also
 
 - **[Session Hooks Documentation](https://code.claude.com/docs/en/hooks)** - Official Claude Code hooks reference
-- **[Wrangler MCP Usage Guide](../docs/MCP-USAGE.md)** - Issue and specification tracking
-- **[Wrangler Governance Guide](../docs/GOVERNANCE.md)** - Constitution and roadmap system
+- **[Wrangler MCP Usage Guide](../docs/mcp-usage.md)** - Issue and specification tracking
+- **[Wrangler Governance Guide](../docs/governance.md)** - Constitution and roadmap system

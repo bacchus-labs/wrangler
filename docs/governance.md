@@ -1,7 +1,6 @@
 # Governance Framework User Guide
 
-**Version**: 1.2.0
-**Last Updated**: 2025-12-07
+> Last Updated: 2026-02-17 | Version: 1.2.0
 
 This guide explains the wrangler governance framework and how to use it to maintain perfect alignment between AI assistant and human partner on project direction, design principles, and tactical execution.
 

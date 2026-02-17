@@ -313,6 +313,6 @@ Use `_ROADMAP__NEXT_STEPS.md` for granular tracking:
 - `_ROADMAP.md` - Strategic plan
 - `_ROADMAP__NEXT_STEPS.md` - Tactical execution
 - `../issues/README.md` - Implementation tracking
-- `../../docs/MCP-USAGE.md` - MCP tools reference
+- `../../docs/mcp-usage.md` - MCP tools reference
 
 **Last Updated**: [YYYY-MM-DD]

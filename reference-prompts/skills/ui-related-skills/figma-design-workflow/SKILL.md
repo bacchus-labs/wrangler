@@ -1280,4 +1280,4 @@ After mockup creation, verify:
 
 - **Design System Setup**: `/skills/design-workflow/design-system-setup/SKILL.md`
 - **Figma MCP Documentation**: https://github.com/modelcontextprotocol/servers/tree/main/src/figma
-- **Wrangler MCP Usage**: `/docs/MCP-USAGE.md`
+- **Wrangler MCP Usage**: `/docs/mcp-usage.md`

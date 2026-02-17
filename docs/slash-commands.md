@@ -1,7 +1,6 @@
 # Wrangler Slash Commands
 
-**Version**: 1.1.0
-**Last Updated**: 2025-11-18
+> Last Updated: 2026-02-17 | Version: 1.2.0
 
 This document provides a comprehensive reference for all wrangler slash commands and how they work.
 
@@ -295,7 +294,7 @@ Shall I proceed with migration?
 
 **Related Skill**: `skills/startup-checklist/SKILL.md` (if exists)
 
-**Related Documentation**: [Versioning System](VERSIONING.md)
+**Related Documentation**: [Versioning System](versioning.md)
 
 ---
 
@@ -416,7 +415,7 @@ Not Started: 1
 
 ### ✅ Completed
 1. Created versioning system (Issues #000001)
-2. Documented session hooks (docs/SESSION-HOOKS.md)
+2. Documented session hooks (docs/session-hooks.md)
 ...
 
 ### ⚠️ Incomplete
@@ -670,8 +669,8 @@ ls ~/.claude/plugins/wrangler/skills/my-skill/SKILL.md
 ## Related Documentation
 
 - [Skills Reference](../README.md#skills) - All available skills
-- [Session Hooks](SESSION-HOOKS.md) - How commands integrate with startup
-- [Governance Framework](GOVERNANCE.md) - Planning workflow context
+- [Session Hooks](session-hooks.md) - How commands integrate with startup
+- [Governance Framework](governance.md) - Planning workflow context
 
 ---
 

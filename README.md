@@ -1,207 +1,212 @@
 # Wrangler
 
-Skills library and MCP server for AI coding assistants.
+Wrangler is a Claude Code plugin that provides project governance, systematic workflows, and development tooling for AI-assisted software development. It ensures alignment between developers and AI agents through constitutional principles, tracked specifications, proven skill patterns, and automated quality enforcement.
 
-## Components
+## What Wrangler Does
 
-### Skills Library
+- **Skills Library** -- 40 proven workflow patterns covering TDD, debugging, code review, governance, and more
+- **MCP Server** -- 18 tools for issue tracking, session orchestration, and workspace management
+- **Workflow Engine** -- Automated spec-to-PR orchestration with phase-based execution and TDD enforcement
+- **Git Hooks** -- Pre-commit and pre-push testing and quality gates
+- **Project Governance** -- Constitution, roadmap, specifications, and issue tracking
 
-48 skills across testing, debugging, collaboration, governance, git hooks, and code analysis.
+## Quick Start
 
-### MCP Server
+Install Wrangler as a Claude Code plugin, then verify the installation:
 
-Issue and specification tracking using markdown files with YAML frontmatter. Stored in `.wrangler/issues/` and `.wrangler/specifications/`. Provides 11 MCP tools for CRUD operations.
+```
+/wrangler:help
+```
 
-### Slash Commands
+Initialize the `.wrangler/` workspace in your project:
 
-12 commands that activate skills:
-- `/wrangler:brainstorm` - Design refinement
-- `/wrangler:write-plan` - Implementation planning
-- `/wrangler:implement` - Autonomous execution
-- `/wrangler:run-tests` - Test execution
-- `/wrangler:updating-wrangler` - Version migration
-- `/wrangler:setting-up-git-hooks` - Git hooks configuration
-- `/wrangler:updating-git-hooks` - Update hooks configuration
-- `/wrangler:commit-push-pr` - Commit, push, and create PR
-- `/wrangler:generate-plan-for-spec` - Generate plan from specification
-- `/wrangler:help` - Wrangler help and documentation
-- `/wrangler:issues` - Issue status summary
-- `/wrangler:reporting-status` - Situational awareness report
+```
+/wrangler:init-workspace
+```
 
-### Git Hooks Enforcement
+Explore available commands and skills:
 
-Automated testing and code quality enforcement through Git hooks:
-- **Pre-commit**: Runs formatter, linter, unit tests before each commit
-- **Pre-push**: Runs full test suite before pushing to protected branches
-- **Commit-msg**: Validates commit message format (optional)
+```
+/wrangler:sitrep
+/wrangler:issues
+```
 
-Run `/wrangler:setting-up-git-hooks` to configure. See [docs/git-hooks.md](docs/git-hooks.md) for details.
+## Skills Library
 
-### Session Hooks
+Skills are proven, reusable workflow patterns that Claude Code discovers and activates automatically when relevant to a task. When a skill exists for your current work, it is mandatory -- not optional.
 
-Automatic workspace initialization on session start creates `.wrangler/` directory structure and loads core skills.
+**40 skills** organized across these areas:
 
-## Installation
+| Category | Skills | Examples |
+|----------|--------|---------|
+| Testing | 3 | TDD enforcement, test execution, anti-pattern detection |
+| Debugging | 3 | Systematic debugging, root cause tracing, verification |
+| Collaboration | 7 | Brainstorming, code review, implementation, parallel agents |
+| Git Workflows | 6 | Worktrees, branch management, hooks setup |
+| Issue Management | 3 | Issue creation, specifications, idea capture |
+| Governance | 8 | Constitution, roadmap, metrics, alignment checks |
+| Frontend | 4 | Design, E2E testing, visual regression, accessibility |
+| Code Analysis | 5 | Code location, pattern finding, research |
+| System | 3 | Wrangler usage, self-update, status reporting |
+| Meta | 4 | Skill authoring, testing, sharing, file organization |
 
-Install via Claude Code plugin system. Run `/help` to verify - should list `/wrangler:*` commands.
-
-## Skills
-
-### Testing
-- **test-driven-development** - RED-GREEN-REFACTOR cycle enforcement
-- **run-the-tests** - Test suite execution with failure fixing
-- **testing-anti-patterns** - Prevents testing mock behavior and test-only production methods
-
-### Debugging
-- **systematic-debugging** - Four-phase root cause investigation framework
-- **root-cause-tracing** - Backward tracing through call stack with instrumentation
-- **verification-before-completion** - Requires running verification commands before success claims
-
-### Collaboration
-- **brainstorming** - Socratic design refinement
-- **writing-plans** - Implementation plan creation with MCP issues
-- **implementing-issue** - Single issue TDD implementation with code review
-- **implementing-specs** - Orchestrate spec-to-PR workflow with session tracking
-- **code-review** - Comprehensive code review framework
-- **requesting-code-review** - Pre-merge review workflow
-- **receiving-code-review** - Technical rigor in feedback responses
-- **reviewing-implementation-progress** - Mid-implementation checkpoint
-- **dispatching-parallel-agents** - Concurrent investigation of independent failures
-
-### Git Workflows
-- **using-git-worktrees** - Isolated workspace creation with smart directory selection
-- **worktree-isolation** - Ensures changes stay in correct worktree
-- **cleanup-dangling-worktrees** - Removes worktrees for merged PRs
-- **finishing-a-development-branch** - Structured options for merge, PR, or cleanup
-- **setup-git-hooks** - Git hooks configuration for test enforcement
-- **update-git-hooks** - Update existing hooks configuration
-
-### Issue Management
-- **create-new-issue** - Creates issues via MCP `issues_create` tool
-- **writing-specifications** - Technical specification creation
-- **capture-new-idea** - Capture user ideas verbatim in `.wrangler/ideas/`
-
-### Governance
-- **housekeeping** - Updates roadmap, reconciles issues, detects drift
-- **initialize-governance** - Creates constitution, roadmap, next steps
-- **constitution** - Develop and refine constitutional principles
-- **verify-governance** - Validates governance file structure
-- **refresh-metrics** - Updates status counts
-- **check-constitutional-alignment** - Validates feature alignment
-- **validating-roadmap** - Checks specification consistency
-- **refining-specifications** - Reviews specs for ambiguity
-
-### Frontend Testing
-- **frontend-design** - Production-grade interface creation
-- **frontend-e2e-user-journeys** - End-to-end user flow testing
-- **frontend-visual-regression-testing** - Visual diff testing
-- **frontend-accessibility-verification** - A11y compliance checks
-
-### Code Analysis
-- **locating-code** - Finds files by topic/feature
-- **analyzing-implementations** - Documents how code works
-- **finding-code-patterns** - Finds similar implementations
-- **analyzing-research-documents** - Extracts insights from research docs
-- **researching-web-sources** - Strategic web research
-
-### Wrangler System
-- **using-wrangler** - Skills discovery and workflow establishment
-- **update-yourself** - Update wrangler to latest version
-- **sitrep** - Situational awareness report showing recent activity
-
-### Meta Skills
-- **writing-skills** - TDD for creating skills
-- **testing-skills-with-subagents** - Skill validation
-- **sharing-skills** - Contribution workflow
-- **organize-root-files** - Cleans up markdown files at root
+See [docs/skill-invocation-patterns.md](docs/skill-invocation-patterns.md) for task-to-skill mapping.
 
 ## MCP Server
 
-Provides 16 tools for issue management and session orchestration:
+The built-in MCP server provides markdown-based tracking for issues, specifications, and workflow sessions. All data is stored as markdown files with YAML frontmatter in the `.wrangler/` directory and version-controlled with git.
 
 ### Issue Management (11 tools)
 
-- `issues_create` - Create new issues or specifications
-- `issues_list` - List with filtering by status, priority, labels, project
-- `issues_search` - Full-text search across title, description, labels
-- `issues_get` - Retrieve single issue by ID
-- `issues_update` - Update issue fields
-- `issues_delete` - Delete issues with confirmation
-- `issues_labels` - Manage labels
-- `issues_metadata` - Manage wranglerContext metadata
-- `issues_projects` - Manage project assignments
-- `issues_mark_complete` - Mark issues as closed
-- `issues_all_complete` - Check completion status
+`issues_create`, `issues_list`, `issues_search`, `issues_get`, `issues_update`, `issues_delete`, `issues_labels`, `issues_metadata`, `issues_projects`, `issues_mark_complete`, `issues_all_complete`
 
-### Session Orchestration (5 tools)
+### Session Orchestration (6 tools)
 
-- `session_start` - Initialize orchestration session with worktree and branch
-- `session_phase` - Record phase transitions (plan, execute, verify, publish)
-- `session_checkpoint` - Save resumable state for recovery
-- `session_complete` - Finalize session with status and PR info
-- `session_get` - Retrieve session state for recovery or status check
+`session_start`, `session_phase`, `session_checkpoint`, `session_complete`, `session_get`, `session_status`
 
-### Storage Format
+### Workspace Management (1 tool)
 
-Markdown files with YAML frontmatter:
-- Location: `.wrangler/issues/`, `.wrangler/specifications/`
-- Filename: `{counter}-{slug}.md` (e.g., `000001-add-auth.md`)
-- Frontmatter: id, title, type, status, priority, labels, assignee, project, dates
-- Body: Markdown content
+`init_workspace`
 
-See [docs/MCP-USAGE.md](docs/MCP-USAGE.md) for details.
+Issues and specifications are stored as `{counter}-{slug}.md` files (e.g., `000001-add-auth.md`) with structured frontmatter for status, priority, labels, assignee, and project metadata.
 
-## How It Works
+See [docs/mcp-usage.md](docs/mcp-usage.md) for the complete tools reference.
 
-1. Session start hook (`hooks/session-start.sh`) initializes workspace
-2. Creates `.wrangler/` directory structure if missing
-3. Loads `using-wrangler` skill
-4. Skills activate when relevant to task
-5. MCP server provides issue/spec tracking
-6. Slash commands trigger specific workflows
+## Workflow Engine
+
+The workflow engine (`workflows/engine/`) orchestrates complex spec-to-implementation workflows using the Claude Agent SDK. It provides deterministic, phase-based execution with built-in quality gates.
+
+- **Spec-implementation workflow** -- Takes a specification and drives it through plan, execute, verify, and publish phases
+- **Code-review workflow** -- Automated review with structured feedback
+- **Phase-based execution** -- Each phase has defined entry/exit criteria
+- **Session tracking** -- Checkpoints enable pause, resume, and recovery
+- **TDD enforcement** -- Tests must pass before phase transitions
+
+The engine is actively developed with 532 tests. See [workflows/engine/](workflows/engine/) for details.
+
+## Slash Commands
+
+14 commands that trigger specific workflows:
+
+| Command | Purpose |
+|---------|---------|
+| `/wrangler:implement` | Implement from specs, plans, or issues |
+| `/wrangler:run-tests` | Run tests and fix failures |
+| `/wrangler:commit-push-pr` | Commit, push, and create PR |
+| `/wrangler:write-plan` | Create an implementation plan |
+| `/wrangler:generate-plan-for-spec` | Break a specification into issues |
+| `/wrangler:issues` | Show issue and specification status |
+| `/wrangler:idea` | Capture a new idea |
+| `/wrangler:audit-session` | Audit session workflow adherence |
+| `/wrangler:init-workspace` | Initialize `.wrangler/` workspace |
+| `/wrangler:sitrep` | Situational report on project state |
+| `/wrangler:help` | Documentation and help |
+| `/wrangler:setup-git-hooks` | Configure git hooks |
+| `/wrangler:update-git-hooks` | Update hook configuration |
+| `/wrangler:update-yourself` | Update wrangler plugin |
+
+See [docs/slash-commands.md](docs/slash-commands.md) for detailed usage.
+
+## Project Governance
+
+Wrangler implements a three-tier governance framework:
+
+1. **Constitution** (`.wrangler/CONSTITUTION.md`) -- Core design principles that guide all development decisions. Immutable unless formally amended.
+2. **Roadmap** (`.wrangler/ROADMAP.md`) -- Strategic planning with phased execution milestones.
+3. **Specifications and Issues** -- Tactical execution. Specifications define planned work; issues track implementation tasks.
+
+The governance system includes automated verification, constitutional alignment checks, and metric tracking. Run `/wrangler:init-workspace` to initialize governance files for a new project.
+
+See [docs/governance.md](docs/governance.md) for the full governance guide.
+
+## Git Hooks
+
+Automated testing and code quality enforcement through git hooks:
+
+- **Pre-commit** -- Runs formatter, linter, and unit tests before each commit
+- **Pre-push** -- Runs full test suite before pushing to protected branches
+- **Commit-msg** -- Validates commit message format (optional)
+
+TDD-aware: hooks can be bypassed during the RED phase when failing tests are expected. Run `/wrangler:setup-git-hooks` to configure.
+
+See [docs/git-hooks.md](docs/git-hooks.md) for details.
 
 ## Directory Structure
 
 ```
 wrangler/
-├── skills/                  # 48 skills
-├── commands/                # 12 slash commands
-├── hooks/                   # Session hooks
-├── mcp/                     # MCP server (TypeScript)
-├── docs/                    # Documentation
-├── .wrangler/               # Workspace (created on session start)
-│   ├── issues/              # Issue tracking
-│   ├── specifications/      # Specifications
-│   ├── plans/               # Implementation plans (optional)
-│   ├── memos/               # RCA, research, lessons learned
-│   └── governance/          # Constitution, roadmap
-└── .claude-plugin/          # Plugin config + MCP server registration
+├── skills/                     # 40 workflow skills
+├── commands/                   # 14 slash commands
+├── mcp/                        # MCP server (TypeScript)
+│   ├── tools/
+│   │   ├── issues/             # 11 issue management tools
+│   │   ├── session/            # 6 session orchestration tools
+│   │   └── workspace/          # 1 workspace management tool
+│   ├── providers/              # Storage providers (markdown)
+│   ├── types/                  # TypeScript types and schemas
+│   └── __tests__/              # MCP test suite
+├── workflows/
+│   └── engine/                 # Workflow engine (Claude Agent SDK)
+│       ├── src/                # Engine source
+│       └── __tests__/          # Engine test suite (532 tests)
+├── hooks/                      # Session hooks
+├── docs/                       # Documentation
+├── .claude-plugin/             # Plugin configuration
+└── .wrangler/                  # Workspace (per-project)
+    ├── CONSTITUTION.md         # Design principles
+    ├── ROADMAP.md              # Strategic roadmap
+    ├── issues/                 # Issue tracking
+    ├── specifications/         # Feature specifications
+    ├── ideas/                  # Ideas and proposals
+    ├── plans/                  # Implementation plans
+    ├── memos/                  # Reference material, RCAs
+    ├── memory/                 # Persistent agent memory
+    ├── docs/                   # Generated governance docs
+    ├── config/                 # Runtime configuration
+    ├── orchestration/          # Workflow orchestration data
+    ├── cache/                  # Runtime cache (gitignored)
+    └── logs/                   # Runtime logs (gitignored)
 ```
-
-## Requirements
-
-- Claude Code with plugin support
-- Git repository (for workspace initialization)
-- Node.js 20+ (for MCP server)
 
 ## Documentation
 
-- [MCP Usage](docs/MCP-USAGE.md) - MCP server tools and usage
-- [Governance](docs/GOVERNANCE.md) - Constitutional framework
-- [Session Hooks](docs/SESSION-HOOKS.md) - Hook system and state management
-- [Versioning](docs/VERSIONING.md) - Version tracking and migration
-- [Slash Commands](docs/SLASH-COMMANDS.md) - Command reference
-- [Git Hooks](docs/git-hooks.md) - Git hooks enforcement framework
-- [Git Hooks Migration](docs/git-hooks-migration.md) - Migration from other hook managers
-- [Workflows](docs/workflows.md) - Major workflow guides (TDD, verification, code review)
-- [Verification Requirements](docs/verification-requirements.md) - Evidence requirements
-- [Skill Invocation Patterns](docs/skill-invocation-patterns.md) - Task-to-skill mapping
-- [Workflow Patterns](docs/WORKFLOW-PATTERNS.md) - Multi-agent workflows
-- [Workflow Ideas](docs/WORKFLOW-IDEAS.md) - Potential workflows
+| Document | Description |
+|----------|-------------|
+| [docs/mcp-usage.md](docs/mcp-usage.md) | Complete MCP tools reference |
+| [docs/governance.md](docs/governance.md) | Project governance framework |
+| [docs/workflows.md](docs/workflows.md) | Development workflows (TDD, verification, code review) |
+| [docs/slash-commands.md](docs/slash-commands.md) | Slash commands reference |
+| [docs/skill-invocation-patterns.md](docs/skill-invocation-patterns.md) | Task-to-skill mapping |
+| [docs/session-hooks.md](docs/session-hooks.md) | Session hooks and state management |
+| [docs/git-hooks.md](docs/git-hooks.md) | Git hooks enforcement framework |
+| [docs/versioning.md](docs/versioning.md) | Versioning and updates |
+| [docs/verification-requirements.md](docs/verification-requirements.md) | Evidence requirements for claims |
+| [docs/workflow-patterns.md](docs/workflow-patterns.md) | Multi-agent workflow patterns |
 
-## Contributing
+## Development
 
-Use `writing-skills` and `testing-skills-with-subagents` skills to create new skills. Submit PRs via `sharing-skills` workflow.
+### MCP Server
+
+```bash
+npm run build:mcp              # Build
+npm run test:mcp               # Run tests
+npm run watch:mcp              # Watch mode
+```
+
+### Workflow Engine
+
+```bash
+cd workflows/engine
+npm run build                  # Build
+npm test                       # Run tests
+npm run test:coverage          # Coverage report
+```
+
+### Requirements
+
+- Claude Code with plugin support
+- Git repository
+- Node.js 20+
 
 ## License
 
