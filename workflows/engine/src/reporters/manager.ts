@@ -40,7 +40,7 @@ export class ReporterManager {
    * Failed reporters are logged and skipped -- they do not block the workflow.
    */
   async initializeReporters(opts: ReporterManagerInitOptions): Promise<void> {
-    const reporterConfigs = this.workflow.reporters ?? [];
+    const reporterConfigs = this.workflow.reporters;
     const context: ReporterContext = {
       sessionId: opts.sessionId,
       specFile: opts.specFile,
@@ -124,6 +124,14 @@ export class ReporterManager {
     }
   }
 
+  /**
+   * Build a map from step name to effective visibility.
+   *
+   * Propagation rule: only `silent` parents force children to `silent`.
+   * A `summary` parent does NOT force children to `summary` -- `summary`
+   * means the parent row itself only appears in the final summary, but
+   * its children can still be individually visible during execution.
+   */
   private buildVisibilityMap(
     steps: StepDefinition[],
     parentSilent: boolean = false,
@@ -149,9 +157,12 @@ export class ReporterManager {
   }
 
   private getChildSteps(step: StepDefinition): StepDefinition[] {
-    const s = step as Record<string, unknown>;
-    if (Array.isArray(s.steps)) {
-      return s.steps as StepDefinition[];
+    // Steps with children use a discriminated 'type' field.
+    // parallel, loop, and per-task steps all have a 'steps' array.
+    if ('type' in step) {
+      if (step.type === 'parallel' || step.type === 'loop' || step.type === 'per-task') {
+        return step.steps;
+      }
     }
     return [];
   }

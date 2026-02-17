@@ -141,6 +141,8 @@ export class GitHubPRCommentReporter implements WorkflowReporter {
       await this.cancelDebounce();
       await this.flushUpdate();
     }
+    // Clear timer unconditionally as a safety net for cases where
+    // pendingUpdate is false but a timer is somehow still scheduled.
     this.clearTimer();
   }
 
@@ -198,7 +200,7 @@ export class GitHubPRCommentReporter implements WorkflowReporter {
 
     if (this.errorMessage) {
       lines.push('');
-      lines.push(`> :x: **Error**: ${this.errorMessage}`);
+      lines.push(`> :x: **Error**: \`${this.errorMessage}\``);
     }
 
     if (this.completionSummary) {
@@ -275,6 +277,11 @@ export class GitHubPRCommentReporter implements WorkflowReporter {
     await this.updateComment(body);
   }
 
+  /**
+   * Cancel any pending debounced update timer without flushing.
+   * Callers (onComplete, onError) intentionally skip flush here because
+   * they immediately re-render with final state after calling this.
+   */
   private async cancelDebounce(): Promise<void> {
     this.clearTimer();
   }

@@ -160,7 +160,7 @@ export type WorkflowDefinition = {
   version: number;
   defaults?: WorkflowDefaults;
   safety?: WorkflowSafety;
-  reporters?: Array<{ type: string; config?: Record<string, unknown> }>;
+  reporters: Array<{ type: string; config?: Record<string, unknown> }>;
   phases: StepDefinition[];
 };
 

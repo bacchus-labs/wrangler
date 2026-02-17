@@ -104,7 +104,7 @@ exports[`GitHubPRCommentReporter - Snapshot Tests terminal states renders error 
 | plan | :white_circle: Pending |
 | execute | :white_circle: Pending |
 
-> :x: **Error**: Agent timed out after 300 seconds"
+> :x: **Error**: \`Agent timed out after 300 seconds\`"
 `;
 
 exports[`GitHubPRCommentReporter - Snapshot Tests terminal states renders step 3 failed 1`] = `

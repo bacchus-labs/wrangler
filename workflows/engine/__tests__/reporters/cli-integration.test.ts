@@ -104,12 +104,12 @@ describe('ReporterManager CLI integration', () => {
       await manager.dispose();
     });
 
-    it('runs without error when reporters key is undefined', async () => {
+    it('runs without error when reporters array is empty', async () => {
       const workflow: WorkflowDefinition = {
         name: 'test',
         version: 1,
         phases: [makeStep('analyze')],
-        // reporters is undefined
+        reporters: [],
       };
       const registry = new ReporterRegistry();
       const manager = new ReporterManager(workflow, registry);
