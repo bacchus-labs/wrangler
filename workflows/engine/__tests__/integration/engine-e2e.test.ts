@@ -145,52 +145,52 @@ function createSequentialMockQuery(
  * Set up agent and prompt files for composition tests.
  */
 async function setupComposedWorkflowFiles(tmpDir: string): Promise<void> {
-  // Agent files in .wrangler/agents/
+  // Agent files in .wrangler/orchestration/agents/
   await writeMarkdownFile(
-    path.join(tmpDir, '.wrangler', 'agents'),
+    path.join(tmpDir, '.wrangler', 'orchestration', 'agents'),
     'planner.md',
     { name: 'planner', tools: ['Read'], model: 'sonnet' },
     'You are a planning agent. Analyze specs and create task lists.',
   );
 
   await writeMarkdownFile(
-    path.join(tmpDir, '.wrangler', 'agents'),
+    path.join(tmpDir, '.wrangler', 'orchestration', 'agents'),
     'coder.md',
     { name: 'coder', tools: ['Bash', 'Read', 'Write'] },
     'You are a coding agent. Implement features following TDD.',
   );
 
   await writeMarkdownFile(
-    path.join(tmpDir, '.wrangler', 'agents'),
+    path.join(tmpDir, '.wrangler', 'orchestration', 'agents'),
     'reviewer.md',
     { name: 'reviewer', tools: ['Read'] },
     'You are a code reviewer. Check quality and correctness.',
   );
 
-  // Prompt files in .wrangler/prompts/
+  // Prompt files in .wrangler/orchestration/prompts/
   await writeMarkdownFile(
-    path.join(tmpDir, '.wrangler', 'prompts'),
+    path.join(tmpDir, '.wrangler', 'orchestration', 'prompts'),
     'analyze-spec.md',
     { name: 'analyze-spec' },
     'Analyze the specification at {{specPath}} and produce a task list.',
   );
 
   await writeMarkdownFile(
-    path.join(tmpDir, '.wrangler', 'prompts'),
+    path.join(tmpDir, '.wrangler', 'orchestration', 'prompts'),
     'implement-task.md',
     { name: 'implement-task' },
     'Implement the following task: {{task.title}}. Description: {{task.description}}.',
   );
 
   await writeMarkdownFile(
-    path.join(tmpDir, '.wrangler', 'prompts'),
+    path.join(tmpDir, '.wrangler', 'orchestration', 'prompts'),
     'review-code.md',
     { name: 'review-code' },
     'Review the code changes. Spec: {{specPath}}.',
   );
 
   await writeMarkdownFile(
-    path.join(tmpDir, '.wrangler', 'prompts'),
+    path.join(tmpDir, '.wrangler', 'orchestration', 'prompts'),
     'fix-issues.md',
     { name: 'fix-issues' },
     'Fix the issues found during review.',
@@ -338,14 +338,14 @@ phases:
 
       // Add a second reviewer agent
       await writeMarkdownFile(
-        path.join(tmpDir, '.wrangler', 'agents'),
+        path.join(tmpDir, '.wrangler', 'orchestration', 'agents'),
         'security-reviewer.md',
         { name: 'security-reviewer', tools: ['Read'] },
         'You are a security reviewer. Check for vulnerabilities.',
       );
 
       await writeMarkdownFile(
-        path.join(tmpDir, '.wrangler', 'prompts'),
+        path.join(tmpDir, '.wrangler', 'orchestration', 'prompts'),
         'review-security.md',
         { name: 'review-security' },
         'Review for security issues. Spec: {{specPath}}.',
@@ -914,14 +914,14 @@ phases:
       await setupComposedWorkflowFiles(tmpDir);
 
       await writeMarkdownFile(
-        path.join(tmpDir, '.wrangler', 'agents'),
+        path.join(tmpDir, '.wrangler', 'orchestration', 'agents'),
         'security-reviewer.md',
         { name: 'security-reviewer', tools: ['Read'] },
         'You are a security reviewer.',
       );
 
       await writeMarkdownFile(
-        path.join(tmpDir, '.wrangler', 'prompts'),
+        path.join(tmpDir, '.wrangler', 'orchestration', 'prompts'),
         'review-security.md',
         { name: 'review-security' },
         'Review security of changes. Spec: {{specPath}}.',
