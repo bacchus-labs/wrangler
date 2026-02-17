@@ -1,11 +1,24 @@
 /**
  * Tests for init_workspace MCP tool
  *
- * Covers: FR-001 (schema-driven), FR-002 (mkdir -p semantics),
- * FR-003 (.gitkeep in git-tracked dirs), FR-009 (report-only mode),
- * FR-010 (apply mode), FR-013 (fresh + existing projects),
- * NFR-001 (performance), NFR-002 (no external deps),
- * NFR-003 (read-only plugin dir), NFR-004 (structured output)
+ * Covers all 12 scenarios from SPEC-000049:
+ *   1.  Fresh workspace (no .wrangler/ exists)
+ *   2.  Existing workspace, fully compliant
+ *   3.  Existing workspace, missing new dirs (schema update)
+ *   4.  Existing workspace, customized assets (not overwritten)
+ *   5.  Existing workspace, missing some assets (only missing copied)
+ *   6.  Report-only mode (fix: false)
+ *   7.  Apply mode (fix: true)
+ *   8.  Gitignore idempotency (no duplicate patterns)
+ *   9.  Gitignore with custom entries (preserved)
+ *  10.  Config not overwritten (existing wrangler.json)
+ *  11.  Schema version check (plugin newer -> update)
+ *  12.  No git repo (graceful handling)
+ *
+ * Covers all 13 functional requirements: FR-001 through FR-013
+ * Covers non-functional requirements: NFR-001 (performance),
+ *   NFR-002 (no external deps), NFR-003 (read-only plugin dir),
+ *   NFR-004 (structured output)
  */
 
 import * as path from 'path';
@@ -1388,6 +1401,186 @@ describe('initWorkspaceTool', () => {
       expect(report.directories.created).toContain('.wrangler/issues');
       expect(report.directories.created).toContain('.wrangler/cache');
       expect(report.directories.created).toContain('.wrangler/config');
+    });
+  });
+
+  // ─── Scenario #3: Existing workspace, missing new dirs (schema update) ───
+
+  describe('existing workspace with schema update adding new dirs (Scenario #3)', () => {
+    it('should create only new directories when schema is updated with additional dirs', async () => {
+      // Phase 1: Initialize with original schema (issues, cache, config)
+      await initWorkspaceTool({ fix: true, projectRoot, pluginRoot });
+
+      // Phase 2: Update plugin schema to include a new directory (e.g., "plans")
+      const updatedSchema = {
+        version: '1.3.0',
+        description: 'Updated schema with new dir',
+        workspace: { root: '.wrangler', description: 'Test workspace' },
+        directories: {
+          issues: {
+            path: '.wrangler/issues',
+            description: 'Issues',
+            gitTracked: true,
+            subdirectories: {
+              archived: {
+                path: '.wrangler/issues/archived',
+                description: 'Archived issues',
+              },
+            },
+          },
+          cache: {
+            path: '.wrangler/cache',
+            description: 'Cache',
+            gitTracked: false,
+          },
+          config: {
+            path: '.wrangler/config',
+            description: 'Config',
+            gitTracked: true,
+          },
+          plans: {
+            path: '.wrangler/plans',
+            description: 'Implementation plans',
+            gitTracked: true,
+          },
+        },
+        governanceFiles: {},
+        readmeFiles: {},
+        gitignorePatterns: ['cache/', 'logs/', 'sessions/'],
+        artifactTypes: {},
+        mcpConfiguration: {
+          issuesDirectory: '.wrangler/issues',
+          specificationsDirectory: '.wrangler/specifications',
+          ideasDirectory: '.wrangler/ideas',
+        },
+      };
+
+      fs.writeFileSync(
+        path.join(pluginRoot, '.wrangler', 'config', 'workspace-schema.json'),
+        JSON.stringify(updatedSchema)
+      );
+
+      // Phase 3: Re-run init with updated schema
+      const result = await initWorkspaceTool({ fix: true, projectRoot, pluginRoot });
+
+      const report = result.metadata as InitWorkspaceResult;
+      // Only the new "plans" directory should be created
+      expect(report.directories.created).toContain('.wrangler/plans');
+      // Existing directories should be reported as existing
+      expect(report.directories.existing).toContain('.wrangler/issues');
+      expect(report.directories.existing).toContain('.wrangler/cache');
+      expect(report.directories.existing).toContain('.wrangler/config');
+      // New directory should actually exist on disk
+      expect(fs.existsSync(path.join(projectRoot, '.wrangler', 'plans'))).toBe(true);
+      // New git-tracked directory should have .gitkeep
+      expect(fs.existsSync(path.join(projectRoot, '.wrangler', 'plans', '.gitkeep'))).toBe(true);
+    });
+
+    it('should report changes_needed in report-only mode for new dirs from schema update', async () => {
+      // Phase 1: Initialize with original schema
+      await initWorkspaceTool({ fix: true, projectRoot, pluginRoot });
+
+      // Phase 2: Update plugin schema to include new directory
+      const updatedSchema = {
+        version: '1.3.0',
+        description: 'Updated schema',
+        workspace: { root: '.wrangler', description: 'Test workspace' },
+        directories: {
+          issues: {
+            path: '.wrangler/issues',
+            description: 'Issues',
+            gitTracked: true,
+            subdirectories: {
+              archived: {
+                path: '.wrangler/issues/archived',
+                description: 'Archived issues',
+              },
+            },
+          },
+          cache: {
+            path: '.wrangler/cache',
+            description: 'Cache',
+            gitTracked: false,
+          },
+          config: {
+            path: '.wrangler/config',
+            description: 'Config',
+            gitTracked: true,
+          },
+          memos: {
+            path: '.wrangler/memos',
+            description: 'Reference material',
+            gitTracked: true,
+          },
+        },
+        governanceFiles: {},
+        readmeFiles: {},
+        gitignorePatterns: ['cache/', 'logs/', 'sessions/'],
+        artifactTypes: {},
+        mcpConfiguration: {
+          issuesDirectory: '.wrangler/issues',
+          specificationsDirectory: '.wrangler/specifications',
+          ideasDirectory: '.wrangler/ideas',
+        },
+      };
+
+      fs.writeFileSync(
+        path.join(pluginRoot, '.wrangler', 'config', 'workspace-schema.json'),
+        JSON.stringify(updatedSchema)
+      );
+
+      // Phase 3: Report-only mode
+      const result = await initWorkspaceTool({ fix: false, projectRoot, pluginRoot });
+
+      const report = result.metadata as InitWorkspaceResult;
+      expect(report.status).toBe('changes_needed');
+      expect(report.directories.created).toContain('.wrangler/memos');
+      // Should NOT create the directory on disk
+      expect(fs.existsSync(path.join(projectRoot, '.wrangler', 'memos'))).toBe(false);
+    });
+  });
+
+  // ─── Scenario #12: No git repo ────────────────────────────────────
+
+  describe('no git repo (Scenario #12)', () => {
+    it('should handle project directory that is not a git repository gracefully', async () => {
+      // projectRoot has no .git directory - just a plain directory
+      // The tool should still work since it uses explicit projectRoot
+      expect(fs.existsSync(path.join(projectRoot, '.git'))).toBe(false);
+
+      const result = await initWorkspaceTool(
+        { fix: true, projectRoot, pluginRoot },
+      );
+
+      expect(result.isError).toBe(false);
+      const report = result.metadata as InitWorkspaceResult;
+      expect(report.status).toBe('initialized');
+      // All directories should still be created
+      expect(report.directories.created.length).toBeGreaterThan(0);
+      expect(fs.existsSync(path.join(projectRoot, '.wrangler', 'issues'))).toBe(true);
+    });
+
+    it('should produce valid report-only output in non-git project', async () => {
+      expect(fs.existsSync(path.join(projectRoot, '.git'))).toBe(false);
+
+      const result = await initWorkspaceTool(
+        { fix: false, projectRoot, pluginRoot },
+      );
+
+      expect(result.isError).toBe(false);
+      const report = result.metadata as InitWorkspaceResult;
+      expect(report.status).toBe('changes_needed');
+      expect(report.directories).toBeDefined();
+      expect(report.assets).toBeDefined();
+      expect(report.config).toBeDefined();
+      expect(report.gitignore).toBeDefined();
+    });
+
+    it('should resolve projectRoot without git when no explicit path is provided', () => {
+      // resolveProjectRoot without explicit path should fall back to cwd
+      const resolved = resolveProjectRoot(undefined);
+      expect(path.isAbsolute(resolved)).toBe(true);
+      expect(resolved).toBe(path.resolve(process.cwd()));
     });
   });
 
