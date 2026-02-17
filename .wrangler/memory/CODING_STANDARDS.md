@@ -116,6 +116,21 @@ async function loadConfig() {
 
 ## Skill Authoring Standards
 
+### Directory Structure
+
+Skills use standard subdirectories for organizing supporting content:
+
+```
+skills/{skill-name}/
+├── SKILL.md              # Skill definition (required)
+├── templates/            # Template files referenced by the skill
+├── scripts/              # Executable scripts used by the skill
+├── examples/             # Usage examples
+└── references/           # Extended content for progressive disclosure
+```
+
+Use these conventions consistently -- place templates in `templates/`, scripts in `scripts/`, examples in `examples/`, and overflow content in `references/`.
+
 ### Naming Conventions
 
 All skills use **gerund form** (verb + -ing):

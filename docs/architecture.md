@@ -70,11 +70,6 @@ wrangler/
 │   ├── dist/              # Compiled output (gitignored)
 │   └── __tests__/         # Test suite
 │
-├── reference-prompts/     # Reference prompt library
-│   ├── agents/            # Agent role definitions
-│   ├── commands/          # Command prompt references
-│   └── skills/            # Skill prompt references
-│
 ├── scripts/               # Utility scripts
 │   └── pre-commit         # Pre-commit hook script
 │
@@ -166,7 +161,12 @@ The `.wrangler/` directory is the centralized workspace for all project governan
 ├── memory/                  # Persistent reference material for agents
 │   ├── CODING_STANDARDS.md  # Project coding standards
 │   ├── TESTING_STANDARDS.md # Testing standards and patterns
-│   └── claude-code-reference/  # Claude Code system reference
+│   ├── claude-code-reference/  # Claude Code system reference
+│   └── knowledge-base/
+│       └── reference-prompts/  # Reference prompt library
+│           ├── agents/         # Agent role definitions
+│           ├── commands/       # Command prompt references
+│           └── skills/         # Skill prompt references
 │
 ├── memos/                   # Working notes, analyses, retrospectives
 │   ├── {date}-{topic}.md    # Dated memo files
