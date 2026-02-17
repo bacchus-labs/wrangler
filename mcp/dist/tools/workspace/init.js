@@ -10,6 +10,7 @@
  */
 import * as path from 'path';
 import * as fs from 'fs';
+import { fileURLToPath } from 'url';
 import { z } from 'zod';
 import { createSuccessResponse, createErrorResponse, MCPErrorCode, } from '../../types/errors.js';
 import { getDefaultSchema } from '../../workspace-schema.js';
@@ -29,18 +30,49 @@ export const initWorkspaceSchema = z.object({
         .describe('Plugin root directory containing workspace-schema.json and builtin assets.'),
 });
 // ─── Path Resolution ─────────────────────────────────────────────────
+/** System directories that must never be used as a workspace root. */
+const BLOCKED_SYSTEM_DIRS = new Set([
+    '/',
+    '/etc',
+    '/usr',
+    '/bin',
+    '/sbin',
+    '/lib',
+    '/lib64',
+    '/var',
+    '/proc',
+    '/sys',
+    '/dev',
+    '/boot',
+    '/tmp',
+    '/root',
+    '/home',
+]);
+/**
+ * Guard against obviously dangerous paths being used as workspace roots.
+ * Throws if the resolved path is a well-known system directory.
+ */
+function assertNotSystemDirectory(resolvedPath, label) {
+    const normalized = resolvedPath.replace(/\/$/, '') || '/';
+    if (BLOCKED_SYSTEM_DIRS.has(normalized)) {
+        throw new Error(`${label} resolved to a system directory (${resolvedPath}). ` +
+            'Refusing to initialize workspace in a system directory.');
+    }
+}
 /**
  * Resolve the plugin root directory.
  * Uses the provided path or walks up from the module location.
  */
 export function resolvePluginRoot(explicitPath) {
     if (explicitPath) {
-        return path.resolve(explicitPath);
+        const resolved = path.resolve(explicitPath);
+        assertNotSystemDirectory(resolved, 'pluginRoot');
+        return resolved;
     }
-    // Walk up from this file's location to find the plugin root
-    // This file is at: mcp/tools/workspace/init.ts
-    // Plugin root is 3 levels up
-    let dir = path.resolve(__dirname);
+    // Walk up from this file's location to find the plugin root.
+    // This file is at: mcp/tools/workspace/init.ts → plugin root is 3 levels up.
+    const thisDir = path.dirname(fileURLToPath(import.meta.url));
+    let dir = thisDir;
     for (let i = 0; i < 3; i++) {
         dir = path.dirname(dir);
     }
@@ -52,7 +84,9 @@ export function resolvePluginRoot(explicitPath) {
  */
 export function resolveProjectRoot(explicitPath) {
     if (explicitPath) {
-        return path.resolve(explicitPath);
+        const resolved = path.resolve(explicitPath);
+        assertNotSystemDirectory(resolved, 'projectRoot');
+        return resolved;
     }
     return path.resolve(process.cwd());
 }
@@ -140,44 +174,20 @@ function applyDirectories(plan, projectRoot) {
 }
 // ─── Asset Provisioning ─────────────────────────────────────────────
 /**
- * Plan and optionally apply asset file copies.
+ * Plan file copies from a source directory to a destination directory.
+ *
+ * Replaces the near-duplicate planAssets / planWorkflows pair with a single
+ * function parameterized by file extensions.
  */
-function planAssets(pluginRoot, projectRoot, _kind, sourceSubdir, destSubdir) {
+function planFileCopy(pluginRoot, projectRoot, sourceSubdir, destSubdir, extensions) {
     const sourceDir = path.join(pluginRoot, sourceSubdir);
     const destDir = path.join(projectRoot, destSubdir);
-    const result = { copied: [], skipped: [] };
+    const result = { copied: [], skipped: [], sourceDir, destDir };
     if (!fs.existsSync(sourceDir)) {
         return result;
     }
     try {
-        const files = fs.readdirSync(sourceDir).filter(f => f.endsWith('.md'));
-        for (const file of files) {
-            const destFile = path.join(destDir, file);
-            if (fs.existsSync(destFile)) {
-                result.skipped.push(file);
-            }
-            else {
-                result.copied.push(file);
-            }
-        }
-    }
-    catch {
-        // Directory read failed
-    }
-    return result;
-}
-/**
- * Plan workflow YAML file copies.
- */
-function planWorkflows(pluginRoot, projectRoot) {
-    const sourceDir = path.join(pluginRoot, 'workflows');
-    const destDir = path.join(projectRoot, '.wrangler', 'orchestration', 'workflows');
-    const result = { copied: [], skipped: [] };
-    if (!fs.existsSync(sourceDir)) {
-        return result;
-    }
-    try {
-        const files = fs.readdirSync(sourceDir).filter(f => f.endsWith('.yaml') || f.endsWith('.yml'));
+        const files = fs.readdirSync(sourceDir).filter(f => extensions.some(ext => f.endsWith(ext)));
         for (const file of files) {
             const destFile = path.join(destDir, file);
             if (fs.existsSync(destFile)) {
@@ -195,33 +205,17 @@ function planWorkflows(pluginRoot, projectRoot) {
 }
 /**
  * Apply asset copies to disk.
+ *
+ * Uses sourceDir/destDir threaded from the plan phase instead of
+ * re-deriving hardcoded paths.
  */
-function applyAssets(pluginRoot, projectRoot, assetsPlan) {
-    // Agents
-    const agentsSrc = path.join(pluginRoot, 'workflows', 'agents');
-    const agentsDest = path.join(projectRoot, '.wrangler', 'orchestration', 'agents');
-    if (assetsPlan.agents.copied.length > 0) {
-        fs.mkdirSync(agentsDest, { recursive: true });
-        for (const file of assetsPlan.agents.copied) {
-            fs.copyFileSync(path.join(agentsSrc, file), path.join(agentsDest, file));
-        }
-    }
-    // Prompts
-    const promptsSrc = path.join(pluginRoot, 'workflows', 'prompts');
-    const promptsDest = path.join(projectRoot, '.wrangler', 'orchestration', 'prompts');
-    if (assetsPlan.prompts.copied.length > 0) {
-        fs.mkdirSync(promptsDest, { recursive: true });
-        for (const file of assetsPlan.prompts.copied) {
-            fs.copyFileSync(path.join(promptsSrc, file), path.join(promptsDest, file));
-        }
-    }
-    // Workflows
-    const workflowsSrc = path.join(pluginRoot, 'workflows');
-    const workflowsDest = path.join(projectRoot, '.wrangler', 'orchestration', 'workflows');
-    if (assetsPlan.workflows.copied.length > 0) {
-        fs.mkdirSync(workflowsDest, { recursive: true });
-        for (const file of assetsPlan.workflows.copied) {
-            fs.copyFileSync(path.join(workflowsSrc, file), path.join(workflowsDest, file));
+function applyAssets(assetsPlan) {
+    for (const kind of [assetsPlan.agents, assetsPlan.prompts, assetsPlan.workflows]) {
+        if (kind.copied.length > 0) {
+            fs.mkdirSync(kind.destDir, { recursive: true });
+            for (const file of kind.copied) {
+                fs.copyFileSync(path.join(kind.sourceDir, file), path.join(kind.destDir, file));
+            }
         }
     }
 }
@@ -276,25 +270,23 @@ function applyGitignore(plan, projectRoot, _schema) {
     const gitignorePath = path.join(projectRoot, '.wrangler', '.gitignore');
     // Ensure directory exists
     fs.mkdirSync(path.join(projectRoot, '.wrangler'), { recursive: true });
-    if (plan.patternsAdded.length === 0 && fs.existsSync(gitignorePath)) {
-        // Nothing to add
+    // Early-exit whenever there's nothing to add, regardless of whether the file exists.
+    if (plan.patternsAdded.length === 0) {
         return;
     }
     let content = '';
     if (fs.existsSync(gitignorePath)) {
         content = fs.readFileSync(gitignorePath, 'utf-8');
     }
-    if (plan.patternsAdded.length > 0) {
-        // Add a header if the file is empty/new
-        if (content.length === 0) {
-            content = '# Wrangler gitignore - generated from workspace-schema.json\n\n# Runtime data (don\'t commit)\n';
-        }
-        else if (!content.endsWith('\n')) {
-            content += '\n';
-        }
-        for (const pattern of plan.patternsAdded) {
-            content += `${pattern}\n`;
-        }
+    // Add a header if the file is empty/new, otherwise ensure a trailing newline separator.
+    if (content.length === 0) {
+        content = '# Wrangler gitignore - generated from workspace-schema.json\n\n# Runtime data (don\'t commit)\n';
+    }
+    else if (!content.endsWith('\n')) {
+        content += '\n';
+    }
+    for (const pattern of plan.patternsAdded) {
+        content += `${pattern}\n`;
     }
     fs.writeFileSync(gitignorePath, content);
 }
@@ -305,7 +297,9 @@ function applyGitignore(plan, projectRoot, _schema) {
 export function parseSemver(version) {
     if (!version)
         return [0, 0, 0];
-    const match = version.match(/^(\d+)\.(\d+)\.(\d+)/);
+    // Strip optional leading 'v' so both '1.2.3' and 'v1.2.3' are accepted.
+    const normalized = version.replace(/^v/, '');
+    const match = normalized.match(/^(\d+)\.(\d+)\.(\d+)/);
     if (!match)
         return [0, 0, 0];
     return [parseInt(match[1], 10), parseInt(match[2], 10), parseInt(match[3], 10)];
@@ -421,9 +415,9 @@ export async function initWorkspaceTool(params) {
         const schema = loadSchemaFromPlugin(pluginRoot);
         // Plan all operations
         const dirPlan = planDirectories(schema, projectRoot);
-        const agentsPlan = planAssets(pluginRoot, projectRoot, 'agents', 'workflows/agents', '.wrangler/orchestration/agents');
-        const promptsPlan = planAssets(pluginRoot, projectRoot, 'prompts', 'workflows/prompts', '.wrangler/orchestration/prompts');
-        const workflowsPlan = planWorkflows(pluginRoot, projectRoot);
+        const agentsPlan = planFileCopy(pluginRoot, projectRoot, 'workflows/agents', '.wrangler/orchestration/agents', ['.md']);
+        const promptsPlan = planFileCopy(pluginRoot, projectRoot, 'workflows/prompts', '.wrangler/orchestration/prompts', ['.md']);
+        const workflowsPlan = planFileCopy(pluginRoot, projectRoot, 'workflows', '.wrangler/orchestration/workflows', ['.yaml', '.yml']);
         const gitignorePlan = planGitignore(schema, projectRoot);
         const configPlan = planConfig(pluginRoot, projectRoot);
         // Determine status
@@ -447,11 +441,7 @@ export async function initWorkspaceTool(params) {
         // FR-010: Apply changes if fix mode is enabled
         if (fix && hasChanges) {
             applyDirectories(dirPlan, projectRoot);
-            applyAssets(pluginRoot, projectRoot, {
-                agents: agentsPlan,
-                prompts: promptsPlan,
-                workflows: workflowsPlan,
-            });
+            applyAssets({ agents: agentsPlan, prompts: promptsPlan, workflows: workflowsPlan });
             applyGitignore(gitignorePlan, projectRoot, schema);
             applyConfig(configPlan, pluginRoot, projectRoot, schema);
         }
@@ -463,9 +453,9 @@ export async function initWorkspaceTool(params) {
                 existing: dirPlan.existing,
             },
             assets: {
-                agents: agentsPlan,
-                prompts: promptsPlan,
-                workflows: workflowsPlan,
+                agents: { copied: agentsPlan.copied, skipped: agentsPlan.skipped },
+                prompts: { copied: promptsPlan.copied, skipped: promptsPlan.skipped },
+                workflows: { copied: workflowsPlan.copied, skipped: workflowsPlan.skipped },
             },
             config: configPlan,
             gitignore: gitignorePlan,
@@ -503,6 +493,7 @@ export async function initWorkspaceTool(params) {
     }
     catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
+        // No `as any` cast needed - error response is a valid MCPResponse.
         return createErrorResponse(MCPErrorCode.TOOL_EXECUTION_ERROR, `Failed to initialize workspace: ${message}`);
     }
 }

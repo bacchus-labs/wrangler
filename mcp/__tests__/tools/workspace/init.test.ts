@@ -57,7 +57,14 @@ describe('parseSemver', () => {
     expect(parseSemver('not-a-version')).toEqual([0, 0, 0]);
     expect(parseSemver('abc')).toEqual([0, 0, 0]);
     expect(parseSemver('1.2')).toEqual([0, 0, 0]);
-    expect(parseSemver('v1.2.3')).toEqual([0, 0, 0]);
+  });
+
+  it('should handle v-prefixed semver strings (v1.2.3 format)', () => {
+    // Issue #8: v-prefix is now stripped before parsing
+    expect(parseSemver('v1.2.3')).toEqual([1, 2, 3]);
+    expect(parseSemver('v0.0.0')).toEqual([0, 0, 0]);
+    expect(parseSemver('v10.20.30')).toEqual([10, 20, 30]);
+    expect(parseSemver('v1.2.3-beta')).toEqual([1, 2, 3]);
   });
 
   it('should handle versions with pre-release suffixes by ignoring suffix', () => {
@@ -304,6 +311,28 @@ describe('initWorkspaceTool', () => {
     it('resolveProjectRoot resolves relative paths to absolute', () => {
       const resolved = resolveProjectRoot('.');
       expect(path.isAbsolute(resolved)).toBe(true);
+    });
+
+    // Issue #1: Path traversal / system directory validation
+    it('resolveProjectRoot throws when given a system directory', () => {
+      expect(() => resolveProjectRoot('/etc')).toThrow(/system directory/i);
+      expect(() => resolveProjectRoot('/usr')).toThrow(/system directory/i);
+      expect(() => resolveProjectRoot('/')).toThrow(/system directory/i);
+    });
+
+    it('resolvePluginRoot throws when given a system directory', () => {
+      expect(() => resolvePluginRoot('/etc')).toThrow(/system directory/i);
+      expect(() => resolvePluginRoot('/var')).toThrow(/system directory/i);
+    });
+
+    it('resolveProjectRoot accepts a valid user-owned path', () => {
+      // A tmp-based path should not be rejected
+      expect(() => resolveProjectRoot(projectRoot)).not.toThrow();
+    });
+
+    it('initWorkspaceTool returns an error when projectRoot is a system directory', async () => {
+      const result = await initWorkspaceTool({ fix: false, projectRoot: '/etc', pluginRoot });
+      expect(result.isError).toBe(true);
     });
   });
 

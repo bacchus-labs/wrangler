@@ -9,7 +9,7 @@
  * works on both fresh and existing projects (FR-013).
  */
 import { z } from 'zod';
-import { MCPSuccessResponse } from '../../types/errors.js';
+import { MCPResponse } from '../../types/errors.js';
 export declare const initWorkspaceSchema: z.ZodObject<{
     fix: z.ZodDefault<z.ZodBoolean>;
     projectRoot: z.ZodOptional<z.ZodString>;
@@ -81,6 +81,6 @@ export declare function compareSemver(a: string | undefined, b: string | undefin
  * In report-only mode (fix: false), returns what would be created.
  * In apply mode (fix: true), creates directories, copies assets, and manages config.
  */
-export declare function initWorkspaceTool(params: InitWorkspaceParams): Promise<MCPSuccessResponse<InitWorkspaceResult>>;
+export declare function initWorkspaceTool(params: InitWorkspaceParams): Promise<MCPResponse<InitWorkspaceResult>>;
 export {};
 //# sourceMappingURL=init.d.ts.map

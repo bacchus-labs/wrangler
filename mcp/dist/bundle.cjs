@@ -26726,11 +26726,39 @@ var initWorkspaceSchema = external_exports.object({
     "Plugin root directory containing workspace-schema.json and builtin assets."
   )
 });
+var BLOCKED_SYSTEM_DIRS = /* @__PURE__ */ new Set([
+  "/",
+  "/etc",
+  "/usr",
+  "/bin",
+  "/sbin",
+  "/lib",
+  "/lib64",
+  "/var",
+  "/proc",
+  "/sys",
+  "/dev",
+  "/boot",
+  "/tmp",
+  "/root",
+  "/home"
+]);
+function assertNotSystemDirectory(resolvedPath, label) {
+  const normalized = resolvedPath.replace(/\/$/, "") || "/";
+  if (BLOCKED_SYSTEM_DIRS.has(normalized)) {
+    throw new Error(
+      `${label} resolved to a system directory (${resolvedPath}). Refusing to initialize workspace in a system directory.`
+    );
+  }
+}
 function resolvePluginRoot(explicitPath) {
   if (explicitPath) {
-    return path5.resolve(explicitPath);
+    const resolved = path5.resolve(explicitPath);
+    assertNotSystemDirectory(resolved, "pluginRoot");
+    return resolved;
   }
-  let dir = path5.resolve(__dirname);
+  const thisDir = path5.dirname(__filename);
+  let dir = thisDir;
   for (let i = 0; i < 3; i++) {
     dir = path5.dirname(dir);
   }
@@ -26738,7 +26766,9 @@ function resolvePluginRoot(explicitPath) {
 }
 function resolveProjectRoot(explicitPath) {
   if (explicitPath) {
-    return path5.resolve(explicitPath);
+    const resolved = path5.resolve(explicitPath);
+    assertNotSystemDirectory(resolved, "projectRoot");
+    return resolved;
   }
   return path5.resolve(process.cwd());
 }
@@ -26795,15 +26825,15 @@ function applyDirectories(plan, projectRoot) {
     }
   }
 }
-function planAssets(pluginRoot, projectRoot, _kind, sourceSubdir, destSubdir) {
+function planFileCopy(pluginRoot, projectRoot, sourceSubdir, destSubdir, extensions) {
   const sourceDir = path5.join(pluginRoot, sourceSubdir);
   const destDir = path5.join(projectRoot, destSubdir);
-  const result = { copied: [], skipped: [] };
+  const result = { copied: [], skipped: [], sourceDir, destDir };
   if (!fs5.existsSync(sourceDir)) {
     return result;
   }
   try {
-    const files = fs5.readdirSync(sourceDir).filter((f) => f.endsWith(".md"));
+    const files = fs5.readdirSync(sourceDir).filter((f) => extensions.some((ext) => f.endsWith(ext)));
     for (const file of files) {
       const destFile = path5.join(destDir, file);
       if (fs5.existsSync(destFile)) {
@@ -26816,50 +26846,13 @@ function planAssets(pluginRoot, projectRoot, _kind, sourceSubdir, destSubdir) {
   }
   return result;
 }
-function planWorkflows(pluginRoot, projectRoot) {
-  const sourceDir = path5.join(pluginRoot, "workflows");
-  const destDir = path5.join(projectRoot, ".wrangler", "orchestration", "workflows");
-  const result = { copied: [], skipped: [] };
-  if (!fs5.existsSync(sourceDir)) {
-    return result;
-  }
-  try {
-    const files = fs5.readdirSync(sourceDir).filter((f) => f.endsWith(".yaml") || f.endsWith(".yml"));
-    for (const file of files) {
-      const destFile = path5.join(destDir, file);
-      if (fs5.existsSync(destFile)) {
-        result.skipped.push(file);
-      } else {
-        result.copied.push(file);
+function applyAssets(assetsPlan) {
+  for (const kind of [assetsPlan.agents, assetsPlan.prompts, assetsPlan.workflows]) {
+    if (kind.copied.length > 0) {
+      fs5.mkdirSync(kind.destDir, { recursive: true });
+      for (const file of kind.copied) {
+        fs5.copyFileSync(path5.join(kind.sourceDir, file), path5.join(kind.destDir, file));
       }
-    }
-  } catch {
-  }
-  return result;
-}
-function applyAssets(pluginRoot, projectRoot, assetsPlan) {
-  const agentsSrc = path5.join(pluginRoot, "workflows", "agents");
-  const agentsDest = path5.join(projectRoot, ".wrangler", "orchestration", "agents");
-  if (assetsPlan.agents.copied.length > 0) {
-    fs5.mkdirSync(agentsDest, { recursive: true });
-    for (const file of assetsPlan.agents.copied) {
-      fs5.copyFileSync(path5.join(agentsSrc, file), path5.join(agentsDest, file));
-    }
-  }
-  const promptsSrc = path5.join(pluginRoot, "workflows", "prompts");
-  const promptsDest = path5.join(projectRoot, ".wrangler", "orchestration", "prompts");
-  if (assetsPlan.prompts.copied.length > 0) {
-    fs5.mkdirSync(promptsDest, { recursive: true });
-    for (const file of assetsPlan.prompts.copied) {
-      fs5.copyFileSync(path5.join(promptsSrc, file), path5.join(promptsDest, file));
-    }
-  }
-  const workflowsSrc = path5.join(pluginRoot, "workflows");
-  const workflowsDest = path5.join(projectRoot, ".wrangler", "orchestration", "workflows");
-  if (assetsPlan.workflows.copied.length > 0) {
-    fs5.mkdirSync(workflowsDest, { recursive: true });
-    for (const file of assetsPlan.workflows.copied) {
-      fs5.copyFileSync(path5.join(workflowsSrc, file), path5.join(workflowsDest, file));
     }
   }
 }
@@ -26897,29 +26890,28 @@ function planGitignore(schema, projectRoot) {
 function applyGitignore(plan, projectRoot, _schema) {
   const gitignorePath = path5.join(projectRoot, ".wrangler", ".gitignore");
   fs5.mkdirSync(path5.join(projectRoot, ".wrangler"), { recursive: true });
-  if (plan.patternsAdded.length === 0 && fs5.existsSync(gitignorePath)) {
+  if (plan.patternsAdded.length === 0) {
     return;
   }
   let content = "";
   if (fs5.existsSync(gitignorePath)) {
     content = fs5.readFileSync(gitignorePath, "utf-8");
   }
-  if (plan.patternsAdded.length > 0) {
-    if (content.length === 0) {
-      content = "# Wrangler gitignore - generated from workspace-schema.json\n\n# Runtime data (don't commit)\n";
-    } else if (!content.endsWith("\n")) {
-      content += "\n";
-    }
-    for (const pattern of plan.patternsAdded) {
-      content += `${pattern}
+  if (content.length === 0) {
+    content = "# Wrangler gitignore - generated from workspace-schema.json\n\n# Runtime data (don't commit)\n";
+  } else if (!content.endsWith("\n")) {
+    content += "\n";
+  }
+  for (const pattern of plan.patternsAdded) {
+    content += `${pattern}
 `;
-    }
   }
   fs5.writeFileSync(gitignorePath, content);
 }
 function parseSemver(version) {
   if (!version) return [0, 0, 0];
-  const match = version.match(/^(\d+)\.(\d+)\.(\d+)/);
+  const normalized = version.replace(/^v/, "");
+  const match = normalized.match(/^(\d+)\.(\d+)\.(\d+)/);
   if (!match) return [0, 0, 0];
   return [parseInt(match[1], 10), parseInt(match[2], 10), parseInt(match[3], 10)];
 }
@@ -26995,21 +26987,9 @@ async function initWorkspaceTool(params) {
     const projectRoot = resolveProjectRoot(params.projectRoot);
     const schema = loadSchemaFromPlugin(pluginRoot);
     const dirPlan = planDirectories(schema, projectRoot);
-    const agentsPlan = planAssets(
-      pluginRoot,
-      projectRoot,
-      "agents",
-      "workflows/agents",
-      ".wrangler/orchestration/agents"
-    );
-    const promptsPlan = planAssets(
-      pluginRoot,
-      projectRoot,
-      "prompts",
-      "workflows/prompts",
-      ".wrangler/orchestration/prompts"
-    );
-    const workflowsPlan = planWorkflows(pluginRoot, projectRoot);
+    const agentsPlan = planFileCopy(pluginRoot, projectRoot, "workflows/agents", ".wrangler/orchestration/agents", [".md"]);
+    const promptsPlan = planFileCopy(pluginRoot, projectRoot, "workflows/prompts", ".wrangler/orchestration/prompts", [".md"]);
+    const workflowsPlan = planFileCopy(pluginRoot, projectRoot, "workflows", ".wrangler/orchestration/workflows", [".yaml", ".yml"]);
     const gitignorePlan = planGitignore(schema, projectRoot);
     const configPlan = planConfig(pluginRoot, projectRoot);
     const hasChanges = dirPlan.created.length > 0 || agentsPlan.copied.length > 0 || promptsPlan.copied.length > 0 || workflowsPlan.copied.length > 0 || gitignorePlan.patternsAdded.length > 0 || configPlan.schemaUpdated || configPlan.wranglerConfigCreated;
@@ -27023,11 +27003,7 @@ async function initWorkspaceTool(params) {
     }
     if (fix && hasChanges) {
       applyDirectories(dirPlan, projectRoot);
-      applyAssets(pluginRoot, projectRoot, {
-        agents: agentsPlan,
-        prompts: promptsPlan,
-        workflows: workflowsPlan
-      });
+      applyAssets({ agents: agentsPlan, prompts: promptsPlan, workflows: workflowsPlan });
       applyGitignore(gitignorePlan, projectRoot, schema);
       applyConfig(configPlan, pluginRoot, projectRoot, schema);
     }
@@ -27038,9 +27014,9 @@ async function initWorkspaceTool(params) {
         existing: dirPlan.existing
       },
       assets: {
-        agents: agentsPlan,
-        prompts: promptsPlan,
-        workflows: workflowsPlan
+        agents: { copied: agentsPlan.copied, skipped: agentsPlan.skipped },
+        prompts: { copied: promptsPlan.copied, skipped: promptsPlan.skipped },
+        workflows: { copied: workflowsPlan.copied, skipped: workflowsPlan.skipped }
       },
       config: configPlan,
       gitignore: gitignorePlan
