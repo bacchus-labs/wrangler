@@ -1,4 +1,4 @@
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 
 /**
  * Information about an opened draft PR.
@@ -23,24 +23,31 @@ export interface PROpenerOptions {
  * Opens a draft GitHub PR using the `gh` CLI tool.
  * Returns PR number and URL, or null if creation fails or is unnecessary.
  *
- * This is designed to be called early in the workflow init phase so
- * the PR number is available to reporters from the start.
+ * Uses execFileSync with an args array to avoid shell injection.
+ * All user-supplied values (title, body, branchName, baseBranch) are passed
+ * as discrete array elements, never interpolated into a shell command string.
  */
 export async function openDraftPR(opts: PROpenerOptions): Promise<PRInfo | null> {
   const baseBranch = opts.baseBranch ?? 'main';
 
-  let cmd = `gh pr create --draft --base ${baseBranch} --head ${opts.branchName} --title "${opts.title}"`;
+  const args = [
+    'pr', 'create', '--draft',
+    '--base', baseBranch,
+    '--head', opts.branchName,
+    '--title', opts.title,
+  ];
   if (opts.body) {
-    cmd += ` --body "${opts.body}"`;
+    args.push('--body', opts.body);
   }
 
   try {
-    const rawOutput = execSync(cmd, {
+    const rawOutput = execFileSync('gh', args, {
       cwd: opts.cwd,
+      encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 
-    const url = String(rawOutput).trim();
+    const url = rawOutput.trim();
     const match = url.match(/\/pull\/(\d+)$/);
     if (!match) {
       console.warn(`Failed to create draft PR: could not parse PR URL from output: ${url}`);

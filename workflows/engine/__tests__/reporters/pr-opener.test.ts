@@ -4,7 +4,7 @@ import * as child_process from 'child_process';
 
 jest.mock('child_process');
 
-const mockExecSync = child_process.execSync as jest.MockedFunction<typeof child_process.execSync>;
+const mockExecFileSync = child_process.execFileSync as jest.MockedFunction<typeof child_process.execFileSync>;
 
 describe('openDraftPR', () => {
   const defaultOpts: PROpenerOptions = {
@@ -25,8 +25,8 @@ describe('openDraftPR', () => {
   });
 
   it('returns PRInfo on successful PR creation', async () => {
-    mockExecSync.mockReturnValue(
-      Buffer.from('https://github.com/owner/repo/pull/42\n')
+    mockExecFileSync.mockReturnValue(
+      'https://github.com/owner/repo/pull/42\n'
     );
 
     const result = await openDraftPR(defaultOpts);
@@ -37,61 +37,47 @@ describe('openDraftPR', () => {
     });
   });
 
-  it('passes correct arguments to gh cli', async () => {
-    mockExecSync.mockReturnValue(
-      Buffer.from('https://github.com/owner/repo/pull/1\n')
+  it('passes correct arguments as an array to execFileSync', async () => {
+    mockExecFileSync.mockReturnValue(
+      'https://github.com/owner/repo/pull/1\n'
     );
 
     await openDraftPR(defaultOpts);
 
-    expect(mockExecSync).toHaveBeenCalledWith(
-      expect.stringContaining('gh pr create --draft'),
-      expect.objectContaining({ cwd: '/tmp/test-repo' })
-    );
-    expect(mockExecSync).toHaveBeenCalledWith(
-      expect.stringContaining('--base main'),
-      expect.anything()
-    );
-    expect(mockExecSync).toHaveBeenCalledWith(
-      expect.stringContaining('--head feat/my-feature'),
-      expect.anything()
-    );
-    expect(mockExecSync).toHaveBeenCalledWith(
-      expect.stringContaining('--title "feat: my feature"'),
-      expect.anything()
+    expect(mockExecFileSync).toHaveBeenCalledWith(
+      'gh',
+      ['pr', 'create', '--draft', '--base', 'main', '--head', 'feat/my-feature', '--title', 'feat: my feature'],
+      expect.objectContaining({ cwd: '/tmp/test-repo', encoding: 'utf-8' }),
     );
   });
 
   it('uses custom baseBranch when provided', async () => {
-    mockExecSync.mockReturnValue(
-      Buffer.from('https://github.com/owner/repo/pull/5\n')
+    mockExecFileSync.mockReturnValue(
+      'https://github.com/owner/repo/pull/5\n'
     );
 
     await openDraftPR({ ...defaultOpts, baseBranch: 'develop' });
 
-    expect(mockExecSync).toHaveBeenCalledWith(
-      expect.stringContaining('--base develop'),
-      expect.anything()
-    );
+    const args = mockExecFileSync.mock.calls[0][1] as string[];
+    expect(args[4]).toBe('develop');
   });
 
   it('includes body when provided', async () => {
-    mockExecSync.mockReturnValue(
-      Buffer.from('https://github.com/owner/repo/pull/5\n')
+    mockExecFileSync.mockReturnValue(
+      'https://github.com/owner/repo/pull/5\n'
     );
 
     await openDraftPR({ ...defaultOpts, body: 'PR description here' });
 
-    expect(mockExecSync).toHaveBeenCalledWith(
-      expect.stringContaining('--body "PR description here"'),
-      expect.anything()
-    );
+    const args = mockExecFileSync.mock.calls[0][1] as string[];
+    expect(args).toContain('--body');
+    expect(args).toContain('PR description here');
   });
 
   it('returns null when gh is not found', async () => {
     const error = new Error('command not found: gh');
     (error as NodeJS.ErrnoException).code = 'ENOENT';
-    mockExecSync.mockImplementation(() => { throw error; });
+    mockExecFileSync.mockImplementation(() => { throw error; });
 
     const result = await openDraftPR(defaultOpts);
 
@@ -103,7 +89,7 @@ describe('openDraftPR', () => {
 
   it('returns null on auth failure', async () => {
     const error = new Error('gh auth login required');
-    mockExecSync.mockImplementation(() => { throw error; });
+    mockExecFileSync.mockImplementation(() => { throw error; });
 
     const result = await openDraftPR(defaultOpts);
 
@@ -115,7 +101,7 @@ describe('openDraftPR', () => {
 
   it('returns null when branch is not pushed', async () => {
     const error = new Error('fatal: The current branch has no upstream');
-    mockExecSync.mockImplementation(() => { throw error; });
+    mockExecFileSync.mockImplementation(() => { throw error; });
 
     const result = await openDraftPR(defaultOpts);
 
@@ -126,9 +112,8 @@ describe('openDraftPR', () => {
   });
 
   it('returns valid PRInfo when PR already exists', async () => {
-    // gh returns the existing PR URL when a PR already exists for the branch
-    mockExecSync.mockReturnValue(
-      Buffer.from('https://github.com/owner/repo/pull/99\n')
+    mockExecFileSync.mockReturnValue(
+      'https://github.com/owner/repo/pull/99\n'
     );
 
     const result = await openDraftPR(defaultOpts);
@@ -140,7 +125,7 @@ describe('openDraftPR', () => {
   });
 
   it('returns null on invalid gh output', async () => {
-    mockExecSync.mockReturnValue(Buffer.from('some garbage output\n'));
+    mockExecFileSync.mockReturnValue('some garbage output\n');
 
     const result = await openDraftPR(defaultOpts);
 
@@ -151,7 +136,7 @@ describe('openDraftPR', () => {
   });
 
   it('returns null on empty gh output', async () => {
-    mockExecSync.mockReturnValue(Buffer.from(''));
+    mockExecFileSync.mockReturnValue('');
 
     const result = await openDraftPR(defaultOpts);
 
@@ -162,8 +147,8 @@ describe('openDraftPR', () => {
   });
 
   it('handles PR numbers in URLs with paths after the number', async () => {
-    mockExecSync.mockReturnValue(
-      Buffer.from('https://github.com/owner/repo/pull/123\n')
+    mockExecFileSync.mockReturnValue(
+      'https://github.com/owner/repo/pull/123\n'
     );
 
     const result = await openDraftPR(defaultOpts);
@@ -171,6 +156,57 @@ describe('openDraftPR', () => {
     expect(result).toEqual({
       prNumber: 123,
       prUrl: 'https://github.com/owner/repo/pull/123',
+    });
+  });
+
+  describe('shell injection prevention', () => {
+    it('passes special characters in title safely as array element', async () => {
+      mockExecFileSync.mockReturnValue(
+        'https://github.com/owner/repo/pull/77\n'
+      );
+
+      const maliciousTitle = 'feat: "quoted" `backtick` $(whoami) && rm -rf /';
+      const result = await openDraftPR({
+        ...defaultOpts,
+        title: maliciousTitle,
+      });
+
+      // The title must appear as a discrete array element, not interpolated into a string
+      const args = mockExecFileSync.mock.calls[0][1] as string[];
+      expect(args).toContain(maliciousTitle);
+      // execFileSync is called (not execSync), so no shell interpretation occurs
+      expect(mockExecFileSync).toHaveBeenCalledWith('gh', expect.any(Array), expect.any(Object));
+      expect(result).toEqual({ prNumber: 77, prUrl: 'https://github.com/owner/repo/pull/77' });
+    });
+
+    it('passes special characters in body safely as array element', async () => {
+      mockExecFileSync.mockReturnValue(
+        'https://github.com/owner/repo/pull/78\n'
+      );
+
+      const maliciousBody = '$(cat /etc/passwd) `id` "; drop table users;';
+      await openDraftPR({
+        ...defaultOpts,
+        body: maliciousBody,
+      });
+
+      const args = mockExecFileSync.mock.calls[0][1] as string[];
+      expect(args).toContain(maliciousBody);
+    });
+
+    it('passes special characters in branchName safely as array element', async () => {
+      mockExecFileSync.mockReturnValue(
+        'https://github.com/owner/repo/pull/79\n'
+      );
+
+      const maliciousBranch = 'feat/$(whoami)';
+      await openDraftPR({
+        ...defaultOpts,
+        branchName: maliciousBranch,
+      });
+
+      const args = mockExecFileSync.mock.calls[0][1] as string[];
+      expect(args).toContain(maliciousBranch);
     });
   });
 });

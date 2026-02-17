@@ -18,7 +18,8 @@ import { WorkflowSessionManager } from './integration/session.js';
 import { buildMcpConfig } from './integration/mcp.js';
 import { createDefaultRegistry } from './handlers/index.js';
 import { loadWorkflowYaml } from './loader.js';
-import { ReporterManager, createDefaultReporterRegistry } from './reporters/index.js';
+import { ReporterManager, createDefaultReporterRegistry, openDraftPR } from './reporters/index.js';
+import type { PRInfo } from './reporters/index.js';
 import type { QueryFunction, EngineConfig } from './types.js';
 import type { WorkflowResult } from './state.js';
 
@@ -118,6 +119,17 @@ program
       const reporterRegistry = createDefaultReporterRegistry();
       const reporterManager = new ReporterManager(workflowDef, reporterRegistry);
 
+      // Open a draft PR for new runs if the workflow has reporters configured.
+      // For resume runs the PR already exists, so we skip creation.
+      let prInfo: PRInfo | null = null;
+      if (!options.resume && workflowDef.reporters && workflowDef.reporters.length > 0) {
+        prInfo = await openDraftPR({
+          cwd: effectiveWorkingDir,
+          branchName: effectiveBranchName,
+          title: `feat: ${slug}`,
+        });
+      }
+
       const engine = new WorkflowEngine({
         config,
         queryFn,
@@ -166,12 +178,13 @@ program
           // New workflow run
           const sessionId = await sessionManager.createSession();
 
-          // Initialize reporters with session context
+          // Initialize reporters with session context and optional PR info
           await reporterManager.initializeReporters({
             sessionId,
             specFile: path.resolve(specFile),
             branchName: effectiveBranchName,
             worktreePath: effectiveWorkingDir,
+            ...(prInfo ? { prNumber: prInfo.prNumber, prUrl: prInfo.prUrl } : {}),
           });
 
           console.log(`Session: ${sessionId}`);
