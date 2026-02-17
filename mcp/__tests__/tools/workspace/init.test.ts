@@ -1995,3 +1995,630 @@ describe('initWorkspaceTool', () => {
     });
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════
+// Integration Tests: E2E MCP Protocol & Tool Registration
+// ═══════════════════════════════════════════════════════════════════════
+
+import { WranglerMCPServer } from '../../../server';
+
+describe('init_workspace Integration Tests', () => {
+
+  // ─── Tool Registration in getAvailableTools() ──────────────────────
+
+  describe('tool registration in getAvailableTools()', () => {
+    let server: WranglerMCPServer;
+
+    beforeEach(() => {
+      server = new WranglerMCPServer();
+    });
+
+    afterEach(async () => {
+      await server.stop();
+    });
+
+    it('should include init_workspace in the tools list', () => {
+      const tools = server.getAvailableTools();
+      const toolNames = tools.map(t => t.name);
+
+      expect(toolNames).toContain('init_workspace');
+    });
+
+    it('should have a non-empty description for init_workspace', () => {
+      const tools = server.getAvailableTools();
+      const initTool = tools.find(t => t.name === 'init_workspace');
+
+      expect(initTool).toBeDefined();
+      expect(initTool!.description).toBeTruthy();
+      expect(initTool!.description.length).toBeGreaterThan(20);
+    });
+
+    it('should have a valid JSON Schema for init_workspace input', () => {
+      const tools = server.getAvailableTools();
+      const initTool = tools.find(t => t.name === 'init_workspace');
+
+      expect(initTool).toBeDefined();
+      expect(initTool!.inputSchema).toBeDefined();
+
+      const schema = initTool!.inputSchema as Record<string, unknown>;
+      expect(schema).toHaveProperty('type');
+      expect(schema.type).toBe('object');
+      expect(schema).toHaveProperty('properties');
+
+      const properties = schema.properties as Record<string, unknown>;
+      expect(properties).toHaveProperty('fix');
+      expect(properties).toHaveProperty('projectRoot');
+      expect(properties).toHaveProperty('pluginRoot');
+    });
+
+    it('should define fix property with boolean type and default false', () => {
+      const tools = server.getAvailableTools();
+      const initTool = tools.find(t => t.name === 'init_workspace');
+      const schema = initTool!.inputSchema as Record<string, unknown>;
+      const properties = schema.properties as Record<string, Record<string, unknown>>;
+
+      const fixProp = properties.fix;
+      expect(fixProp).toBeDefined();
+      expect(fixProp.type).toBe('boolean');
+      expect(fixProp.default).toBe(false);
+    });
+
+    it('should define projectRoot as optional string', () => {
+      const tools = server.getAvailableTools();
+      const initTool = tools.find(t => t.name === 'init_workspace');
+      const schema = initTool!.inputSchema as Record<string, unknown>;
+      const properties = schema.properties as Record<string, Record<string, unknown>>;
+
+      const projectRootProp = properties.projectRoot;
+      expect(projectRootProp).toBeDefined();
+      expect(projectRootProp.type).toBe('string');
+    });
+
+    it('should define pluginRoot as optional string', () => {
+      const tools = server.getAvailableTools();
+      const initTool = tools.find(t => t.name === 'init_workspace');
+      const schema = initTool!.inputSchema as Record<string, unknown>;
+      const properties = schema.properties as Record<string, Record<string, unknown>>;
+
+      const pluginRootProp = properties.pluginRoot;
+      expect(pluginRootProp).toBeDefined();
+      expect(pluginRootProp.type).toBe('string');
+    });
+
+    it('should have description mentioning .wrangler/ directory', () => {
+      const tools = server.getAvailableTools();
+      const initTool = tools.find(t => t.name === 'init_workspace');
+
+      expect(initTool!.description).toContain('.wrangler/');
+    });
+
+    it('should have description mentioning report-only mode', () => {
+      const tools = server.getAvailableTools();
+      const initTool = tools.find(t => t.name === 'init_workspace');
+
+      expect(initTool!.description.toLowerCase()).toContain('report');
+    });
+
+    it('should have description mentioning idempotent behavior', () => {
+      const tools = server.getAvailableTools();
+      const initTool = tools.find(t => t.name === 'init_workspace');
+
+      expect(initTool!.description.toLowerCase()).toContain('idempotent');
+    });
+  });
+
+  // ─── E2E MCP Protocol Tests ────────────────────────────────────────
+
+  describe('end-to-end MCP protocol tests', () => {
+    let tmpDir: string;
+    let projectRoot: string;
+    let pluginRoot: string;
+
+    beforeEach(() => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'wrangler-e2e-test-'));
+      projectRoot = path.join(tmpDir, 'project');
+      pluginRoot = path.join(tmpDir, 'plugin');
+
+      // Create plugin root with workspace-schema.json
+      fs.mkdirSync(path.join(pluginRoot, '.wrangler', 'config'), { recursive: true });
+      fs.writeFileSync(
+        path.join(pluginRoot, '.wrangler', 'config', 'workspace-schema.json'),
+        JSON.stringify({
+          version: '1.3.0',
+          description: 'E2E test schema',
+          workspace: { root: '.wrangler', description: 'E2E workspace' },
+          directories: {
+            issues: {
+              path: '.wrangler/issues',
+              description: 'Issues',
+              gitTracked: true,
+              subdirectories: {
+                archived: {
+                  path: '.wrangler/issues/archived',
+                  description: 'Archived issues',
+                },
+              },
+            },
+            specifications: {
+              path: '.wrangler/specifications',
+              description: 'Specifications',
+              gitTracked: true,
+            },
+            cache: {
+              path: '.wrangler/cache',
+              description: 'Cache',
+              gitTracked: false,
+            },
+            config: {
+              path: '.wrangler/config',
+              description: 'Config',
+              gitTracked: true,
+            },
+            plans: {
+              path: '.wrangler/plans',
+              description: 'Plans',
+              gitTracked: true,
+            },
+          },
+          governanceFiles: {},
+          readmeFiles: {},
+          gitignorePatterns: ['cache/', 'logs/', 'sessions/'],
+          artifactTypes: {},
+          mcpConfiguration: {
+            issuesDirectory: '.wrangler/issues',
+            specificationsDirectory: '.wrangler/specifications',
+            ideasDirectory: '.wrangler/ideas',
+          },
+        })
+      );
+
+      // Create plugin workflow assets
+      const agentsDir = path.join(pluginRoot, 'workflows', 'agents');
+      const promptsDir = path.join(pluginRoot, 'workflows', 'prompts');
+      fs.mkdirSync(agentsDir, { recursive: true });
+      fs.mkdirSync(promptsDir, { recursive: true });
+      fs.writeFileSync(path.join(agentsDir, 'analyzer.md'), '# Analyzer Agent');
+      fs.writeFileSync(path.join(promptsDir, 'analyze-spec.md'), '# Analyze Spec');
+      fs.writeFileSync(
+        path.join(pluginRoot, 'workflows', 'spec-implementation.yaml'),
+        'name: spec-implementation'
+      );
+
+      // Create project root
+      fs.mkdirSync(projectRoot, { recursive: true });
+    });
+
+    afterEach(() => {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    it('should parse params through initWorkspaceSchema before tool execution', async () => {
+      // Simulate MCP protocol: parse args through schema then call tool
+      const rawArgs = { fix: true, projectRoot, pluginRoot };
+      const parsedArgs = initWorkspaceSchema.parse(rawArgs);
+      const result = await initWorkspaceTool(parsedArgs);
+
+      expect(result.isError).toBe(false);
+      expect(result.content).toBeDefined();
+      expect(result.content.length).toBeGreaterThan(0);
+      expect(result.content[0].type).toBe('text');
+    });
+
+    it('should parse empty args to defaults (fix: false)', async () => {
+      const rawArgs = { projectRoot, pluginRoot };
+      const parsedArgs = initWorkspaceSchema.parse(rawArgs);
+
+      expect(parsedArgs.fix).toBe(false);
+
+      const result = await initWorkspaceTool(parsedArgs);
+      expect(result.isError).toBe(false);
+      const report = result.metadata as InitWorkspaceResult;
+      expect(report.status).toBe('changes_needed');
+    });
+
+    it('should reject invalid args during schema parsing', () => {
+      // fix should be boolean, not string
+      expect(() => {
+        initWorkspaceSchema.parse({ fix: 'yes' });
+      }).toThrow();
+    });
+
+    it('should return MCP-compliant response structure from full protocol flow', async () => {
+      const parsedArgs = initWorkspaceSchema.parse({
+        fix: true,
+        projectRoot,
+        pluginRoot,
+      });
+
+      const result = await initWorkspaceTool(parsedArgs);
+
+      // Verify MCP response shape
+      expect(result).toHaveProperty('content');
+      expect(result).toHaveProperty('isError');
+      expect(result).toHaveProperty('metadata');
+      expect(result.isError).toBe(false);
+      expect(Array.isArray(result.content)).toBe(true);
+      expect(result.content[0]).toHaveProperty('type', 'text');
+      expect(result.content[0]).toHaveProperty('text');
+    });
+
+    it('should initialize full workspace through protocol flow and verify on disk', async () => {
+      // Simulate exact MCP protocol: schema.parse -> tool call -> verify result
+      const args = initWorkspaceSchema.parse({
+        fix: true,
+        projectRoot,
+        pluginRoot,
+      });
+
+      const result = await initWorkspaceTool(args);
+      const report = result.metadata as InitWorkspaceResult;
+
+      expect(report.status).toBe('initialized');
+
+      // Verify all directories exist on disk
+      expect(fs.existsSync(path.join(projectRoot, '.wrangler', 'issues'))).toBe(true);
+      expect(fs.existsSync(path.join(projectRoot, '.wrangler', 'issues', 'archived'))).toBe(true);
+      expect(fs.existsSync(path.join(projectRoot, '.wrangler', 'specifications'))).toBe(true);
+      expect(fs.existsSync(path.join(projectRoot, '.wrangler', 'cache'))).toBe(true);
+      expect(fs.existsSync(path.join(projectRoot, '.wrangler', 'config'))).toBe(true);
+      expect(fs.existsSync(path.join(projectRoot, '.wrangler', 'plans'))).toBe(true);
+
+      // Verify .gitkeep in tracked dirs only
+      expect(fs.existsSync(path.join(projectRoot, '.wrangler', 'issues', '.gitkeep'))).toBe(true);
+      expect(fs.existsSync(path.join(projectRoot, '.wrangler', 'specifications', '.gitkeep'))).toBe(true);
+      expect(fs.existsSync(path.join(projectRoot, '.wrangler', 'config', '.gitkeep'))).toBe(true);
+      expect(fs.existsSync(path.join(projectRoot, '.wrangler', 'plans', '.gitkeep'))).toBe(true);
+      expect(fs.existsSync(path.join(projectRoot, '.wrangler', 'cache', '.gitkeep'))).toBe(false);
+
+      // Verify assets provisioned
+      expect(fs.existsSync(path.join(projectRoot, '.wrangler', 'orchestration', 'agents', 'analyzer.md'))).toBe(true);
+      expect(fs.existsSync(path.join(projectRoot, '.wrangler', 'orchestration', 'prompts', 'analyze-spec.md'))).toBe(true);
+      expect(fs.existsSync(path.join(projectRoot, '.wrangler', 'orchestration', 'workflows', 'spec-implementation.yaml'))).toBe(true);
+
+      // Verify .gitignore created with patterns
+      const gitignoreContent = fs.readFileSync(
+        path.join(projectRoot, '.wrangler', '.gitignore'),
+        'utf-8'
+      );
+      expect(gitignoreContent).toContain('cache/');
+      expect(gitignoreContent).toContain('logs/');
+      expect(gitignoreContent).toContain('sessions/');
+
+      // Verify config files
+      expect(fs.existsSync(path.join(projectRoot, '.wrangler', 'config', 'workspace-schema.json'))).toBe(true);
+      expect(fs.existsSync(path.join(projectRoot, '.wrangler', 'config', 'wrangler.json'))).toBe(true);
+    });
+
+    it('should return compliant status on second protocol call (idempotency)', async () => {
+      const args = initWorkspaceSchema.parse({
+        fix: true,
+        projectRoot,
+        pluginRoot,
+      });
+
+      // First call: initialize
+      const result1 = await initWorkspaceTool(args);
+      expect((result1.metadata as InitWorkspaceResult).status).toBe('initialized');
+
+      // Second call: should be compliant
+      const result2 = await initWorkspaceTool(args);
+      const report2 = result2.metadata as InitWorkspaceResult;
+      expect(report2.status).toBe('compliant');
+      expect(report2.directories.created).toEqual([]);
+      expect(report2.assets.agents.copied).toEqual([]);
+      expect(report2.assets.prompts.copied).toEqual([]);
+      expect(report2.assets.workflows.copied).toEqual([]);
+      expect(report2.gitignore.patternsAdded).toEqual([]);
+    });
+
+    it('should handle report-only mode through protocol without side effects', async () => {
+      const args = initWorkspaceSchema.parse({
+        fix: false,
+        projectRoot,
+        pluginRoot,
+      });
+
+      const result = await initWorkspaceTool(args);
+      const report = result.metadata as InitWorkspaceResult;
+
+      expect(report.status).toBe('changes_needed');
+      expect(report.directories.created.length).toBeGreaterThan(0);
+
+      // No directories should exist on disk
+      expect(fs.existsSync(path.join(projectRoot, '.wrangler'))).toBe(false);
+    });
+
+    it('should produce correct metadata counts matching actual disk state', async () => {
+      const args = initWorkspaceSchema.parse({
+        fix: true,
+        projectRoot,
+        pluginRoot,
+      });
+
+      const result = await initWorkspaceTool(args);
+      const report = result.metadata as InitWorkspaceResult;
+
+      // Every "created" directory must exist
+      for (const dir of report.directories.created) {
+        expect(fs.existsSync(path.join(projectRoot, dir))).toBe(true);
+      }
+
+      // Every "existing" directory must also exist
+      for (const dir of report.directories.existing) {
+        expect(fs.existsSync(path.join(projectRoot, dir))).toBe(true);
+      }
+
+      // Every copied agent must exist at destination
+      for (const agent of report.assets.agents.copied) {
+        expect(fs.existsSync(
+          path.join(projectRoot, '.wrangler', 'orchestration', 'agents', agent)
+        )).toBe(true);
+      }
+
+      // Every copied prompt must exist at destination
+      for (const prompt of report.assets.prompts.copied) {
+        expect(fs.existsSync(
+          path.join(projectRoot, '.wrangler', 'orchestration', 'prompts', prompt)
+        )).toBe(true);
+      }
+
+      // Every copied workflow must exist at destination
+      for (const wf of report.assets.workflows.copied) {
+        expect(fs.existsSync(
+          path.join(projectRoot, '.wrangler', 'orchestration', 'workflows', wf)
+        )).toBe(true);
+      }
+    });
+
+    it('should handle transition from report-only to apply correctly', async () => {
+      // First: report-only to see what would change
+      const reportArgs = initWorkspaceSchema.parse({
+        fix: false,
+        projectRoot,
+        pluginRoot,
+      });
+      const reportResult = await initWorkspaceTool(reportArgs);
+      const reportData = reportResult.metadata as InitWorkspaceResult;
+
+      expect(reportData.status).toBe('changes_needed');
+      const expectedDirCount = reportData.directories.created.length;
+
+      // Then: apply to actually create
+      const applyArgs = initWorkspaceSchema.parse({
+        fix: true,
+        projectRoot,
+        pluginRoot,
+      });
+      const applyResult = await initWorkspaceTool(applyArgs);
+      const applyData = applyResult.metadata as InitWorkspaceResult;
+
+      expect(applyData.status).toBe('initialized');
+      // Same number of directories should be created as reported
+      expect(applyData.directories.created.length).toBe(expectedDirCount);
+    });
+
+    it('should preserve existing user files when applying workspace init', async () => {
+      // Pre-create some user content
+      fs.mkdirSync(path.join(projectRoot, '.wrangler', 'issues'), { recursive: true });
+      fs.writeFileSync(
+        path.join(projectRoot, '.wrangler', 'issues', 'ISS-000001-my-issue.md'),
+        '---\ntitle: My Issue\n---\n\nUser content'
+      );
+
+      const args = initWorkspaceSchema.parse({
+        fix: true,
+        projectRoot,
+        pluginRoot,
+      });
+
+      const result = await initWorkspaceTool(args);
+      expect(result.isError).toBe(false);
+
+      // Verify user file is still intact
+      const content = fs.readFileSync(
+        path.join(projectRoot, '.wrangler', 'issues', 'ISS-000001-my-issue.md'),
+        'utf-8'
+      );
+      expect(content).toContain('User content');
+    });
+
+    it('should handle schema version upgrade through protocol flow', async () => {
+      // First: initialize with v1.3.0 schema
+      const args1 = initWorkspaceSchema.parse({
+        fix: true,
+        projectRoot,
+        pluginRoot,
+      });
+      await initWorkspaceTool(args1);
+
+      // Verify schema version on disk
+      const schemaPath = path.join(projectRoot, '.wrangler', 'config', 'workspace-schema.json');
+      const schema1 = JSON.parse(fs.readFileSync(schemaPath, 'utf-8'));
+      expect(schema1.version).toBe('1.3.0');
+
+      // Update plugin schema to v1.4.0
+      fs.writeFileSync(
+        path.join(pluginRoot, '.wrangler', 'config', 'workspace-schema.json'),
+        JSON.stringify({
+          version: '1.4.0',
+          description: 'Updated schema',
+          workspace: { root: '.wrangler', description: 'Updated workspace' },
+          directories: {
+            issues: { path: '.wrangler/issues', description: 'Issues', gitTracked: true },
+            specifications: { path: '.wrangler/specifications', description: 'Specs', gitTracked: true },
+            cache: { path: '.wrangler/cache', description: 'Cache', gitTracked: false },
+            config: { path: '.wrangler/config', description: 'Config', gitTracked: true },
+            plans: { path: '.wrangler/plans', description: 'Plans', gitTracked: true },
+            memos: { path: '.wrangler/memos', description: 'Memos', gitTracked: true },
+          },
+          governanceFiles: {},
+          readmeFiles: {},
+          gitignorePatterns: ['cache/', 'logs/', 'sessions/'],
+          artifactTypes: {},
+          mcpConfiguration: {
+            issuesDirectory: '.wrangler/issues',
+            specificationsDirectory: '.wrangler/specifications',
+            ideasDirectory: '.wrangler/ideas',
+          },
+        })
+      );
+
+      // Second: re-init with updated schema
+      const args2 = initWorkspaceSchema.parse({
+        fix: true,
+        projectRoot,
+        pluginRoot,
+      });
+      const result2 = await initWorkspaceTool(args2);
+      const report2 = result2.metadata as InitWorkspaceResult;
+
+      // Schema should be updated
+      expect(report2.config.schemaUpdated).toBe(true);
+
+      // New directory should be created
+      expect(report2.directories.created).toContain('.wrangler/memos');
+      expect(fs.existsSync(path.join(projectRoot, '.wrangler', 'memos'))).toBe(true);
+
+      // Verify schema version on disk updated
+      const schema2 = JSON.parse(fs.readFileSync(schemaPath, 'utf-8'));
+      expect(schema2.version).toBe('1.4.0');
+    });
+
+    it('should produce text output suitable for MCP client display', async () => {
+      const args = initWorkspaceSchema.parse({
+        fix: true,
+        projectRoot,
+        pluginRoot,
+      });
+
+      const result = await initWorkspaceTool(args);
+
+      // Text should be informative for an AI client
+      const text = result.content[0].text;
+      expect(text).toBeTruthy();
+      expect(typeof text).toBe('string');
+      expect(text.toLowerCase()).toContain('workspace');
+      // Should mention directories or assets
+      expect(text).toMatch(/[Dd]irectories|[Aa]ssets/);
+    });
+  });
+
+  // ─── Cross-Tool Integration ────────────────────────────────────────
+
+  describe('cross-tool integration with issue management', () => {
+    let tmpDir: string;
+    let projectRoot: string;
+    let pluginRoot: string;
+
+    beforeEach(() => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'wrangler-cross-test-'));
+      projectRoot = path.join(tmpDir, 'project');
+      pluginRoot = path.join(tmpDir, 'plugin');
+
+      // Create plugin root with schema
+      fs.mkdirSync(path.join(pluginRoot, '.wrangler', 'config'), { recursive: true });
+      fs.writeFileSync(
+        path.join(pluginRoot, '.wrangler', 'config', 'workspace-schema.json'),
+        JSON.stringify({
+          version: '1.3.0',
+          description: 'Cross-tool test schema',
+          workspace: { root: '.wrangler', description: 'Test workspace' },
+          directories: {
+            issues: {
+              path: '.wrangler/issues',
+              description: 'Issues',
+              gitTracked: true,
+              subdirectories: {
+                archived: {
+                  path: '.wrangler/issues/archived',
+                  description: 'Archived issues',
+                },
+              },
+            },
+            specifications: {
+              path: '.wrangler/specifications',
+              description: 'Specifications',
+              gitTracked: true,
+            },
+            cache: {
+              path: '.wrangler/cache',
+              description: 'Cache',
+              gitTracked: false,
+            },
+            config: {
+              path: '.wrangler/config',
+              description: 'Config',
+              gitTracked: true,
+            },
+          },
+          governanceFiles: {},
+          readmeFiles: {},
+          gitignorePatterns: ['cache/', 'logs/', 'sessions/'],
+          artifactTypes: {},
+          mcpConfiguration: {
+            issuesDirectory: '.wrangler/issues',
+            specificationsDirectory: '.wrangler/specifications',
+            ideasDirectory: '.wrangler/ideas',
+          },
+        })
+      );
+
+      // Create project root
+      fs.mkdirSync(projectRoot, { recursive: true });
+    });
+
+    afterEach(() => {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    it('should create a workspace that is usable by issue management tools', async () => {
+      // Step 1: Initialize workspace
+      const initArgs = initWorkspaceSchema.parse({
+        fix: true,
+        projectRoot,
+        pluginRoot,
+      });
+      const initResult = await initWorkspaceTool(initArgs);
+      expect(initResult.isError).toBe(false);
+      expect((initResult.metadata as InitWorkspaceResult).status).toBe('initialized');
+
+      // Step 2: Verify the issues directory is ready for the MarkdownIssueProvider
+      const issuesDir = path.join(projectRoot, '.wrangler', 'issues');
+      expect(fs.existsSync(issuesDir)).toBe(true);
+
+      // Step 3: Verify the specifications directory is ready
+      const specsDir = path.join(projectRoot, '.wrangler', 'specifications');
+      expect(fs.existsSync(specsDir)).toBe(true);
+
+      // Step 4: Verify config directory has wrangler.json
+      const wranglerConfig = JSON.parse(
+        fs.readFileSync(
+          path.join(projectRoot, '.wrangler', 'config', 'wrangler.json'),
+          'utf-8'
+        )
+      );
+      expect(wranglerConfig.workspace.directories.issues).toBe('.wrangler/issues');
+      expect(wranglerConfig.workspace.directories.specifications).toBe('.wrangler/specifications');
+    });
+
+    it('should produce workspace-schema.json that matches the directory structure created', async () => {
+      // Initialize workspace
+      const args = initWorkspaceSchema.parse({
+        fix: true,
+        projectRoot,
+        pluginRoot,
+      });
+      const result = await initWorkspaceTool(args);
+      const report = result.metadata as InitWorkspaceResult;
+
+      // Read back the copied schema
+      const schemaPath = path.join(projectRoot, '.wrangler', 'config', 'workspace-schema.json');
+      const schema = JSON.parse(fs.readFileSync(schemaPath, 'utf-8'));
+
+      // Every directory in the schema should exist on disk
+      for (const dir of Object.values(schema.directories) as Array<{ path: string }>) {
+        expect(fs.existsSync(path.join(projectRoot, dir.path))).toBe(true);
+      }
+    });
+  });
+});
