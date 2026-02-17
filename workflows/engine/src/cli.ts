@@ -63,7 +63,7 @@ program
 
       // For new runs (not resume), create a git worktree for isolation.
       // For resume, we use the existing working directory.
-      const specSlug = extractSpecSlug(specFile);
+      const slug = extractSlug(specFile);
       let effectiveWorkingDir = workingDir;
       let effectiveBranchName = await getCurrentBranch(workingDir);
 
@@ -72,7 +72,7 @@ program
         const tempSessionId = `wf-${new Date().toISOString().slice(0, 10)}-${crypto.randomBytes(4).toString('hex')}`;
         const worktreeResult = await createWorktree({
           projectRoot: workingDir,
-          specSlug,
+          slug,
           sessionId: tempSessionId,
         });
         if (worktreeResult.created) {
@@ -175,14 +175,12 @@ program
   });
 
 /**
- * Extract a URL-safe slug from a spec file path.
- * Strips the SPEC-NNNNN- prefix and normalizes to lowercase-with-dashes.
+ * Extract a URL-safe slug from any artifact file path (spec, issue, idea, etc.).
+ * Preserves the artifact prefix (SPEC-, ISS-, etc.) for traceability.
  */
-export function extractSpecSlug(specFile: string): string {
-  const basename = path.basename(specFile, '.md');
-  // Remove common prefixes like SPEC-000001- or spec-
-  const cleanName = basename.replace(/^SPEC-\d+-/, '').replace(/^spec-/, '');
-  return cleanName
+export function extractSlug(filePath: string): string {
+  const basename = path.basename(filePath, '.md');
+  return basename
     .toLowerCase()
     .replace(/[^\w\s-]/g, '')
     .replace(/[\s_-]+/g, '-')
@@ -203,14 +201,14 @@ export interface WorktreeDeps {
 export async function createWorktree(
   opts: {
     projectRoot: string;
-    specSlug: string;
+    slug: string;
     sessionId: string;
   },
   deps?: WorktreeDeps,
 ): Promise<{ worktreePath: string; branchName: string; created: boolean }> {
-  const { projectRoot, specSlug, sessionId } = opts;
-  const worktreePath = path.join(projectRoot, '.worktrees', specSlug);
-  const branchName = `wrangler/${specSlug}/${sessionId}`;
+  const { projectRoot, slug, sessionId } = opts;
+  const worktreePath = path.join(projectRoot, '.worktrees', slug);
+  const branchName = `wrangler/${slug}/${sessionId}`;
 
   try {
     const resolvedDeps = deps ?? await loadWorktreeDeps();

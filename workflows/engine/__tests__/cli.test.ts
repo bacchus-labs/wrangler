@@ -1,10 +1,10 @@
 /**
  * Tests for CLI utility functions: printResult, getCurrentBranch,
- * extractSpecSlug, and createWorktree.
+ * extractSlug, and createWorktree.
  *
  * printResult formats and logs workflow results to the console.
  * getCurrentBranch shells out to git rev-parse to determine the current branch.
- * extractSpecSlug derives a URL-safe slug from a spec filename.
+ * extractSlug derives a URL-safe slug from any artifact filename.
  * createWorktree creates a git worktree for isolated workflow execution.
  */
 
@@ -334,57 +334,57 @@ describe('getCurrentBranch', () => {
 });
 
 // ================================================================
-// extractSpecSlug
+// extractSlug
 // ================================================================
 
-describe('extractSpecSlug', () => {
-  let extractSpecSlug: (specFile: string) => string;
+describe('extractSlug', () => {
+  let extractSlug: (filePath: string) => string;
 
   beforeAll(async () => {
     const cli = await import('../src/cli.js');
-    extractSpecSlug = cli.extractSpecSlug;
+    extractSlug = cli.extractSlug;
   });
 
-  it('strips SPEC-NNNNN- prefix and returns lowercase slug', () => {
-    expect(extractSpecSlug('SPEC-000047-workflow-template-layering.md')).toBe(
-      'workflow-template-layering'
+  it('preserves SPEC prefix in lowercase slug', () => {
+    expect(extractSlug('SPEC-000047-workflow-template-layering.md')).toBe(
+      'spec-000047-workflow-template-layering'
     );
   });
 
-  it('strips SPEC- prefix with variable digit count', () => {
-    expect(extractSpecSlug('SPEC-12-short-slug.md')).toBe('short-slug');
+  it('preserves ISS prefix for issue files', () => {
+    expect(extractSlug('ISS-000135-add-context-efficiency.md')).toBe(
+      'iss-000135-add-context-efficiency'
+    );
   });
 
-  it('strips spec- prefix (lowercase)', () => {
-    expect(extractSpecSlug('spec-my-feature.md')).toBe('my-feature');
+  it('handles files with no artifact prefix', () => {
+    expect(extractSlug('my-feature.md')).toBe('my-feature');
   });
 
   it('handles full path by using only basename', () => {
     expect(
-      extractSpecSlug('/Users/sam/project/.wrangler/specifications/SPEC-000048-codify-steps.md')
-    ).toBe('codify-steps');
+      extractSlug('/Users/sam/project/.wrangler/specifications/SPEC-000048-codify-steps.md')
+    ).toBe('spec-000048-codify-steps');
   });
 
   it('removes special characters and collapses separators', () => {
-    // Special chars are stripped (not replaced), so "chars" and "here" merge.
-    // Underscores and consecutive dashes collapse into single dashes.
-    expect(extractSpecSlug('SPEC-001-some_mixed--chars!!!here.md')).toBe(
-      'some-mixed-charshere'
+    expect(extractSlug('SPEC-001-some_mixed--chars!!!here.md')).toBe(
+      'spec-001-some-mixed-charshere'
     );
   });
 
   it('truncates to 50 characters', () => {
     const longName = 'SPEC-001-' + 'a'.repeat(60) + '.md';
-    const result = extractSpecSlug(longName);
+    const result = extractSlug(longName);
     expect(result.length).toBeLessThanOrEqual(50);
   });
 
   it('returns "implementation" for degenerate input', () => {
-    expect(extractSpecSlug('SPEC-001-.md')).toBe('implementation');
+    expect(extractSlug('.md')).toBe('implementation');
   });
 
   it('handles files without .md extension', () => {
-    expect(extractSpecSlug('SPEC-001-my-feature')).toBe('my-feature');
+    expect(extractSlug('SPEC-001-my-feature')).toBe('spec-001-my-feature');
   });
 });
 
@@ -420,10 +420,10 @@ describe('createWorktree', () => {
     };
   }
 
-  it('creates a worktree at .worktrees/{specSlug} with the correct branch', async () => {
+  it('creates a worktree at .worktrees/{slug} with the correct branch', async () => {
     const result = await createWorktree({
       projectRoot: '/project',
-      specSlug: 'my-feature',
+      slug: 'my-feature',
       sessionId: 'wf-2026-02-16-abc123',
     }, makeDeps());
 
@@ -444,7 +444,7 @@ describe('createWorktree', () => {
 
     const result = await createWorktree({
       projectRoot: '/project',
-      specSlug: 'my-feature',
+      slug: 'my-feature',
       sessionId: 'wf-2026-02-16-abc123',
     }, makeDeps());
 
@@ -459,7 +459,7 @@ describe('createWorktree', () => {
 
     const result = await createWorktree({
       projectRoot: '/project',
-      specSlug: 'my-feature',
+      slug: 'my-feature',
       sessionId: 'wf-2026-02-16-abc123',
     }, makeDeps());
 

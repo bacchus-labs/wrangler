@@ -291,6 +291,69 @@ The workflow engine's `WorkflowResolver` already implements 2-tier search:
 
 After `init_workspace` copies builtins into `.wrangler/orchestration/agents/` and `.wrangler/orchestration/prompts/`, the resolver's tier-1 search will find them there. Users can then modify those copies freely -- the resolver will use the project copy over the builtin.
 
+## Dependency Analysis: Affected Components
+
+This section catalogs all code, tests, and documentation that must be updated as part of this spec. The `.wrangler/orchestration/` path is new, but the resolver and schema currently reference `.wrangler/{agents,prompts,workflows}` which must be migrated.
+
+### Critical Path: Workflow Engine
+
+**`workflows/engine/src/resolver.ts` (2 code changes)**
+- Line 48: `path.join(this.projectRoot, '.wrangler', kind, filename)` --> must insert `'orchestration'` segment
+- Line 63: Error hint string `".wrangler/${kind}/"` --> `".wrangler/orchestration/${kind}/"`
+- This is the **single choke point** -- all agent/prompt/workflow resolution flows through here
+
+**`workflows/engine/src/cli.ts` (comment only)**
+- Lines 83-84: Comment says "which contains agents/, prompts/, and workflow YAML files" -- should clarify the builtin vs. project-level distinction. No code change needed.
+
+### Critical Path: MCP Schema
+
+**`mcp/workspace-schema.ts`**
+- `getDefaultSchema()` function (lines ~115-230): Add `orchestration` directory definition with `agents`, `prompts`, `workflows` subdirectories
+- Must stay in sync with the JSON schema file
+
+**`.wrangler/config/workspace-schema.json`**
+- Add `orchestration` entry to `directories` object with three subdirectories (see Architecture section above)
+- Bump version from `1.2.0`
+
+### Tests Requiring Updates
+
+**`workflows/engine/__tests__/resolver.test.ts` (~13 assertion changes)**
+- All test cases constructing project-level paths like `path.join(projectRoot, '.wrangler', 'workflows')` must add `'orchestration'` segment
+- Affected: `resolveWorkflow`, `resolveAgent`, `resolvePrompt` describe blocks, error message assertions
+
+**`workflows/engine/__tests__/integration/engine-e2e.test.ts` (7 fixture paths)**
+- `setupComposedWorkflowFiles()` function creates test fixtures at `.wrangler/agents/` and `.wrangler/prompts/` -- must change to `.wrangler/orchestration/agents/` and `.wrangler/orchestration/prompts/`
+
+**`mcp/__tests__/workspace-schema.test.ts`**
+- Add assertions for `orchestration` directory in `getInitializationDirectories()` tests
+- Add assertions for `orchestration` subdirs in `getGitTrackedDirectories()` tests
+- Update essential directories list to include `orchestration`
+
+### Documentation Updates
+
+**`workflows/engine/docs/builtin-agents-prompts.md` (~6 path references)**
+- 2-tier resolution path description (lines ~19-23): `.wrangler/agents/` --> `.wrangler/orchestration/agents/`
+- Override example directory tree (lines ~250-259): add `orchestration/` nesting
+- All "Hint" text showing project-level paths
+
+### Not Affected (verified)
+
+- `mcp/server.ts` -- no hardcoded workspace paths, uses provider factory
+- `mcp/tools/issues/*` -- all use collection directories from provider
+- `mcp/tools/session/*` -- references workspace root dynamically
+- `mcp/providers/markdown.ts` -- uses configured directories, not hardcoded paths
+- `mcp/providers/session-storage.ts` -- `.wrangler/sessions/` path is unrelated
+- `.claude-plugin/plugin.json` -- only references issues/specs directories
+- All skills except `verifying-governance` -- no path dependencies on agents/prompts/workflows dirs
+- `commands/` directory -- no slash commands reference these paths
+- Handler code (`workflows/engine/src/handlers/`) -- uses resolver abstraction, no direct paths
+
+### Informational Only (no runtime impact, historical references)
+
+- SPEC-000047: References `.wrangler/workflows/`, `.wrangler/agents/`, `.wrangler/prompts/` -- superseded by this spec
+- `.wrangler/memos/2026-02-15-spec-028-session-retrospective.md` -- historical reference to `.wrangler/workflows/`
+- `.wrangler/issues/archived/ISS-000121` -- documents original resolver implementation with old paths
+
 ## Success Criteria
 
 - [ ] `init_workspace` MCP tool implemented and registered
@@ -301,7 +364,13 @@ After `init_workspace` copies builtins into `.wrangler/orchestration/agents/` an
 - [ ] `session-start.sh` simplified to use thin bootstrap + delegates to tool
 - [ ] `workspace-schema.json` updated with orchestration directory and subdirectories
 - [ ] `WorkflowResolver` updated to search `.wrangler/orchestration/{kind}/`
+- [ ] Resolver tests updated (~13 assertions)
+- [ ] E2E test fixtures updated (7 paths)
+- [ ] MCP schema tests updated for orchestration dirs
+- [ ] `builtin-agents-prompts.md` documentation updated
 - [ ] Running tool twice produces identical results (idempotent)
+- [ ] All existing engine tests pass (737 tests)
+- [ ] All existing MCP tests pass
 
 ## References
 
