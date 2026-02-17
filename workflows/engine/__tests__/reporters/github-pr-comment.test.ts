@@ -737,4 +737,285 @@ describe('GitHubPRCommentReporter', () => {
       warnSpy.mockRestore();
     });
   });
+
+  // =========================================================================
+  // Network failure resilience
+  // =========================================================================
+  describe('network failure resilience', () => {
+    // --- HTTP error responses ---
+
+    it('continues after 500 Internal Server Error on onAuditEntry', async () => {
+      const { GitHubPRCommentReporter } = await loadModule();
+      const reporter = new GitHubPRCommentReporter({
+        token: 'ghp_test',
+        owner: 'o',
+        repo: 'r',
+        prNumber: 1,
+        debounceMs: 0,
+      });
+
+      await reporter.initialize(makeContext());
+      apiMock.clearRequests();
+
+      // First update returns 500
+      apiMock.queueResponse({ status: 500 });
+      const entry1 = createMockAuditEntry({ step: 'analyze', status: 'started' });
+      await reporter.onAuditEntry(entry1);
+
+      // Reporter should still attempt the next API call (not disabled)
+      apiMock.clearRequests();
+      const entry2 = createMockAuditEntry({ step: 'analyze', status: 'completed' });
+      await reporter.onAuditEntry(entry2);
+
+      const requests = apiMock.getRequests();
+      expect(requests.length).toBe(1);
+      expect(requests[0].method).toBe('PATCH');
+    });
+
+    it('continues after 502/503 transient errors', async () => {
+      const { GitHubPRCommentReporter } = await loadModule();
+      const reporter = new GitHubPRCommentReporter({
+        token: 'ghp_test',
+        owner: 'o',
+        repo: 'r',
+        prNumber: 1,
+        debounceMs: 0,
+      });
+
+      await reporter.initialize(makeContext());
+      apiMock.clearRequests();
+
+      // Queue 502, then 503
+      apiMock.queueResponse({ status: 502 });
+      await reporter.onAuditEntry(createMockAuditEntry({ step: 'analyze', status: 'started' }));
+
+      apiMock.queueResponse({ status: 503 });
+      await reporter.onAuditEntry(createMockAuditEntry({ step: 'analyze', status: 'completed' }));
+
+      // Reporter should still be active -- next call uses default 200
+      apiMock.clearRequests();
+      await reporter.onAuditEntry(createMockAuditEntry({ step: 'plan', status: 'started' }));
+      expect(apiMock.getRequests().length).toBe(1);
+    });
+
+    it('self-disables on 401 during onAuditEntry update', async () => {
+      const { GitHubPRCommentReporter } = await loadModule();
+      const reporter = new GitHubPRCommentReporter({
+        token: 'ghp_test',
+        owner: 'o',
+        repo: 'r',
+        prNumber: 1,
+        debounceMs: 0,
+      });
+
+      await reporter.initialize(makeContext());
+      apiMock.clearRequests();
+
+      // PATCH returns 401
+      apiMock.queueResponse({ status: 401, body: { message: 'Bad credentials' } });
+      await reporter.onAuditEntry(createMockAuditEntry({ step: 'analyze', status: 'started' }));
+
+      // Now reporter should be disabled -- no more API calls
+      apiMock.clearRequests();
+      await reporter.onAuditEntry(createMockAuditEntry({ step: 'plan', status: 'started' }));
+      await reporter.onComplete(makeSummary());
+      await reporter.onError(new Error('test'));
+      expect(apiMock.getRequests().length).toBe(0);
+    });
+
+    // --- Network-level failures ---
+
+    it('continues after fetch throws TypeError (DNS failure)', async () => {
+      const { GitHubPRCommentReporter } = await loadModule();
+      const reporter = new GitHubPRCommentReporter({
+        token: 'ghp_test',
+        owner: 'o',
+        repo: 'r',
+        prNumber: 1,
+        debounceMs: 0,
+      });
+
+      await reporter.initialize(makeContext());
+      apiMock.clearRequests();
+
+      // Network error on update
+      apiMock.queueResponse({ networkError: true });
+      await reporter.onAuditEntry(createMockAuditEntry({ step: 'analyze', status: 'started' }));
+
+      // Reporter should still attempt the next call
+      apiMock.clearRequests();
+      await reporter.onAuditEntry(createMockAuditEntry({ step: 'plan', status: 'started' }));
+      expect(apiMock.getRequests().length).toBe(1);
+    });
+
+    it('network error during initialize leaves reporter effectively disabled (no commentId)', async () => {
+      const { GitHubPRCommentReporter } = await loadModule();
+      const reporter = new GitHubPRCommentReporter({
+        token: 'ghp_test',
+        owner: 'o',
+        repo: 'r',
+        prNumber: 1,
+        debounceMs: 0,
+      });
+
+      apiMock.queueResponse({ networkError: true });
+      await reporter.initialize(makeContext());
+
+      // No commentId, so all subsequent calls are no-ops
+      apiMock.clearRequests();
+      await reporter.onAuditEntry(createMockAuditEntry({ step: 'analyze', status: 'started' }));
+      await reporter.onComplete(makeSummary());
+      await reporter.onError(new Error('test'));
+      expect(apiMock.getRequests().length).toBe(0);
+    });
+
+    it('network error during onAuditEntry does not crash and reporter continues', async () => {
+      const { GitHubPRCommentReporter } = await loadModule();
+      const reporter = new GitHubPRCommentReporter({
+        token: 'ghp_test',
+        owner: 'o',
+        repo: 'r',
+        prNumber: 1,
+        debounceMs: 0,
+      });
+
+      await reporter.initialize(makeContext());
+      apiMock.clearRequests();
+
+      // Network error, then success
+      apiMock.queueResponse({ networkError: true });
+      await expect(
+        reporter.onAuditEntry(createMockAuditEntry({ step: 'analyze', status: 'started' }))
+      ).resolves.toBeUndefined();
+
+      apiMock.clearRequests();
+      await reporter.onAuditEntry(createMockAuditEntry({ step: 'plan', status: 'started' }));
+      expect(apiMock.getRequests().length).toBe(1);
+    });
+
+    it('network error during onComplete does not crash', async () => {
+      const { GitHubPRCommentReporter } = await loadModule();
+      const reporter = new GitHubPRCommentReporter({
+        token: 'ghp_test',
+        owner: 'o',
+        repo: 'r',
+        prNumber: 1,
+        debounceMs: 0,
+      });
+
+      await reporter.initialize(makeContext());
+      apiMock.clearRequests();
+
+      apiMock.queueResponse({ networkError: true });
+      await expect(reporter.onComplete(makeSummary())).resolves.toBeUndefined();
+    });
+
+    // --- Self-disable behavior (thorough) ---
+
+    it('after 401 on init: onAuditEntry, onComplete, onError, dispose are all no-ops', async () => {
+      const { GitHubPRCommentReporter } = await loadModule();
+      const reporter = new GitHubPRCommentReporter({
+        token: 'ghp_test',
+        owner: 'o',
+        repo: 'r',
+        prNumber: 1,
+        debounceMs: 0,
+      });
+
+      apiMock.queueResponse({ status: 401, body: { message: 'Bad credentials' } });
+      await reporter.initialize(makeContext());
+      apiMock.clearRequests();
+
+      await reporter.onAuditEntry(createMockAuditEntry({ step: 'analyze', status: 'started' }));
+      await reporter.onComplete(makeSummary());
+      await reporter.onError(new Error('test'));
+      await reporter.dispose();
+
+      expect(apiMock.getRequests().length).toBe(0);
+    });
+
+    it('after 404 on init: all lifecycle methods are no-ops', async () => {
+      const { GitHubPRCommentReporter } = await loadModule();
+      const reporter = new GitHubPRCommentReporter({
+        token: 'ghp_test',
+        owner: 'o',
+        repo: 'r',
+        prNumber: 1,
+        debounceMs: 0,
+      });
+
+      apiMock.queueResponse({ status: 404, body: { message: 'Not Found' } });
+      await reporter.initialize(makeContext());
+      apiMock.clearRequests();
+
+      await reporter.onAuditEntry(createMockAuditEntry({ step: 'analyze', status: 'started' }));
+      await reporter.onComplete(makeSummary());
+      await reporter.onError(new Error('test'));
+      await reporter.dispose();
+
+      expect(apiMock.getRequests().length).toBe(0);
+    });
+
+    it('dispose() works on disabled reporter without crashing', async () => {
+      const { GitHubPRCommentReporter } = await loadModule();
+      const reporter = new GitHubPRCommentReporter({
+        token: 'ghp_test',
+        owner: 'o',
+        repo: 'r',
+        prNumber: 1,
+        debounceMs: 0,
+      });
+
+      apiMock.queueResponse({ status: 401, body: { message: 'Unauthorized' } });
+      await reporter.initialize(makeContext());
+
+      await expect(reporter.dispose()).resolves.toBeUndefined();
+    });
+
+    // --- Initialize failure paths ---
+
+    it('POST returns 500 on init: commentId is null, subsequent calls are no-ops', async () => {
+      const { GitHubPRCommentReporter } = await loadModule();
+      const reporter = new GitHubPRCommentReporter({
+        token: 'ghp_test',
+        owner: 'o',
+        repo: 'r',
+        prNumber: 1,
+        debounceMs: 0,
+      });
+
+      apiMock.queueResponse({ status: 500, body: { message: 'Internal Server Error' } });
+      await reporter.initialize(makeContext());
+      apiMock.clearRequests();
+
+      await reporter.onAuditEntry(createMockAuditEntry({ step: 'analyze', status: 'started' }));
+      await reporter.onComplete(makeSummary());
+      await reporter.onError(new Error('test'));
+      await reporter.dispose();
+
+      expect(apiMock.getRequests().length).toBe(0);
+    });
+
+    it('POST returns network error on init: subsequent calls are no-ops', async () => {
+      const { GitHubPRCommentReporter } = await loadModule();
+      const reporter = new GitHubPRCommentReporter({
+        token: 'ghp_test',
+        owner: 'o',
+        repo: 'r',
+        prNumber: 1,
+        debounceMs: 0,
+      });
+
+      apiMock.queueResponse({ networkError: true });
+      await reporter.initialize(makeContext());
+      apiMock.clearRequests();
+
+      await reporter.onAuditEntry(createMockAuditEntry({ step: 'analyze', status: 'started' }));
+      await reporter.onComplete(makeSummary());
+      await reporter.onError(new Error('test'));
+      await reporter.dispose();
+
+      expect(apiMock.getRequests().length).toBe(0);
+    });
+  });
 });
