@@ -12,3 +12,6 @@ export type { GitHubPRCommentConfig } from './github-pr-comment.js';
 
 export { ReporterManager } from './manager.js';
 export type { ReporterManagerInitOptions } from './manager.js';
+
+export { openDraftPR } from './pr-opener.js';
+export type { PRInfo, PROpenerOptions } from './pr-opener.js';
