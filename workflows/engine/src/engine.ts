@@ -320,7 +320,6 @@ export class WorkflowEngine {
       if (!type) {
         // Check if this is a new-style composed step (has prompt field) or legacy agent step
         const stepAny = step as Record<string, unknown>;
-        console.error(`[DEBUG] executeStep routing: step="${step.name}" has prompt=${!!stepAny.prompt} has resolver=${!!this.resolver} keys=${Object.keys(stepAny).join(',')}`);
         if (stepAny.prompt && this.resolver) {
           await this.runComposedAgent(step as StepDefinition & { agent?: string; prompt: string; model?: string; output?: string }, ctx);
         } else {
@@ -405,8 +404,12 @@ export class WorkflowEngine {
     });
 
     for await (const message of generator) {
-      if (isResultMessage(message) && message.subtype === 'success' && message.structured_output != null) {
-        result = message.structured_output;
+      if (isResultMessage(message) && message.subtype === 'success') {
+        if (message.structured_output != null) {
+          result = message.structured_output;
+        } else if (outputFormat && (message as any).result) {
+          result = extractJsonFromText((message as any).result);
+        }
       }
       if (isResultMessage(message) && message.subtype !== 'success') {
         const errors = message.errors?.join(', ') ?? 'unknown error';
@@ -494,28 +497,20 @@ export class WorkflowEngine {
       },
     });
 
-    // DEBUG: log whether outputFormat was resolved
-    if (outputFormat) {
-      console.error(`[DEBUG] Step "${step.name}": outputFormat resolved with schema keys: ${Object.keys(outputFormat.schema).join(', ')}`);
-    } else {
-      console.error(`[DEBUG] Step "${step.name}": no outputFormat (agent outputSchema: ${agentDef.outputSchema ?? 'none'})`);
-    }
-
     for await (const message of generator) {
-      // DEBUG: log all messages
-      console.error(`[DEBUG] Step "${step.name}" message: type=${(message as any).type} subtype=${(message as any).subtype} has_structured_output=${(message as any).structured_output != null}`);
-
-      if (isResultMessage(message) && message.subtype === 'success' && message.structured_output != null) {
-        result = message.structured_output;
+      if (isResultMessage(message) && message.subtype === 'success') {
+        if (message.structured_output != null) {
+          result = message.structured_output;
+        } else if (outputFormat && (message as any).result) {
+          // Fallback: agent returned JSON as text instead of using structured output tool
+          result = extractJsonFromText((message as any).result);
+        }
       }
       if (isResultMessage(message) && message.subtype !== 'success') {
         const errors = message.errors?.join(', ') ?? 'unknown error';
         throw new Error(`Agent "${step.name}" failed: ${message.subtype} - ${errors}`);
       }
     }
-
-    // DEBUG: log result status
-    console.error(`[DEBUG] Step "${step.name}": result=${result != null ? 'present' : 'null'}, step.output=${step.output ?? 'none'}`);
 
     if (step.output && result != null) {
       ctx.set(step.output, result);
@@ -976,4 +971,29 @@ export class WorkflowEngine {
  */
 function isResultMessage(msg: SDKMessage): msg is import('./types.js').SDKResultMessage {
   return msg.type === 'result';
+}
+
+/**
+ * Extract JSON from agent text output.
+ * Handles JSON wrapped in markdown code fences or bare JSON.
+ */
+function extractJsonFromText(text: string): unknown | null {
+  // Try to extract JSON from markdown code fences first
+  const fenceMatch = text.match(/```(?:json)?\s*\n([\s\S]*?)\n```/);
+  const jsonStr = fenceMatch ? fenceMatch[1] : text;
+
+  try {
+    return JSON.parse(jsonStr.trim());
+  } catch {
+    // Try to find the first { ... } or [ ... ] block in the text
+    const objectMatch = text.match(/(\{[\s\S]*\})/);
+    if (objectMatch) {
+      try {
+        return JSON.parse(objectMatch[1]);
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }
 }

@@ -86,4 +86,7 @@ export const SessionCompleteParamsSchema = z.object({
 export const SessionGetParamsSchema = z.object({
     sessionId: z.string().optional().describe('Session ID (omit for most recent incomplete)'),
 });
+export const SessionStatusParamsSchema = z.object({
+    sessionId: z.string().optional().describe('Session ID. If omitted, finds the most recent workflow session.'),
+});
 //# sourceMappingURL=session.js.map

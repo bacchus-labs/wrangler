@@ -511,6 +511,14 @@ export declare const SessionGetParamsSchema: z.ZodObject<{
 }, {
     sessionId?: string | undefined;
 }>;
+export declare const SessionStatusParamsSchema: z.ZodObject<{
+    sessionId: z.ZodOptional<z.ZodString>;
+}, "strip", z.ZodTypeAny, {
+    sessionId?: string | undefined;
+}, {
+    sessionId?: string | undefined;
+}>;
+export type SessionStatusParams = z.infer<typeof SessionStatusParamsSchema>;
 export type SessionStartParams = z.infer<typeof SessionStartParamsSchema>;
 export type SessionPhaseParams = z.infer<typeof SessionPhaseParamsSchema>;
 export type SessionCheckpointParams = z.infer<typeof SessionCheckpointParamsSchema>;

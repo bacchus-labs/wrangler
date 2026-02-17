@@ -44,10 +44,10 @@ describe('WranglerMCPServer', () => {
       server = new WranglerMCPServer();
     });
 
-    it('should return all 17 tools (11 issue + 5 session + 1 workspace)', () => {
+    it('should return all 18 tools (11 issue + 6 session + 1 workspace)', () => {
       const tools = server.getAvailableTools();
 
-      expect(tools).toHaveLength(17);
+      expect(tools).toHaveLength(18);
     });
 
     it('should include all required issue management tools', () => {
@@ -76,6 +76,7 @@ describe('WranglerMCPServer', () => {
       expect(toolNames).toContain('session_checkpoint');
       expect(toolNames).toContain('session_complete');
       expect(toolNames).toContain('session_get');
+      expect(toolNames).toContain('session_status');
     });
 
     it('should include workspace management tools', () => {

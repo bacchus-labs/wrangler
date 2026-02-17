@@ -353,6 +353,11 @@ export const SessionGetParamsSchema = z.object({
   sessionId: z.string().optional().describe('Session ID (omit for most recent incomplete)'),
 });
 
+export const SessionStatusParamsSchema = z.object({
+  sessionId: z.string().optional().describe('Session ID. If omitted, finds the most recent workflow session.'),
+});
+export type SessionStatusParams = z.infer<typeof SessionStatusParamsSchema>;
+
 // Type exports from schemas
 export type SessionStartParams = z.infer<typeof SessionStartParamsSchema>;
 export type SessionPhaseParams = z.infer<typeof SessionPhaseParamsSchema>;

@@ -37,6 +37,10 @@ export declare class SessionStorageProvider {
      */
     getCheckpoint(sessionId: string): Promise<SessionCheckpoint | null>;
     /**
+     * Get the blocker for a session (if paused)
+     */
+    getBlocker(sessionId: string): Promise<Record<string, unknown> | null>;
+    /**
      * Append an audit entry to the session's audit log
      */
     appendAuditEntry(sessionId: string, entry: AuditEntry): Promise<void>;

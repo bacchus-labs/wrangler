@@ -1,0 +1,160 @@
+#!/usr/bin/env bash
+# Check the status of a running or completed workflow session.
+# Usage: check-workflow-status <session-id>
+#        check-workflow-status              (finds most recent wf-* session)
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PLUGIN_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+# Find the sessions directory - check project .wrangler first, then plugin root
+if [ -d ".wrangler/sessions" ]; then
+    SESSIONS_DIR=".wrangler/sessions"
+elif [ -d "${PLUGIN_ROOT}/.wrangler/sessions" ]; then
+    SESSIONS_DIR="${PLUGIN_ROOT}/.wrangler/sessions"
+else
+    echo "Error: No .wrangler/sessions/ directory found" >&2
+    exit 1
+fi
+
+# Determine session ID
+if [ $# -ge 1 ]; then
+    SESSION_ID="$1"
+else
+    # Find the most recent wf-* session by modification time
+    SESSION_ID=$(ls -1t "${SESSIONS_DIR}" | grep '^wf-' | head -1)
+    if [ -z "$SESSION_ID" ]; then
+        echo "Error: No workflow sessions found in ${SESSIONS_DIR}" >&2
+        exit 1
+    fi
+fi
+
+SESSION_DIR="${SESSIONS_DIR}/${SESSION_ID}"
+
+if [ ! -d "$SESSION_DIR" ]; then
+    echo "Error: Session directory not found: ${SESSION_DIR}" >&2
+    exit 1
+fi
+
+# --- Read context.json ---
+CONTEXT_FILE="${SESSION_DIR}/context.json"
+if [ ! -f "$CONTEXT_FILE" ]; then
+    echo "Error: No context.json in ${SESSION_DIR}" >&2
+    exit 1
+fi
+
+STATUS=$(python3 -c "import json; d=json.load(open('${CONTEXT_FILE}')); print(d.get('status','unknown'))" 2>/dev/null || echo "unknown")
+CURRENT_PHASE=$(python3 -c "import json; d=json.load(open('${CONTEXT_FILE}')); print(d.get('currentPhase','unknown'))" 2>/dev/null || echo "unknown")
+SPEC_FILE=$(python3 -c "import json; d=json.load(open('${CONTEXT_FILE}')); print(d.get('specFile','unknown'))" 2>/dev/null || echo "unknown")
+WORKTREE=$(python3 -c "import json; d=json.load(open('${CONTEXT_FILE}')); print(d.get('worktreePath','unknown'))" 2>/dev/null || echo "unknown")
+BRANCH=$(python3 -c "import json; d=json.load(open('${CONTEXT_FILE}')); print(d.get('branchName','unknown'))" 2>/dev/null || echo "unknown")
+STARTED_AT=$(python3 -c "import json; d=json.load(open('${CONTEXT_FILE}')); print(d.get('startedAt',''))" 2>/dev/null || echo "")
+TASKS_COMPLETED=$(python3 -c "import json; d=json.load(open('${CONTEXT_FILE}')); print(len(d.get('tasksCompleted',[])))" 2>/dev/null || echo "0")
+TASKS_PENDING=$(python3 -c "import json; d=json.load(open('${CONTEXT_FILE}')); print(len(d.get('tasksPending',[])))" 2>/dev/null || echo "0")
+PHASES_COMPLETED=$(python3 -c "import json; d=json.load(open('${CONTEXT_FILE}')); print(', '.join(d.get('phasesCompleted',[])) or 'none')" 2>/dev/null || echo "none")
+
+TOTAL_TASKS=$((TASKS_COMPLETED + TASKS_PENDING))
+
+# --- Calculate duration ---
+DURATION="unknown"
+if [ -n "$STARTED_AT" ]; then
+    START_EPOCH=$(python3 -c "from datetime import datetime; print(int(datetime.fromisoformat('${STARTED_AT}'.replace('Z','+00:00')).timestamp()))" 2>/dev/null || echo "0")
+    NOW_EPOCH=$(date +%s)
+    if [ "$START_EPOCH" -gt 0 ]; then
+        ELAPSED=$((NOW_EPOCH - START_EPOCH))
+        MINUTES=$((ELAPSED / 60))
+        SECONDS=$((ELAPSED % 60))
+        if [ "$MINUTES" -gt 0 ]; then
+            DURATION="${MINUTES}m ${SECONDS}s"
+        else
+            DURATION="${SECONDS}s"
+        fi
+    fi
+fi
+
+# --- Check if CLI process is still running ---
+PROCESS_STATUS="not running"
+CLI_PID=$(pgrep -f "cli.js run" 2>/dev/null | head -1 || echo "")
+if [ -n "$CLI_PID" ]; then
+    PROCESS_STATUS="running (PID: ${CLI_PID})"
+    # Get CPU usage if available
+    CPU=$(ps -p "$CLI_PID" -o %cpu= 2>/dev/null | tr -d ' ' || echo "")
+    MEM=$(ps -p "$CLI_PID" -o %mem= 2>/dev/null | tr -d ' ' || echo "")
+    if [ -n "$CPU" ]; then
+        PROCESS_STATUS="running (PID: ${CLI_PID}, CPU:${CPU}%, MEM:${MEM}%)"
+    fi
+fi
+
+# --- Read audit entries ---
+AUDIT_FILE="${SESSION_DIR}/audit.jsonl"
+LAST_AUDIT="no audit entries"
+AUDIT_COUNT=0
+ACTIVE_STEP="unknown"
+if [ -f "$AUDIT_FILE" ]; then
+    AUDIT_COUNT=$(wc -l < "$AUDIT_FILE" | tr -d ' ')
+    LAST_ENTRY=$(tail -1 "$AUDIT_FILE")
+    LAST_STEP=$(echo "$LAST_ENTRY" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('step','?'))" 2>/dev/null || echo "?")
+    LAST_STATUS=$(echo "$LAST_ENTRY" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('status','?'))" 2>/dev/null || echo "?")
+    LAST_TS=$(echo "$LAST_ENTRY" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('timestamp','?'))" 2>/dev/null || echo "?")
+    LAST_AUDIT="${LAST_STEP} (${LAST_STATUS}) at ${LAST_TS}"
+
+    # Derive active step from audit (more reliable than context.json currentPhase)
+    if [ "$LAST_STATUS" = "started" ]; then
+        ACTIVE_STEP="${LAST_STEP} (in progress)"
+    elif [ "$LAST_STATUS" = "completed" ]; then
+        ACTIVE_STEP="${LAST_STEP} just completed, waiting for next step"
+    elif [ "$LAST_STATUS" = "failed" ]; then
+        ACTIVE_STEP="${LAST_STEP} FAILED"
+    else
+        ACTIVE_STEP="${LAST_STEP} (${LAST_STATUS})"
+    fi
+
+    # Count completed phases from audit
+    AUDIT_PHASES_DONE=$(python3 -c "
+import json
+phases = set()
+for line in open('${AUDIT_FILE}'):
+    try:
+        e = json.loads(line)
+        s = e.get('step','')
+        if e.get('status') in ('completed','complete') and s in ('analyze','plan','execute','verify','publish'):
+            phases.add(s)
+    except: pass
+print(', '.join(sorted(phases)) or 'none')
+" 2>/dev/null || echo "unknown")
+fi
+
+# --- Check for blocker ---
+BLOCKER_INFO=""
+BLOCKER_FILE="${SESSION_DIR}/blocker.json"
+if [ -f "$BLOCKER_FILE" ]; then
+    BLOCKER_DETAILS=$(python3 -c "import json; d=json.load(open('${BLOCKER_FILE}')); print(d.get('details','unknown reason'))" 2>/dev/null || echo "unknown reason")
+    BLOCKER_INFO="BLOCKER: ${BLOCKER_DETAILS}"
+fi
+
+# --- Output ---
+echo "=== Workflow Status: ${SESSION_ID} ==="
+echo ""
+echo "  Status:           ${STATUS}"
+echo "  Active Step:      ${ACTIVE_STEP}"
+echo "  Phases Done:      ${AUDIT_PHASES_DONE:-none} (from audit log)"
+echo "  Tasks:            ${TASKS_COMPLETED}/${TOTAL_TASKS} completed"
+echo "  Duration:         ${DURATION}"
+echo "  Process:          ${PROCESS_STATUS}"
+echo ""
+echo "  Spec:     ${SPEC_FILE}"
+echo "  Worktree: ${WORKTREE}"
+echo "  Branch:   ${BRANCH}"
+echo ""
+echo "  Audit Entries:    ${AUDIT_COUNT}"
+echo "  Last Activity:    ${LAST_AUDIT}"
+
+if [ -n "$BLOCKER_INFO" ]; then
+    echo ""
+    echo "  ${BLOCKER_INFO}"
+fi
+
+echo ""
+echo "  Session Dir: ${SESSION_DIR}"
+echo "  Audit Log:   ${AUDIT_FILE}"
