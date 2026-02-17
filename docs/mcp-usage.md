@@ -1,7 +1,6 @@
 # Wrangler MCP Server - Usage Guide
 
-**Version**: 1.2.0
-**Last Updated**: 2025-12-07
+> Last Updated: 2026-02-17 | Version: 1.2.0
 
 Complete guide to using the Wrangler MCP server for local issue and specification management.
 

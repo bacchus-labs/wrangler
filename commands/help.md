@@ -350,6 +350,6 @@ issues_list({ type: "issue" })
 ## See Also
 
 - `CLAUDE.md` — Project context for AI agents
-- `docs/MCP-USAGE.md` — Comprehensive MCP guide
-- `docs/GOVERNANCE.md` — Governance framework guide
+- `docs/mcp-usage.md` — Comprehensive MCP guide
+- `docs/governance.md` — Governance framework guide
 - `skills/using-wrangler/SKILL.md` — Getting started with skills

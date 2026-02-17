@@ -1,5 +1,7 @@
 # Wrangler Workflows
 
+> Last Updated: 2026-02-17 | Version: 1.2.0
+
 This document describes the major workflows that AI agents should follow when using wrangler. These workflows are encoded in skills and enforced through systematic processes.
 
 ## Core Workflows

@@ -251,7 +251,7 @@ When modifying this skill:
 - [references/detailed-guide.md](references/detailed-guide.md) - Complete workflow details and troubleshooting
 - [skills/writing-plans/SKILL.md](../writing-plans/SKILL.md) - Planning skill
 - [skills/implementing-issue/SKILL.md](../implementing-issue/SKILL.md) - Single issue implementation skill
-- [docs/MCP-USAGE.md](../../docs/MCP-USAGE.md) - MCP tools reference
+- [docs/mcp-usage.md](../../docs/mcp-usage.md) - MCP tools reference
 
 ## Version History
 

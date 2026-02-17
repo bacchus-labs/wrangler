@@ -198,6 +198,6 @@ Use the `writing-plans` skill, which automatically:
 - `../specifications/_CONSTITUTION.md` - Project principles
 - `../specifications/_ROADMAP.md` - Strategic roadmap
 - `../specifications/_ROADMAP__NEXT_STEPS.md` - Tactical execution tracker
-- `../../docs/MCP-USAGE.md` - MCP tools documentation
+- `../../docs/mcp-usage.md` - MCP tools documentation
 
 **Last Updated**: [YYYY-MM-DD]

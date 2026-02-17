@@ -1,7 +1,6 @@
 # Wrangler Versioning System
 
-**Version**: 1.2.0
-**Last Updated**: 2025-12-07
+> Last Updated: 2026-02-17 | Version: 1.2.0
 
 This document explains wrangler's versioning system, automatic version detection, and self-update workflow.
 
@@ -625,8 +624,8 @@ skipVersionCheck: true  # Custom field
 
 ## Related Documentation
 
-- [Session Hooks](SESSION-HOOKS.md) - How startup skill is invoked
-- [Governance Framework](GOVERNANCE.md) - How constitution stores version
+- [Session Hooks](session-hooks.md) - How startup skill is invoked
+- [Governance Framework](governance.md) - How constitution stores version
 - [Specification #000001](../.wrangler/specifications/000001-centralized-wrangler-directory.md) - v1.2.0 migration details
 
 ---

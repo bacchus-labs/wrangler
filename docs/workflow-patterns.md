@@ -1,5 +1,7 @@
 # Wrangler Workflow Patterns
 
+> Last Updated: 2026-02-17 | Version: 1.2.0
+
 Guide to building multi-agent workflow skills in Wrangler.
 
 ---

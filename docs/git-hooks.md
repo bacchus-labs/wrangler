@@ -1,5 +1,7 @@
 # Git Hooks Enforcement Framework
 
+> Last Updated: 2026-02-17 | Version: 1.2.0
+
 This document provides comprehensive documentation for wrangler's Git hooks enforcement framework.
 
 ## Overview

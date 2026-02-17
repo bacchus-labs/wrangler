@@ -1,5 +1,7 @@
 # Verification Requirements
 
+> Last Updated: 2026-02-17 | Version: 1.2.0
+
 This document defines what evidence is required before making various claims during development. Following these requirements ensures honesty, builds trust, and prevents bugs from slipping through.
 
 **Core Principle**: Evidence before claims, always.
