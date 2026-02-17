@@ -118,6 +118,11 @@ wrangler/
 │
 ├── workflows/             # Workflow engine and definitions
 │   ├── engine/            # TypeScript workflow execution engine
+│   │   ├── src/           # Engine source code
+│   │   │   ├── reporters/ # Pluggable reporter system (GitHub PR comments, etc.)
+│   │   │   ├── schemas/   # Zod schemas for workflow YAML
+│   │   │   └── ...        # Engine core, CLI, loader, state management
+│   │   └── __tests__/     # Engine test suite (500+ tests)
 │   ├── agents/            # Workflow agent definitions
 │   ├── prompts/           # Workflow prompt templates
 │   ├── code-review.yaml   # Code review workflow definition

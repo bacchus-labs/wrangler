@@ -17,6 +17,9 @@ import { WorkflowResolver } from './resolver.js';
 import { WorkflowSessionManager } from './integration/session.js';
 import { buildMcpConfig } from './integration/mcp.js';
 import { createDefaultRegistry } from './handlers/index.js';
+import { loadWorkflowYaml } from './loader.js';
+import { ReporterManager, createDefaultReporterRegistry, openDraftPR } from './reporters/index.js';
+import type { PRInfo } from './reporters/index.js';
 import type { QueryFunction, EngineConfig } from './types.js';
 import type { WorkflowResult } from './state.js';
 
@@ -106,6 +109,27 @@ program
       const pluginRoot = path.resolve(cliDir, '..', '..');
       const resolver = new WorkflowResolver(workingDir, pluginRoot);
 
+      // Pre-load the workflow definition so reporters can be initialized
+      // before the engine starts. The engine will also load it internally,
+      // but this is intentional -- the double-load is cheap and keeps the
+      // engine API unchanged.
+      const fullWorkflowPath = path.resolve(config.workflowBaseDir, workflowPath);
+      const workflowDef = await loadWorkflowYaml(fullWorkflowPath);
+
+      const reporterRegistry = createDefaultReporterRegistry();
+      const reporterManager = new ReporterManager(workflowDef, reporterRegistry);
+
+      // Open a draft PR for new runs if the workflow has reporters configured.
+      // For resume runs the PR already exists, so we skip creation.
+      let prInfo: PRInfo | null = null;
+      if (!options.resume && workflowDef.reporters && workflowDef.reporters.length > 0) {
+        prInfo = await openDraftPR({
+          cwd: effectiveWorkingDir,
+          branchName: effectiveBranchName,
+          title: `feat: ${slug}`,
+        });
+      }
+
       const engine = new WorkflowEngine({
         config,
         queryFn,
@@ -113,60 +137,92 @@ program
         resolver,
         onAuditEntry: async (entry) => {
           await sessionManager.appendAuditEntry(entry);
+          await reporterManager.onAuditEntry(entry);
         },
       });
 
-      if (options.resume) {
-        // Resume from checkpoint
-        const checkpoint = await sessionManager.loadCheckpoint(options.resume);
-        if (!checkpoint) {
-          console.error(`No checkpoint found for session: ${options.resume}`);
-          process.exit(1);
-        }
+      try {
+        if (options.resume) {
+          // Resume from checkpoint
+          const checkpoint = await sessionManager.loadCheckpoint(options.resume);
+          if (!checkpoint) {
+            console.error(`No checkpoint found for session: ${options.resume}`);
+            process.exit(1);
+          }
 
-        console.log(`Resuming from phase: ${checkpoint.currentPhase}`);
-        const result = await engine.resume(
-          workflowPath,
-          {
-            variables: checkpoint.variables,
-            completedPhases: checkpoint.completedPhases ?? [],
-            changedFiles: checkpoint.changedFiles ?? [],
-          },
-          checkpoint.currentPhase
-        );
-
-        await sessionManager.completeSession(result);
-        printResult(result);
-      } else {
-        // New workflow run
-        const sessionId = await sessionManager.createSession();
-        console.log(`Session: ${sessionId}`);
-        console.log(`Workflow: ${options.workflow}`);
-        console.log(`Spec: ${specFile}`);
-        console.log(`Working directory: ${effectiveWorkingDir}`);
-        console.log(`Branch: ${effectiveBranchName}`);
-        if (options.dryRun) console.log('Mode: dry-run (analyze + plan only)');
-        console.log('---');
-
-        const result = await engine.run(workflowPath, path.resolve(specFile));
-
-        if (result.status === 'paused') {
-          await sessionManager.writeBlocker(result.blockerDetails ?? 'Unknown blocker');
-          await sessionManager.saveCheckpoint({
-            currentPhase: result.pausedAtPhase ?? result.completedPhases[result.completedPhases.length - 1] ?? 'init',
-            variables: result.outputs,
-            completedPhases: result.completedPhases,
-            changedFiles: result.changedFiles ?? [],
-            tasksCompleted: (result.outputs.tasksCompleted as string[]) ?? [],
-            tasksPending: (result.outputs.tasksPending as string[]) ?? [],
+          // Initialize reporters for resume
+          await reporterManager.initializeReporters({
+            sessionId: options.resume,
+            specFile: path.resolve(specFile),
+            branchName: effectiveBranchName,
+            worktreePath: effectiveWorkingDir,
           });
-          console.error(`\nWorkflow PAUSED: ${result.blockerDetails}`);
-          console.error(`Resume with: wrangler-workflow run ${specFile} --resume ${sessionId}`);
-          process.exit(2);
-        }
 
-        await sessionManager.completeSession(result);
-        printResult(result);
+          console.log(`Resuming from phase: ${checkpoint.currentPhase}`);
+          const result = await engine.resume(
+            workflowPath,
+            {
+              variables: checkpoint.variables,
+              completedPhases: checkpoint.completedPhases ?? [],
+              changedFiles: checkpoint.changedFiles ?? [],
+            },
+            checkpoint.currentPhase
+          );
+
+          if (result.executionSummary) {
+            await reporterManager.onComplete(result.executionSummary);
+          }
+          await sessionManager.completeSession(result);
+          printResult(result);
+        } else {
+          // New workflow run
+          const sessionId = await sessionManager.createSession();
+
+          // Initialize reporters with session context and optional PR info
+          await reporterManager.initializeReporters({
+            sessionId,
+            specFile: path.resolve(specFile),
+            branchName: effectiveBranchName,
+            worktreePath: effectiveWorkingDir,
+            ...(prInfo ? { prNumber: prInfo.prNumber, prUrl: prInfo.prUrl } : {}),
+          });
+
+          console.log(`Session: ${sessionId}`);
+          console.log(`Workflow: ${options.workflow}`);
+          console.log(`Spec: ${specFile}`);
+          console.log(`Working directory: ${effectiveWorkingDir}`);
+          console.log(`Branch: ${effectiveBranchName}`);
+          if (options.dryRun) console.log('Mode: dry-run (analyze + plan only)');
+          console.log('---');
+
+          const result = await engine.run(workflowPath, path.resolve(specFile));
+
+          if (result.status === 'paused') {
+            await sessionManager.writeBlocker(result.blockerDetails ?? 'Unknown blocker');
+            await sessionManager.saveCheckpoint({
+              currentPhase: result.pausedAtPhase ?? result.completedPhases[result.completedPhases.length - 1] ?? 'init',
+              variables: result.outputs,
+              completedPhases: result.completedPhases,
+              changedFiles: result.changedFiles ?? [],
+              tasksCompleted: (result.outputs.tasksCompleted as string[]) ?? [],
+              tasksPending: (result.outputs.tasksPending as string[]) ?? [],
+            });
+            console.error(`\nWorkflow PAUSED: ${result.blockerDetails}`);
+            console.error(`Resume with: wrangler-workflow run ${specFile} --resume ${sessionId}`);
+            process.exit(2);
+          }
+
+          if (result.executionSummary) {
+            await reporterManager.onComplete(result.executionSummary);
+          }
+          await sessionManager.completeSession(result);
+          printResult(result);
+        }
+      } catch (error) {
+        await reporterManager.onError(error instanceof Error ? error : new Error(String(error)));
+        throw error;
+      } finally {
+        await reporterManager.dispose();
       }
     } catch (error) {
       console.error('Workflow failed:', error instanceof Error ? error.message : error);

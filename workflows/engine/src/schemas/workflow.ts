@@ -20,6 +20,8 @@ const BaseStepSchema = z.object({
   enabled: z.boolean().default(true),
   condition: z.string().optional(),
   input: z.union([z.string(), z.record(z.string(), z.any())]).optional(),
+  reportAs: z.enum(['visible', 'silent', 'summary']).default('visible'),
+  runOn: z.enum(['local', 'github']).default('local'),
 });
 
 // --- Agent+Prompt step (no type field, or omitted type) ---
@@ -81,6 +83,8 @@ export interface ParallelStep {
   enabled?: boolean;
   condition?: string;
   input?: string | Record<string, unknown>;
+  reportAs?: 'visible' | 'silent' | 'summary';
+  runOn?: 'local' | 'github';
   steps: StepDefinition[];
 }
 
@@ -92,6 +96,8 @@ export interface PerTaskStep {
   enabled?: boolean;
   condition?: string;
   input?: string | Record<string, unknown>;
+  reportAs?: 'visible' | 'silent' | 'summary';
+  runOn?: 'local' | 'github';
   steps: StepDefinition[];
 }
 
@@ -104,6 +110,8 @@ export interface LoopStep {
   output?: string;
   enabled?: boolean;
   input?: string | Record<string, unknown>;
+  reportAs?: 'visible' | 'silent' | 'summary';
+  runOn?: 'local' | 'github';
   steps: StepDefinition[];
 }
 
@@ -129,6 +137,13 @@ export const WorkflowDefaultsSchema = z.object({
 
 export type WorkflowDefaults = z.infer<typeof WorkflowDefaultsSchema>;
 
+// --- Reporter Config ---
+
+export const ReporterConfigSchema = z.object({
+  type: z.string().min(1),
+  config: z.record(z.string(), z.any()).optional(),
+});
+
 // --- Workflow Definition ---
 
 export const WorkflowDefinitionSchema = z.object({
@@ -136,6 +151,7 @@ export const WorkflowDefinitionSchema = z.object({
   version: z.number().int().positive(),
   defaults: WorkflowDefaultsSchema.optional(),
   safety: WorkflowSafetySchema.optional(),
+  reporters: z.array(ReporterConfigSchema).default([]),
   phases: z.array(z.any()).min(1), // validated recursively via validateStep
 });
 
@@ -144,6 +160,7 @@ export type WorkflowDefinition = {
   version: number;
   defaults?: WorkflowDefaults;
   safety?: WorkflowSafety;
+  reporters: Array<{ type: string; config?: Record<string, unknown> }>;
   phases: StepDefinition[];
 };
 
@@ -239,6 +256,7 @@ export function validateWorkflowDefinition(raw: unknown): WorkflowDefinition {
     version: parsed.version,
     defaults: parsed.defaults,
     safety: parsed.safety,
+    reporters: parsed.reporters,
     phases,
   };
 }
