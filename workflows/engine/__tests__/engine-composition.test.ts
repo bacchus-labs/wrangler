@@ -110,9 +110,9 @@ describe('WorkflowEngine - agent+prompt composition', () => {
 
   beforeEach(async () => {
     tmpDir = await makeTmpDir();
-    // Create the agents/ and prompts/ directories in .wrangler for resolver
-    await fs.mkdir(path.join(tmpDir, '.wrangler', 'agents'), { recursive: true });
-    await fs.mkdir(path.join(tmpDir, '.wrangler', 'prompts'), { recursive: true });
+    // Create the agents/ and prompts/ directories in .wrangler/orchestration for resolver
+    await fs.mkdir(path.join(tmpDir, '.wrangler', 'orchestration', 'agents'), { recursive: true });
+    await fs.mkdir(path.join(tmpDir, '.wrangler', 'orchestration', 'prompts'), { recursive: true });
   });
 
   afterEach(async () => {
@@ -122,7 +122,7 @@ describe('WorkflowEngine - agent+prompt composition', () => {
   it('should dispatch with composed systemPrompt and rendered prompt body', async () => {
     // Write agent file
     await writeMarkdownFile(
-      path.join(tmpDir, '.wrangler', 'agents'),
+      path.join(tmpDir, '.wrangler', 'orchestration', 'agents'),
       'coder.md',
       { name: 'coder', tools: ['Bash', 'Read'], model: 'sonnet' },
       'You are a coding assistant. Follow TDD.',
@@ -130,7 +130,7 @@ describe('WorkflowEngine - agent+prompt composition', () => {
 
     // Write prompt file
     await writeMarkdownFile(
-      path.join(tmpDir, '.wrangler', 'prompts'),
+      path.join(tmpDir, '.wrangler', 'orchestration', 'prompts'),
       'implement-feature.md',
       { name: 'implement-feature' },
       'Implement the feature described in: {{specPath}}',
@@ -182,14 +182,14 @@ phases:
   it('should resolve model with priority: step > agent > workflow default', async () => {
     // Agent has model: sonnet
     await writeMarkdownFile(
-      path.join(tmpDir, '.wrangler', 'agents'),
+      path.join(tmpDir, '.wrangler', 'orchestration', 'agents'),
       'coder.md',
       { name: 'coder', tools: [], model: 'sonnet' },
       'System prompt.',
     );
 
     await writeMarkdownFile(
-      path.join(tmpDir, '.wrangler', 'prompts'),
+      path.join(tmpDir, '.wrangler', 'orchestration', 'prompts'),
       'task.md',
       { name: 'task' },
       'Do the task.',
@@ -220,14 +220,14 @@ phases:
 
   it('should use workflow defaults.agent when step does not specify agent', async () => {
     await writeMarkdownFile(
-      path.join(tmpDir, '.wrangler', 'agents'),
+      path.join(tmpDir, '.wrangler', 'orchestration', 'agents'),
       'default-agent.md',
       { name: 'default-agent', tools: ['Read'] },
       'I am the default agent.',
     );
 
     await writeMarkdownFile(
-      path.join(tmpDir, '.wrangler', 'prompts'),
+      path.join(tmpDir, '.wrangler', 'orchestration', 'prompts'),
       'analyze.md',
       { name: 'analyze' },
       'Analyze the code.',
@@ -261,7 +261,7 @@ phases:
 
   it('should throw clear error when no agent can be resolved', async () => {
     await writeMarkdownFile(
-      path.join(tmpDir, '.wrangler', 'prompts'),
+      path.join(tmpDir, '.wrangler', 'orchestration', 'prompts'),
       'task.md',
       { name: 'task' },
       'Do something.',
@@ -290,7 +290,7 @@ phases:
 
   it('should throw clear error when prompt file cannot be resolved', async () => {
     await writeMarkdownFile(
-      path.join(tmpDir, '.wrangler', 'agents'),
+      path.join(tmpDir, '.wrangler', 'orchestration', 'agents'),
       'coder.md',
       { name: 'coder', tools: [] },
       'System prompt.',
@@ -320,14 +320,14 @@ phases:
 
   it('should render Mustache template variables in prompt body', async () => {
     await writeMarkdownFile(
-      path.join(tmpDir, '.wrangler', 'agents'),
+      path.join(tmpDir, '.wrangler', 'orchestration', 'agents'),
       'coder.md',
       { name: 'coder', tools: [] },
       'System prompt.',
     );
 
     await writeMarkdownFile(
-      path.join(tmpDir, '.wrangler', 'prompts'),
+      path.join(tmpDir, '.wrangler', 'orchestration', 'prompts'),
       'greeting.md',
       { name: 'greeting' },
       'Hello {{userName}}, please work on {{specPath}}.',
@@ -357,14 +357,14 @@ phases:
 
   it('should capture output into the named variable', async () => {
     await writeMarkdownFile(
-      path.join(tmpDir, '.wrangler', 'agents'),
+      path.join(tmpDir, '.wrangler', 'orchestration', 'agents'),
       'analyzer.md',
       { name: 'analyzer', tools: [] },
       'Analyze things.',
     );
 
     await writeMarkdownFile(
-      path.join(tmpDir, '.wrangler', 'prompts'),
+      path.join(tmpDir, '.wrangler', 'orchestration', 'prompts'),
       'analyze.md',
       { name: 'analyze' },
       'Analyze {{specPath}}.',
@@ -391,14 +391,14 @@ phases:
 
   it('should record agent and prompt source in audit trail', async () => {
     await writeMarkdownFile(
-      path.join(tmpDir, '.wrangler', 'agents'),
+      path.join(tmpDir, '.wrangler', 'orchestration', 'agents'),
       'coder.md',
       { name: 'coder', tools: [] },
       'System prompt.',
     );
 
     await writeMarkdownFile(
-      path.join(tmpDir, '.wrangler', 'prompts'),
+      path.join(tmpDir, '.wrangler', 'orchestration', 'prompts'),
       'task.md',
       { name: 'task' },
       'Do the task.',
@@ -438,14 +438,14 @@ phases:
 
   it('should use agent model when step model is not specified', async () => {
     await writeMarkdownFile(
-      path.join(tmpDir, '.wrangler', 'agents'),
+      path.join(tmpDir, '.wrangler', 'orchestration', 'agents'),
       'smart-agent.md',
       { name: 'smart-agent', tools: [], model: 'opus' },
       'I am smart.',
     );
 
     await writeMarkdownFile(
-      path.join(tmpDir, '.wrangler', 'prompts'),
+      path.join(tmpDir, '.wrangler', 'orchestration', 'prompts'),
       'task.md',
       { name: 'task' },
       'Do it.',
@@ -476,14 +476,14 @@ phases:
 
   it('should fall back to workflow default model when neither step nor agent specifies one', async () => {
     await writeMarkdownFile(
-      path.join(tmpDir, '.wrangler', 'agents'),
+      path.join(tmpDir, '.wrangler', 'orchestration', 'agents'),
       'basic-agent.md',
       { name: 'basic-agent', tools: [] },
       'Basic agent.',
     );
 
     await writeMarkdownFile(
-      path.join(tmpDir, '.wrangler', 'prompts'),
+      path.join(tmpDir, '.wrangler', 'orchestration', 'prompts'),
       'task.md',
       { name: 'task' },
       'Do it.',

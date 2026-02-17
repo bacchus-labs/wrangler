@@ -44,10 +44,10 @@ describe('WranglerMCPServer', () => {
       server = new WranglerMCPServer();
     });
 
-    it('should return all 17 tools (11 issue + 6 session)', () => {
+    it('should return all 18 tools (11 issue + 6 session + 1 workspace)', () => {
       const tools = server.getAvailableTools();
 
-      expect(tools).toHaveLength(17);
+      expect(tools).toHaveLength(18);
     });
 
     it('should include all required issue management tools', () => {
@@ -77,6 +77,33 @@ describe('WranglerMCPServer', () => {
       expect(toolNames).toContain('session_complete');
       expect(toolNames).toContain('session_get');
       expect(toolNames).toContain('session_status');
+    });
+
+    it('should include workspace management tools', () => {
+      const tools = server.getAvailableTools();
+      const toolNames = tools.map(t => t.name);
+
+      expect(toolNames).toContain('init_workspace');
+    });
+
+    it('should have init_workspace tool with proper description', () => {
+      const tools = server.getAvailableTools();
+      const initTool = tools.find(t => t.name === 'init_workspace');
+
+      expect(initTool).toBeDefined();
+      expect(initTool!.description).toBeTruthy();
+      expect(initTool!.description.length).toBeGreaterThan(10);
+    });
+
+    it('should have init_workspace tool with valid input schema', () => {
+      const tools = server.getAvailableTools();
+      const initTool = tools.find(t => t.name === 'init_workspace');
+
+      expect(initTool).toBeDefined();
+      expect(initTool!.inputSchema).toBeDefined();
+      // Schema should define the 'fix' property
+      const schema = initTool!.inputSchema as Record<string, unknown>;
+      expect(schema).toHaveProperty('properties');
     });
 
     it('should not include abort tool', () => {

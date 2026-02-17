@@ -64,7 +64,7 @@ export function loadWorkspaceSchema(basePath) {
 export function getDefaultSchema() {
     return {
         $schema: 'http://json-schema.org/draft-07/schema#',
-        version: '1.2.0',
+        version: '1.3.0',
         description: 'Default wrangler workspace schema',
         workspace: {
             root: '.wrangler',
@@ -127,6 +127,25 @@ export function getDefaultSchema() {
                 path: '.wrangler/logs',
                 description: 'Runtime logs',
                 gitTracked: false
+            },
+            orchestration: {
+                path: '.wrangler/orchestration',
+                description: 'Orchestration assets for agents, prompts, and workflows',
+                gitTracked: true,
+                subdirectories: {
+                    agents: {
+                        path: '.wrangler/orchestration/agents',
+                        description: 'Agent definition files'
+                    },
+                    prompts: {
+                        path: '.wrangler/orchestration/prompts',
+                        description: 'Prompt template files'
+                    },
+                    workflows: {
+                        path: '.wrangler/orchestration/workflows',
+                        description: 'Workflow definition files'
+                    }
+                }
             }
         },
         governanceFiles: {

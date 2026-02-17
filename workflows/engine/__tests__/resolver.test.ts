@@ -20,8 +20,8 @@ describe('WorkflowResolver', () => {
   });
 
   describe('resolveWorkflow', () => {
-    it('resolves project-level workflow over builtin', async () => {
-      const projectDir = path.join(projectRoot, '.wrangler', 'workflows');
+    it('resolves project-level workflow from .wrangler/orchestration/workflows/', async () => {
+      const projectDir = path.join(projectRoot, '.wrangler', 'orchestration', 'workflows');
       const builtinDir = path.join(pluginRoot, 'workflows');
       fs.mkdirSync(projectDir, { recursive: true });
       fs.mkdirSync(builtinDir, { recursive: true });
@@ -44,7 +44,7 @@ describe('WorkflowResolver', () => {
     });
 
     it('resolves project-only workflow (no builtin)', async () => {
-      const projectDir = path.join(projectRoot, '.wrangler', 'workflows');
+      const projectDir = path.join(projectRoot, '.wrangler', 'orchestration', 'workflows');
       fs.mkdirSync(projectDir, { recursive: true });
       fs.writeFileSync(path.join(projectDir, 'custom.yaml'), 'project-only');
 
@@ -70,8 +70,8 @@ describe('WorkflowResolver', () => {
   });
 
   describe('resolveAgent', () => {
-    it('resolves project-level agent over builtin', async () => {
-      const projectDir = path.join(projectRoot, '.wrangler', 'agents');
+    it('resolves project-level agent from .wrangler/orchestration/agents/', async () => {
+      const projectDir = path.join(projectRoot, '.wrangler', 'orchestration', 'agents');
       const builtinDir = path.join(pluginRoot, 'agents');
       fs.mkdirSync(projectDir, { recursive: true });
       fs.mkdirSync(builtinDir, { recursive: true });
@@ -120,8 +120,8 @@ describe('WorkflowResolver', () => {
   });
 
   describe('resolvePrompt', () => {
-    it('resolves project-level prompt over builtin', async () => {
-      const projectDir = path.join(projectRoot, '.wrangler', 'prompts');
+    it('resolves project-level prompt from .wrangler/orchestration/prompts/', async () => {
+      const projectDir = path.join(projectRoot, '.wrangler', 'orchestration', 'prompts');
       const builtinDir = path.join(pluginRoot, 'prompts');
       fs.mkdirSync(projectDir, { recursive: true });
       fs.mkdirSync(builtinDir, { recursive: true });
@@ -144,7 +144,7 @@ describe('WorkflowResolver', () => {
     });
 
     it('does not double .md extension', async () => {
-      const projectDir = path.join(projectRoot, '.wrangler', 'prompts');
+      const projectDir = path.join(projectRoot, '.wrangler', 'orchestration', 'prompts');
       fs.mkdirSync(projectDir, { recursive: true });
       fs.writeFileSync(path.join(projectDir, 'test.md'), 'content');
 
@@ -159,7 +159,7 @@ describe('WorkflowResolver', () => {
         fail('should have thrown');
       } catch (e: unknown) {
         const msg = (e as Error).message;
-        expect(msg).toContain('.wrangler/prompts');
+        expect(msg).toContain('.wrangler/orchestration/prompts');
         expect(msg).toContain(path.join(pluginRoot, 'prompts'));
       }
     });
@@ -172,7 +172,7 @@ describe('WorkflowResolver', () => {
         fail('should have thrown');
       } catch (e: unknown) {
         const msg = (e as Error).message;
-        expect(msg).toContain(path.join(projectRoot, '.wrangler', 'workflows', 'nope.yaml'));
+        expect(msg).toContain(path.join(projectRoot, '.wrangler', 'orchestration', 'workflows', 'nope.yaml'));
         expect(msg).toContain(path.join(pluginRoot, 'workflows', 'nope.yaml'));
       }
     });
@@ -183,8 +183,18 @@ describe('WorkflowResolver', () => {
         fail('should have thrown');
       } catch (e: unknown) {
         const msg = (e as Error).message;
-        expect(msg).toContain(path.join(projectRoot, '.wrangler', 'agents', 'nope.md'));
+        expect(msg).toContain(path.join(projectRoot, '.wrangler', 'orchestration', 'agents', 'nope.md'));
         expect(msg).toContain(path.join(pluginRoot, 'agents', 'nope.md'));
+      }
+    });
+
+    it('hint message references .wrangler/orchestration/{kind}/', async () => {
+      try {
+        await resolver.resolveWorkflow('missing');
+        fail('should have thrown');
+      } catch (e: unknown) {
+        const msg = (e as Error).message;
+        expect(msg).toContain('.wrangler/orchestration/workflows/');
       }
     });
   });

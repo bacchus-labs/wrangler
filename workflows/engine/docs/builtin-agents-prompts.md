@@ -11,13 +11,13 @@ In workflow YAML, a step references both by name:
 
 ```yaml
 - name: analyze
-  agent: planner        # agents/planner.md or .wrangler/agents/planner.md
-  prompt: analyze-spec  # prompts/analyze-spec.md or .wrangler/prompts/analyze-spec.md
+  agent: planner        # .wrangler/orchestration/agents/planner.md (project) or agents/planner.md (builtin)
+  prompt: analyze-spec  # .wrangler/orchestration/prompts/analyze-spec.md (project) or prompts/analyze-spec.md (builtin)
   output: analysis
 ```
 
 The engine resolves files through `WorkflowResolver` with a 2-tier search:
-1. **Project level**: `{projectRoot}/.wrangler/agents/` and `{projectRoot}/.wrangler/prompts/`
+1. **Project level**: `{projectRoot}/.wrangler/orchestration/agents/` and `{projectRoot}/.wrangler/orchestration/prompts/`
 2. **Builtin level**: `{pluginRoot}/agents/` and `{pluginRoot}/prompts/`
 
 First match wins. This enables project-level overrides of any builtin.
@@ -247,15 +247,16 @@ First match wins. This enables project-level overrides of any builtin.
 
 ## Overriding Builtins
 
-To override any builtin agent or prompt, create a file with the same name in your project's `.wrangler/` directory:
+To override any builtin agent or prompt, create a file with the same name in your project's `.wrangler/orchestration/` directory:
 
 ```
 your-project/
   .wrangler/
-    agents/
-      reviewer.md        # overrides the builtin reviewer
-    prompts/
-      security-review.md # overrides the builtin security-review prompt
+    orchestration/
+      agents/
+        reviewer.md        # overrides the builtin reviewer
+      prompts/
+        security-review.md # overrides the builtin security-review prompt
 ```
 
 The `WorkflowResolver` checks the project path first. If a file exists there, it is used instead of the builtin. This lets you:

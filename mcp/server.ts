@@ -43,6 +43,10 @@ import {
   sessionStatusTool,
 } from './tools/session/index.js';
 import { SessionStorageProvider } from './providers/session-storage.js';
+import {
+  initWorkspaceSchema,
+  initWorkspaceTool,
+} from './tools/workspace/index.js';
 
 export class WranglerMCPServer {
   private server: Server;
@@ -225,6 +229,13 @@ export class WranglerMCPServer {
             ) as CallToolResult;
             break;
 
+          // Workspace management tools
+          case 'init_workspace':
+            result = await initWorkspaceTool(
+              initWorkspaceSchema.parse(args)
+            ) as CallToolResult;
+            break;
+
           default:
             throw new Error(`Unknown tool: ${name}`);
         }
@@ -387,6 +398,13 @@ export class WranglerMCPServer {
         description:
           'Get detailed status of a workflow session including active step, progress, and duration.',
         inputSchema: zodToJsonSchema(sessionStatusSchema),
+      },
+      // Workspace management tools
+      {
+        name: 'init_workspace',
+        description:
+          'Initialize or verify the .wrangler/ workspace directory structure. In report-only mode (default), shows what would be created. With fix=true, creates directories, provisions assets, and manages configuration idempotently.',
+        inputSchema: zodToJsonSchema(initWorkspaceSchema),
       },
     ];
   }
