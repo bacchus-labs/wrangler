@@ -1,0 +1,18 @@
+{
+  "version": "1.3.0",
+  "workspace": {
+    "root": ".wrangler",
+    "directories": {
+      "issues": ".wrangler/issues",
+      "specifications": ".wrangler/specifications",
+      "ideas": ".wrangler/ideas",
+      "memos": ".wrangler/memos",
+      "plans": ".wrangler/plans",
+      "docs": ".wrangler/docs",
+      "cache": ".wrangler/cache",
+      "config": ".wrangler/config",
+      "logs": ".wrangler/logs",
+      "orchestration": ".wrangler/orchestration"
+    }
+  }
+}

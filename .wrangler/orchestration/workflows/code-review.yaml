@@ -1,0 +1,49 @@
+name: code-review
+version: 2
+
+defaults:
+  agent: reviewer
+  model: sonnet
+  permissionMode: bypassPermissions
+  settingSources: ["project"]
+
+safety:
+  maxLoopRetries: 2
+  maxStepTimeoutMs: 300000
+  failOnStepError: true
+
+phases:
+  - name: analyze
+    agent: analyzer
+    prompt: analyze-diff
+    model: sonnet
+    output: analysis
+
+  - name: review
+    type: parallel
+    output: reviews
+    steps:
+      - name: code-quality
+        agent: reviewer
+        prompt: review-code-quality
+        input:
+          analysis: analysis
+      - name: security
+        agent: reviewer
+        prompt: review-security
+        input:
+          analysis: analysis
+      - name: testing
+        agent: reviewer
+        prompt: review-testing
+        input:
+          analysis: analysis
+
+  - name: consolidate
+    agent: analyzer
+    prompt: consolidate-review
+    input:
+      codeQuality: reviews.code-quality
+      security: reviews.security
+      testing: reviews.testing
+    output: report

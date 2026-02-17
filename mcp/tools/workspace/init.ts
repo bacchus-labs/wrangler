@@ -124,10 +124,26 @@ export function resolvePluginRoot(explicitPath?: string): string {
   }
 
   // Walk up from this file's location to find the plugin root.
-  // This file is at: mcp/tools/workspace/init.ts → plugin root is 3 levels up.
-  // __dirname works in both CJS (ts-jest) and esbuild-bundled contexts.
+  // __dirname differs between contexts:
+  //   - Source/test (ts-jest): mcp/tools/workspace/ → 3 levels up
+  //   - Bundle (esbuild):      mcp/dist/           → 2 levels up
+  // Instead of hardcoding a level count, walk up until we find a directory
+  // that contains a known landmark (workflows/agents/).
   const thisDir = __dirname;
   let dir = thisDir;
+  const maxLevels = 5;
+  for (let i = 0; i < maxLevels; i++) {
+    dir = path.dirname(dir);
+    if (
+      fs.existsSync(path.join(dir, "workflows", "agents")) ||
+      fs.existsSync(path.join(dir, ".claude-plugin", "plugin.json"))
+    ) {
+      return dir;
+    }
+  }
+
+  // Fallback: 3 levels up (original behavior for source context)
+  dir = thisDir;
   for (let i = 0; i < 3; i++) {
     dir = path.dirname(dir);
   }

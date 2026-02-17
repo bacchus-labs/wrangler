@@ -1,0 +1,89 @@
+name: spec-implementation
+version: 2
+
+defaults:
+  agent: analyzer
+  model: opus
+  permissionMode: bypassPermissions
+  settingSources: ["project"]
+
+safety:
+  maxLoopRetries: 3
+  maxStepTimeoutMs: 600000
+  failOnStepError: true
+
+phases:
+  - name: analyze
+    agent: analyzer
+    prompt: analyze-spec
+    model: sonnet
+    output: analysis
+
+  - name: plan
+    type: code
+    handler: create-issues
+    input: analysis
+
+  - name: execute
+    type: per-task
+    source: analysis.tasks
+    steps:
+
+      - name: implement
+        agent: implementer
+        prompt: implement-task
+        input: task
+
+      - name: review
+        type: parallel
+        output: review
+        steps:
+          - name: code-quality-review
+            agent: reviewer
+            prompt: code-quality-review
+          - name: test-coverage-review
+            agent: reviewer
+            prompt: test-coverage-review
+          - name: security-review
+            agent: reviewer
+            prompt: security-review
+
+      - name: fix
+        type: loop
+        condition: review.hasActionableIssues
+        maxRetries: 2
+        onExhausted: escalate
+        steps:
+          - name: fix-issues
+            agent: fixer
+            prompt: fix-issues
+            input: review.actionableIssues
+
+          - name: re-review
+            type: parallel
+            output: review
+            steps:
+              - name: code-quality-review
+                agent: reviewer
+                prompt: code-quality-review
+              - name: test-coverage-review
+                agent: reviewer
+                prompt: test-coverage-review
+              - name: security-review
+                agent: reviewer
+                prompt: security-review
+
+      - name: checkpoint
+        type: code
+        handler: save-checkpoint
+
+  - name: verify
+    agent: verifier
+    prompt: run-verification
+    output: verification
+    failWhen: verification.testSuite.exitCode != 0
+
+  - name: publish
+    agent: publisher
+    prompt: publish-changes
+    output: publish

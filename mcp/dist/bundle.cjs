@@ -26908,6 +26908,14 @@ function resolvePluginRoot(explicitPath) {
   }
   const thisDir = __dirname;
   let dir = thisDir;
+  const maxLevels = 5;
+  for (let i = 0; i < maxLevels; i++) {
+    dir = path5.dirname(dir);
+    if (fs5.existsSync(path5.join(dir, "workflows", "agents")) || fs5.existsSync(path5.join(dir, ".claude-plugin", "plugin.json"))) {
+      return dir;
+    }
+  }
+  dir = thisDir;
   for (let i = 0; i < 3; i++) {
     dir = path5.dirname(dir);
   }
