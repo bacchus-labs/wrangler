@@ -74,7 +74,14 @@ export class ReporterManager {
     }
   }
 
-  /** Fan out an audit entry to all active reporters, respecting visibility. */
+  /**
+   * Fan out an audit entry to all active reporters, respecting visibility.
+   *
+   * Design: Debounce is owned by individual reporters, not the manager.
+   * The manager fans out every audit entry immediately. Each reporter
+   * decides whether to debounce its own updates (e.g., GitHubPRCommentReporter
+   * has configurable debounceMs). This avoids double-debounce confusion.
+   */
   async onAuditEntry(entry: WorkflowAuditEntry): Promise<void> {
     const visibility = this.visibilityMap.get(entry.step) ?? 'visible';
     if (visibility === 'silent') {
