@@ -509,6 +509,313 @@ describe('GitHubPRCommentReporter', () => {
     expect(reporter.type).toBe('github-pr-comment');
   });
 
+  // =====================================================
+  // Token sanitization and security tests
+  // =====================================================
+  describe('token sanitization and security', () => {
+    function captureWarnings(): { warnings: string[]; restore: () => void } {
+      const warnings: string[] = [];
+      const spy = jest.spyOn(console, 'warn').mockImplementation(
+        (...args: unknown[]) => { warnings.push(args.map(String).join(' ')); }
+      );
+      return { warnings, restore: () => spy.mockRestore() };
+    }
+
+    it('sanitizes token echoed back in API error body (echo-back attack)', async () => {
+      const token = 'ghp_EchoAttackToken_abc123';
+      const { GitHubPRCommentReporter } = await loadModule();
+      const reporter = new GitHubPRCommentReporter({
+        token,
+        owner: 'o',
+        repo: 'r',
+        prNumber: 1,
+        debounceMs: 0,
+      });
+
+      const { warnings, restore } = captureWarnings();
+
+      apiMock.queueResponse({
+        status: 401,
+        body: { message: `Bad credentials for token ${token}` },
+      });
+      await reporter.initialize(makeContext());
+
+      restore();
+
+      for (const w of warnings) {
+        expect(w).not.toContain(token);
+      }
+    });
+
+    it('sanitizes token in network error messages', async () => {
+      const token = 'ghp_NetworkErrorToken_xyz789';
+      const { GitHubPRCommentReporter } = await loadModule();
+      const reporter = new GitHubPRCommentReporter({
+        token,
+        owner: 'o',
+        repo: 'r',
+        prNumber: 1,
+        debounceMs: 0,
+      });
+
+      const { warnings, restore } = captureWarnings();
+
+      // Override fetch to throw an error containing the token
+      jest.spyOn(global, 'fetch').mockImplementation(async () => {
+        throw new Error(`connect ECONNREFUSED to ${token}`);
+      });
+
+      await reporter.initialize(makeContext());
+
+      restore();
+
+      for (const w of warnings) {
+        expect(w).not.toContain(token);
+      }
+      const errorWarning = warnings.find(w => w.includes('API request failed'));
+      expect(errorWarning).toBeDefined();
+      expect(errorWarning).toContain('***');
+    });
+
+    it('sanitizes multiple occurrences of token in a single error message', async () => {
+      const token = 'ghp_MultiOccurrence_999';
+      const { GitHubPRCommentReporter } = await loadModule();
+      const reporter = new GitHubPRCommentReporter({
+        token,
+        owner: 'o',
+        repo: 'r',
+        prNumber: 1,
+        debounceMs: 0,
+      });
+
+      const { warnings, restore } = captureWarnings();
+
+      jest.spyOn(global, 'fetch').mockImplementation(async () => {
+        throw new Error(`token ${token} was rejected. Please verify ${token} is valid.`);
+      });
+
+      await reporter.initialize(makeContext());
+
+      restore();
+
+      for (const w of warnings) {
+        expect(w).not.toContain(token);
+      }
+    });
+
+    it('sanitizes 401 response warning messages', async () => {
+      const token = 'ghp_401WarningTest_aaa';
+      const { GitHubPRCommentReporter } = await loadModule();
+      const reporter = new GitHubPRCommentReporter({
+        token,
+        owner: 'o',
+        repo: 'r',
+        prNumber: 1,
+        debounceMs: 0,
+      });
+
+      const { warnings, restore } = captureWarnings();
+
+      apiMock.queueResponse({ status: 401, body: { message: 'Unauthorized' } });
+      await reporter.initialize(makeContext());
+
+      restore();
+
+      expect(warnings.length).toBeGreaterThan(0);
+      for (const w of warnings) {
+        expect(w).not.toContain(token);
+      }
+    });
+
+    it('sanitizes 404 response warning messages', async () => {
+      const token = 'ghp_404WarningTest_bbb';
+      const { GitHubPRCommentReporter } = await loadModule();
+      const reporter = new GitHubPRCommentReporter({
+        token,
+        owner: 'o',
+        repo: 'r',
+        prNumber: 1,
+        debounceMs: 0,
+      });
+
+      const { warnings, restore } = captureWarnings();
+
+      apiMock.queueResponse({ status: 404, body: { message: 'Not Found' } });
+      await reporter.initialize(makeContext());
+
+      restore();
+
+      expect(warnings.length).toBeGreaterThan(0);
+      for (const w of warnings) {
+        expect(w).not.toContain(token);
+      }
+    });
+
+    it('missing config fields warning does not leak token info', async () => {
+      const { GitHubPRCommentReporter } = await loadModule();
+
+      const { warnings, restore } = captureWarnings();
+
+      new GitHubPRCommentReporter({
+        token: 'ghp_ShouldNotLeak_ccc',
+        owner: '',
+        repo: '',
+        prNumber: 1,
+      });
+
+      restore();
+
+      expect(warnings.length).toBeGreaterThan(0);
+      for (const w of warnings) {
+        expect(w).not.toContain('ghp_ShouldNotLeak_ccc');
+        expect(w).toContain('owner');
+        expect(w).toContain('repo');
+      }
+    });
+
+    it('GitHubAPIMock redacts Authorization header in recorded requests', async () => {
+      const token = 'ghp_RedactTest_ddd';
+      const { GitHubPRCommentReporter } = await loadModule();
+      const reporter = new GitHubPRCommentReporter({
+        token,
+        owner: 'o',
+        repo: 'r',
+        prNumber: 1,
+        debounceMs: 0,
+      });
+
+      await reporter.initialize(makeContext());
+
+      const requests = apiMock.getRequests();
+      expect(requests.length).toBe(1);
+      expect(requests[0].headers['Authorization']).toBe('Bearer ***REDACTED***');
+
+      const serialized = JSON.stringify(requests[0]);
+      expect(serialized).not.toContain(token);
+    });
+
+    it('raw token does not appear in any recorded request across multiple calls', async () => {
+      const token = 'ghp_RawTokenCheck_eee';
+      const { GitHubPRCommentReporter } = await loadModule();
+      const reporter = new GitHubPRCommentReporter({
+        token,
+        owner: 'o',
+        repo: 'r',
+        prNumber: 1,
+        debounceMs: 0,
+      });
+
+      await reporter.initialize(makeContext());
+      await reporter.onAuditEntry(createMockAuditEntry({ step: 'analyze', status: 'started' }));
+      await reporter.onAuditEntry(createMockAuditEntry({ step: 'analyze', status: 'completed' }));
+
+      const requests = apiMock.getRequests();
+      expect(requests.length).toBeGreaterThan(0);
+
+      for (const req of requests) {
+        const serialized = JSON.stringify(req);
+        expect(serialized).not.toContain(token);
+      }
+    });
+
+    it('config property is private and not exposed via public type', async () => {
+      const { GitHubPRCommentReporter } = await loadModule();
+      const reporter = new GitHubPRCommentReporter({
+        token: 'ghp_PrivateConfig_fff',
+        owner: 'o',
+        repo: 'r',
+        prNumber: 1,
+      });
+
+      // The 'type' property is the only intended public non-method property
+      expect(reporter.type).toBe('github-pr-comment');
+
+      // TypeScript enforces private at compile time. At runtime the property
+      // exists but is not part of the public interface. This test documents
+      // that the token is stored in a private config object.
+      const asAny = reporter as unknown as Record<string, unknown>;
+      if (asAny['config']) {
+        const config = asAny['config'] as { token: string };
+        expect(typeof config.token).toBe('string');
+      }
+    });
+
+    it('sanitize handles empty token without crashing', async () => {
+      const { GitHubPRCommentReporter } = await loadModule();
+
+      const { warnings, restore } = captureWarnings();
+
+      const reporter = new GitHubPRCommentReporter({
+        token: '',
+        owner: 'o',
+        repo: 'r',
+        prNumber: 1,
+        debounceMs: 0,
+      });
+
+      // Empty token disables the reporter, but constructor should not crash
+      expect(reporter.type).toBe('github-pr-comment');
+
+      restore();
+    });
+
+    it('sanitize handles token with regex special characters', async () => {
+      const token = 'ghp_special.chars*are+here?yep$100';
+      const { GitHubPRCommentReporter } = await loadModule();
+      const reporter = new GitHubPRCommentReporter({
+        token,
+        owner: 'o',
+        repo: 'r',
+        prNumber: 1,
+        debounceMs: 0,
+      });
+
+      const { warnings, restore } = captureWarnings();
+
+      jest.spyOn(global, 'fetch').mockImplementation(async () => {
+        throw new Error(`Auth failed for ${token}, try again with ${token}`);
+      });
+
+      await reporter.initialize(makeContext());
+
+      restore();
+
+      for (const w of warnings) {
+        expect(w).not.toContain(token);
+      }
+      const errorWarning = warnings.find(w => w.includes('API request failed'));
+      expect(errorWarning).toBeDefined();
+      expect(errorWarning).toContain('***');
+    });
+
+    it('sanitize handles very long token (1000+ chars)', async () => {
+      const token = 'ghp_' + 'A'.repeat(1000);
+      const { GitHubPRCommentReporter } = await loadModule();
+      const reporter = new GitHubPRCommentReporter({
+        token,
+        owner: 'o',
+        repo: 'r',
+        prNumber: 1,
+        debounceMs: 0,
+      });
+
+      const { warnings, restore } = captureWarnings();
+
+      jest.spyOn(global, 'fetch').mockImplementation(async () => {
+        throw new Error(`rejected token: ${token}`);
+      });
+
+      await reporter.initialize(makeContext());
+
+      restore();
+
+      for (const w of warnings) {
+        expect(w).not.toContain(token);
+        expect(w).not.toContain('A'.repeat(100));
+      }
+    });
+  });
+
   // --- pause/resume lifecycle ---
   describe('pause/resume lifecycle', () => {
 
