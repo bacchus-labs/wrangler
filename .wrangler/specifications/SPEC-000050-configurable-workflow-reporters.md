@@ -123,6 +123,9 @@ Our implementation follows the same pattern but driven by the engine's audit ent
 - **FR-013:** Reporters MUST NOT block workflow execution -- comment update failures MUST be logged but not halt the workflow
 - **FR-014:** Multiple reporters MUST be supported simultaneously (e.g., GitHub comment + future Slack)
 - **FR-015:** Step definitions MUST support an optional `runOn` field for future execution environment selection, defaulting to `'local'`
+- **FR-016:** The `github-pr-comment` reporter MUST maintain a workflow progress tracker in the PR description using HTML comment markers (`<!-- WRANGLER_WORKFLOW_START -->` / `<!-- WRANGLER_WORKFLOW_END -->`)
+- **FR-017:** The PR description tracker MUST update on phase transitions, task completions, and fix loop iterations
+- **FR-018:** The workflow init phase MUST open a PR up front so the PR number is available to reporters from the start
 
 ### Non-Functional Requirements
 
@@ -505,7 +508,7 @@ Claude (bot):     Here's my analysis: { "tasks": [...], "summary": "..." }
   runOn: local  # Keep local -- MCP tool access needed
 ```
 
-**Recommendation: KEEP LOCAL.** This step uses MCP tools (`issues_create`) which are local to the wrangler plugin. The GitHub runner wouldn't have access to the same MCP server. Could theoretically work if the wrangler MCP server were also available as a GitHub Action, but that's a bigger lift. Best kept local.
+**Recommendation: KEEP LOCAL.** This step uses MCP tools (`issues_create`) which are local to the wrangler plugin. The GitHub runner wouldn't have access to the same MCP server. In the medium term, we plan to support GitHub Issues as a backend (in addition to or instead of local markdown files), which would make this step dispatchable. For now, keep local.
 
 **Alternative approach:** If the analyze step produces a clean task list, the engine could create issues locally even when other steps run on GitHub. The `plan` step is lightweight code, not an LLM call.
 
@@ -546,11 +549,11 @@ Claude (bot):     [x] Implemented input validation
                   [x] Committed: abc1234
 ```
 
-**Per-task parallelism consideration:** On GitHub, you could dispatch multiple tasks simultaneously as separate comments. claude-code-action handles them sequentially per PR, but you could use multiple PRs or branches for true parallelism. For the initial version, sequential is fine.
+**Per-task parallelism consideration:** On GitHub, individual `@claude` comments serialize within a concurrency group (GitHub Actions allows at most 1 running + 1 pending per group). However, using multi-job workflows or separate concurrency groups enables true parallelism. See Step 3b for details.
 
 ##### Step 3b: review (parallel)
 
-**What it does locally:** Runs 3 review agents in parallel (code quality, test coverage, security).
+**What it does locally:** Runs 3 review agents in parallel (code quality, test coverage, security). This already works locally via the engine's `type: parallel` step.
 
 **GitHub dispatch version:**
 ```yaml
@@ -571,30 +574,91 @@ Claude (bot):     [x] Implemented input validation
 ```
 
 **How it would work on GitHub:**
-1. Engine posts 3 comments simultaneously (or one combined comment):
-   - `@claude Review code quality of the changes on this branch...`
-   - `@claude Review test coverage of the changes on this branch...`
-   - `@claude Review security of the changes on this branch...`
-2. Each triggers a separate claude-code-action run
-3. Each bot response contains structured review feedback
-4. Engine collects all 3 responses, merges into `review` output
 
-**Feasibility: MEDIUM** -- Works well conceptually, but parallel comment triggers may not all be picked up by claude-code-action simultaneously (GitHub Actions concurrency limits). May need to serialize or use a single combined prompt.
+The engine dispatches parallel reviews as **separate GitHub Actions jobs** (not `@claude` PR comments). This is the pattern claude-code-action's own documentation recommends for parallel work:
+
+1. Engine triggers a GitHub Actions workflow (via `repository_dispatch` or `workflow_dispatch`) that defines 3 parallel jobs:
+
+```yaml
+# .github/workflows/parallel-review.yml (generated or pre-defined)
+jobs:
+  code-quality-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: anthropics/claude-code-action@v1
+        with:
+          prompt: "Review code quality..."
+
+  test-coverage-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: anthropics/claude-code-action@v1
+        with:
+          prompt: "Review test coverage..."
+
+  security-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: anthropics/claude-code-action@v1
+        with:
+          prompt: "Perform security review..."
+
+  collect-results:
+    needs: [code-quality-review, test-coverage-review, security-review]
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "All reviews complete"
+```
+
+2. Each job runs on its own runner in parallel (no concurrency group conflicts)
+3. Each posts its own PR comment with review results
+4. Engine polls for the `collect-results` job to complete, then reads the 3 review comments
+5. Results are merged into the `review` output in the workflow context
+
+**Feasibility: HIGH** -- GitHub Actions supports up to 20 concurrent jobs on the Free plan (60 on Team, 500 on Enterprise). Three parallel review jobs are well within limits. The multi-job pattern avoids the concurrency group serialization that `@claude` comments face. Claude-code-action's [solutions guide](https://github.com/anthropics/claude-code-action/blob/main/docs/solutions.md) explicitly documents this pattern.
+
+**Alternative: matrix strategy** -- Instead of 3 separate job definitions, use a matrix:
+```yaml
+jobs:
+  review:
+    strategy:
+      matrix:
+        include:
+          - type: code-quality
+            prompt: "Review code quality..."
+          - type: test-coverage
+            prompt: "Review test coverage..."
+          - type: security
+            prompt: "Perform security review..."
+    steps:
+      - uses: anthropics/claude-code-action@v1
+        with:
+          prompt: ${{ matrix.prompt }}
+```
 
 **What the PR looks like:**
 ```
-User (engine):    @claude Code quality review of recent changes...
-Claude (bot):     ## Code Quality Review
-                  - No critical issues found
-                  - 2 minor suggestions: [...]
+Claude (code-quality-review):   ## Code Quality Review
+                                - No critical issues found
+                                - 2 minor suggestions: [...]
 
-User (engine):    @claude Security review of recent changes...
-Claude (bot):     ## Security Review
-                  - No vulnerabilities detected
-                  - Path traversal prevention verified
+Claude (test-coverage-review):  ## Test Coverage Review
+                                - Coverage: 88.2%
+                                - 2 untested paths identified
+
+Claude (security-review):       ## Security Review
+                                - No vulnerabilities detected
+                                - Path traversal prevention verified
 ```
 
-**Alternative: single combined review comment** -- Instead of 3 separate comments, post one: `@claude Review these changes for code quality, test coverage, and security. Provide structured feedback for each category.` This avoids concurrency issues at the cost of less separation.
+**Concurrency notes:**
+- `@claude` comment triggers share a concurrency group per PR -- only 1 active + 1 queued. Not suitable for parallel dispatch.
+- Multi-job workflows have no such limitation -- each job runs independently.
+- `repository_dispatch` events can trigger workflows with multiple parallel jobs, making this the preferred dispatch mechanism for parallel steps.
+- GitHub enforces secondary rate limits (~80-100 mutations/minute), but 3 concurrent agents are well within this.
 
 ##### Step 3c: fix (loop)
 
@@ -615,7 +679,7 @@ Claude (bot):     ## Security Review
 4. Engine posts follow-up review comments
 5. Loop continues until condition clears or maxRetries exhausted
 
-**Feasibility: MEDIUM** -- The loop orchestration stays in the engine (local), only the fix and re-review steps are dispatched. This is a natural split -- the engine decides whether to loop, GitHub does the work.
+**Feasibility: HIGH** -- The loop orchestration stays in the engine (local), only the fix and re-review steps are dispatched to GitHub. This is a natural split -- the engine decides whether to loop, GitHub does the work. The re-review step within the fix loop uses the same multi-job parallel pattern as the initial review (see Step 3b), so each fix iteration can dispatch 3 parallel review agents. The engine collects results, evaluates `review.hasActionableIssues`, and decides whether to loop again or proceed.
 
 ##### Step 3d: checkpoint (code step)
 
@@ -848,6 +912,51 @@ For a workflow running spec-implementation with GitHub dispatch, the PR comment 
 
 This gives the user a complete, readable audit trail right on the PR. Every step is visible, every agent response is captured, and the progress comment at top provides the summary view.
 
+### PR Description Workflow Tracker
+
+In addition to the comment-based audit trail, the `github-pr-comment` reporter SHOULD maintain a **workflow progress tracker in the PR description itself**. This gives an at-a-glance view of workflow status directly in the PR summary, without scrolling through comments.
+
+**Mechanism:** The reporter uses the GitHub REST API (`PATCH /repos/{owner}/{repo}/pulls/{pr}`) to update the PR body. It uses HTML comment markers to find and replace just the tracker section without touching the user's PR description:
+
+```markdown
+<!-- User's original PR description above -->
+
+---
+<!-- WRANGLER_WORKFLOW_START:wf-2026-02-16-abc123 -->
+## Workflow Progress
+
+- [x] analyze -- 1m 13s
+- [x] plan -- 4m 21s
+- [ ] execute (3/8 tasks) ![spinner](...)
+  - [x] task-001: implement -> review -> fix (4m 32s)
+  - [x] task-002: implement -> review (3m 10s)
+  - [x] task-003: implement -> review (2m 48s)
+  - [ ] task-004: implement (in progress)
+  - [ ] task-005
+  - [ ] task-006
+  - [ ] task-007
+  - [ ] task-008
+- [ ] verify
+- [ ] publish
+<!-- WRANGLER_WORKFLOW_END -->
+```
+
+**Update logic:**
+1. Read current PR body via `GET /repos/{owner}/{repo}/pulls/{pr}`
+2. If `WRANGLER_WORKFLOW_START` marker exists, replace content between markers
+3. If marker doesn't exist, append tracker section at the end with `---` separator
+4. Write back via `PATCH` with updated body
+
+**Update triggers:** The reporter updates the PR description on "update-worthy" events:
+- Phase started/completed
+- Task implementation completed (checkbox checked)
+- Fix loop iteration (update a counter, e.g., "fix loop: attempt 2/3")
+- Workflow completed/failed/paused
+
+**PR body character limit:** 65,536 characters. A workflow tracker with dozens of steps is well within this.
+
+**Race condition note:** The read-modify-write pattern has no atomic guarantee. If the user edits the PR description while the reporter is updating, one write may clobber the other. This is a known GitHub API limitation (no ETag/If-Match support for PR bodies). In practice, this is unlikely -- the user is watching the workflow run, not editing the PR description simultaneously. The marker-based approach ensures the tracker section is isolated from user content.
+
 ### Backward Compatibility
 
 The `runOn` field is optional and defaults to `local`. Existing workflows continue to work exactly as they do today:
@@ -988,23 +1097,21 @@ If reporter config is missing required fields (e.g., no token), the reporter log
 - The reporter MUST NOT log or expose tokens in error messages
 - Comment content MUST NOT include sensitive data from step outputs (only step names and status)
 
+## Resolved Decisions
+
+1. **PR number discovery**: The workflow's init phase already creates the branch and worktree. This should also open the PR up front, capturing the PR number in the session context. The `--pr-number` CLI flag is available as an override, but the primary flow is: init creates branch -> opens PR -> PR number stored in `context.prNumber` -> reporters use it. Late-bind after publish is no longer needed since the PR exists from the start.
+
+2. **Comment ownership**: Create a new comment for each workflow run, identified by a hidden HTML marker (`<!-- wrangler-workflow: {sessionId} -->`). If resuming a workflow, find and update the existing comment by marker. This matches the claude-code-action pattern.
+
+3. **GitHub dispatch: result parsing**: JSON code block in the comment body as primary mechanism (Claude already does this with outputSchema). Committed artifact file (e.g., `.wrangler/sessions/{id}/step-output.json`) as fallback.
+
+4. **GitHub dispatch: concurrency**: Resolved via research. `@claude` comment triggers share a concurrency group per PR (1 active + 1 queued), so they are NOT suitable for parallel dispatch. Instead, use multi-job GitHub Actions workflows triggered via `repository_dispatch` -- each job runs independently on its own runner with no concurrency group conflicts. GitHub supports 20+ concurrent jobs even on the Free plan. See Step 3b review section for the full pattern.
+
 ## Open Questions
 
-1. **PR number discovery**: When running from CLI, how does the reporter know the PR number? Options:
-   - Pass explicitly via `--pr-number` CLI flag
-   - Derive from branch name via `gh pr list --head {branch}` at startup
-   - Set after the publish phase creates the PR (reporter starts headless, gets PR number later)
-   - **Proposed**: Support all three. CLI flag takes priority, then auto-detect, then late-bind after publish.
+1. **GitHub Actions workflow generation**: When the engine dispatches parallel steps to GitHub, does it generate `.github/workflows/*.yml` files dynamically, or does it expect pre-defined workflow templates? Dynamic generation is more flexible but adds complexity. Pre-defined templates are simpler but less adaptable to workflow changes.
 
-2. **Comment ownership**: Should the comment be created by the workflow, or should it update an existing comment? The claude-code-action pattern creates a new comment. We should do the same but also support finding and updating an existing workflow comment (identified by a hidden HTML marker like `<!-- wrangler-workflow: {sessionId} -->`).
-
-3. **GitHub dispatch: result parsing**: How does the engine extract structured output from a claude-code-action response comment? Options:
-   - JSON code block in the comment body (Claude already does this with outputSchema)
-   - Committed artifact file (e.g., `.wrangler/sessions/{id}/step-output.json`)
-   - GitHub Actions artifact upload
-   - **Proposed**: JSON code block as primary, committed artifact as fallback.
-
-4. **GitHub dispatch: concurrency**: Can multiple `@claude` comments be active simultaneously on the same PR? Need to verify claude-code-action's concurrency behavior. If not, parallel steps would need to serialize on GitHub even if marked `type: parallel`.
+2. **Result collection from parallel GitHub jobs**: How does the engine collect structured results from 3 parallel review jobs? Options: (a) each job posts a PR comment with a known marker, engine reads comments; (b) each job commits a result file to a known path; (c) GitHub Actions artifacts. Need to evaluate reliability and latency tradeoffs.
 
 ## Success Criteria
 
@@ -1019,6 +1126,9 @@ If reporter config is missing required fields (e.g., no token), the reporter log
 - [ ] Debouncing prevents API rate limit issues
 - [ ] Tests cover reporter interface, manager, and GitHub reporter
 - [ ] `runOn` field is accepted in schema validation (even if GitHub executor is not yet implemented)
+- [ ] PR description tracker updates on phase/task completions using HTML comment markers
+- [ ] PR is created during workflow init phase, PR number captured in session context
+- [ ] Parallel review steps dispatch as separate GitHub Actions jobs (not serialized `@claude` comments)
 - [ ] Existing workflows without `reporters` or `runOn` continue to work unchanged
 
 ## References
