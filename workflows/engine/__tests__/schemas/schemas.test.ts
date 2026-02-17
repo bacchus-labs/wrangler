@@ -24,6 +24,7 @@ import {
   WorkflowSafetySchema,
   WorkflowDefinitionSchema,
   AgentDefinitionSchema,
+  ReporterConfigSchema,
   validateStep,
   validateWorkflowDefinition,
 } from '../../src/schemas/workflow.js';
@@ -638,6 +639,168 @@ describe('Workflow schemas', () => {
     });
   });
 
+  // --- reportAs field on steps ---
+
+  describe('reportAs field', () => {
+    it('should default reportAs to "visible" when not specified', () => {
+      const result = AgentPromptStepSchema.parse({
+        name: 'analyze',
+        agent: 'analyzer',
+      });
+      expect(result.reportAs).toBe('visible');
+    });
+
+    it('should accept reportAs "visible"', () => {
+      const result = AgentPromptStepSchema.parse({
+        name: 'analyze',
+        agent: 'analyzer',
+        reportAs: 'visible',
+      });
+      expect(result.reportAs).toBe('visible');
+    });
+
+    it('should accept reportAs "silent"', () => {
+      const result = AgentPromptStepSchema.parse({
+        name: 'analyze',
+        agent: 'analyzer',
+        reportAs: 'silent',
+      });
+      expect(result.reportAs).toBe('silent');
+    });
+
+    it('should accept reportAs "summary"', () => {
+      const result = AgentPromptStepSchema.parse({
+        name: 'analyze',
+        agent: 'analyzer',
+        reportAs: 'summary',
+      });
+      expect(result.reportAs).toBe('summary');
+    });
+
+    it('should reject invalid reportAs value', () => {
+      expect(() => AgentPromptStepSchema.parse({
+        name: 'analyze',
+        agent: 'analyzer',
+        reportAs: 'hidden',
+      })).toThrow(ZodError);
+    });
+
+    it('should accept reportAs on code steps', () => {
+      const result = CodeStepSchema.parse({
+        name: 'run-tests',
+        type: 'code',
+        handler: 'handlers/test.ts',
+        reportAs: 'silent',
+      });
+      expect(result.reportAs).toBe('silent');
+    });
+
+    it('should accept reportAs on parallel steps', () => {
+      const result = ParallelStepPartialSchema.parse({
+        name: 'gates',
+        type: 'parallel',
+        steps: [],
+        reportAs: 'summary',
+      });
+      expect(result.reportAs).toBe('summary');
+    });
+
+    it('should accept reportAs on loop steps', () => {
+      const result = LoopStepPartialSchema.parse({
+        name: 'fix-loop',
+        type: 'loop',
+        condition: 'cond',
+        steps: [],
+        reportAs: 'silent',
+      });
+      expect(result.reportAs).toBe('silent');
+    });
+
+    it('should accept reportAs on per-task steps', () => {
+      const result = PerTaskStepPartialSchema.parse({
+        name: 'tasks',
+        type: 'per-task',
+        source: 'analysis.tasks',
+        steps: [],
+        reportAs: 'visible',
+      });
+      expect(result.reportAs).toBe('visible');
+    });
+  });
+
+  // --- runOn field on steps ---
+
+  describe('runOn field', () => {
+    it('should default runOn to "local" when not specified', () => {
+      const result = AgentPromptStepSchema.parse({
+        name: 'analyze',
+        agent: 'analyzer',
+      });
+      expect(result.runOn).toBe('local');
+    });
+
+    it('should accept runOn "local"', () => {
+      const result = AgentPromptStepSchema.parse({
+        name: 'analyze',
+        agent: 'analyzer',
+        runOn: 'local',
+      });
+      expect(result.runOn).toBe('local');
+    });
+
+    it('should accept runOn "github"', () => {
+      const result = AgentPromptStepSchema.parse({
+        name: 'analyze',
+        agent: 'analyzer',
+        runOn: 'github',
+      });
+      expect(result.runOn).toBe('github');
+    });
+
+    it('should reject invalid runOn value', () => {
+      expect(() => AgentPromptStepSchema.parse({
+        name: 'analyze',
+        agent: 'analyzer',
+        runOn: 'aws',
+      })).toThrow(ZodError);
+    });
+  });
+
+  // --- ReporterConfigSchema ---
+
+  describe('ReporterConfigSchema', () => {
+    it('should accept reporter with type only', () => {
+      const result = ReporterConfigSchema.parse({
+        type: 'console',
+      });
+      expect(result.type).toBe('console');
+      expect(result.config).toBeUndefined();
+    });
+
+    it('should accept reporter with type and config', () => {
+      const result = ReporterConfigSchema.parse({
+        type: 'github-pr',
+        config: { token: 'abc', repo: 'org/repo' },
+      });
+      expect(result.type).toBe('github-pr');
+      expect(result.config).toEqual({ token: 'abc', repo: 'org/repo' });
+    });
+
+    it('should reject reporter with empty type', () => {
+      expect(() => ReporterConfigSchema.parse({
+        type: '',
+      })).toThrow(ZodError);
+    });
+
+    it('should accept reporter with empty config object', () => {
+      const result = ReporterConfigSchema.parse({
+        type: 'console',
+        config: {},
+      });
+      expect(result.config).toEqual({});
+    });
+  });
+
   // --- validateWorkflowDefinition ---
 
   describe('validateWorkflowDefinition()', () => {
@@ -751,6 +914,65 @@ describe('Workflow schemas', () => {
         phases: [{ name: 'step1', agent: 'agent1' }],
       });
       expect(result.defaults?.agent).toBe('my-default-agent');
+    });
+
+    it('should accept reporters field with valid entries', () => {
+      const result = validateWorkflowDefinition({
+        name: 'w',
+        version: 1,
+        reporters: [
+          { type: 'console' },
+          { type: 'github-pr', config: { token: 'abc' } },
+        ],
+        phases: [{ name: 'step1', agent: 'agent1' }],
+      });
+      expect(result.reporters).toHaveLength(2);
+      expect(result.reporters![0].type).toBe('console');
+      expect(result.reporters![1].config).toEqual({ token: 'abc' });
+    });
+
+    it('should default reporters to empty array when not specified', () => {
+      const result = validateWorkflowDefinition({
+        name: 'w',
+        version: 1,
+        phases: [{ name: 'step1', agent: 'agent1' }],
+      });
+      expect(result.reporters).toEqual([]);
+    });
+
+    it('should accept empty reporters array', () => {
+      const result = validateWorkflowDefinition({
+        name: 'w',
+        version: 1,
+        reporters: [],
+        phases: [{ name: 'step1', agent: 'agent1' }],
+      });
+      expect(result.reporters).toEqual([]);
+    });
+
+    it('should reject reporters with empty type string', () => {
+      expect(() => validateWorkflowDefinition({
+        name: 'w',
+        version: 1,
+        reporters: [{ type: '' }],
+        phases: [{ name: 'step1', agent: 'agent1' }],
+      })).toThrow(ZodError);
+    });
+
+    it('should preserve reportAs and runOn through validateWorkflowDefinition', () => {
+      const result = validateWorkflowDefinition({
+        name: 'w',
+        version: 1,
+        phases: [{
+          name: 'step1',
+          agent: 'agent1',
+          reportAs: 'silent',
+          runOn: 'github',
+        }],
+      });
+      const step = result.phases[0] as any;
+      expect(step.reportAs).toBe('silent');
+      expect(step.runOn).toBe('github');
     });
 
     it('should throw on missing name', () => {
