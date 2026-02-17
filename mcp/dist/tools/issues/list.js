@@ -12,11 +12,13 @@ export const listIssuesSchema = z.object({
     types: z.array(z.enum(['issue', 'specification', 'idea'])).optional().describe('Filter by artifact types'),
     type: z.enum(['issue', 'specification', 'idea']).optional().describe('Filter by a single artifact type'),
     limit: z.number().int().positive().max(1000).optional().describe('Maximum number of issues to return'),
-    offset: z.number().int().min(0).optional().describe('Number of issues to skip for pagination')
+    offset: z.number().int().min(0).optional().describe('Number of issues to skip for pagination'),
+    format: z.enum(['full', 'summary', 'minimal']).optional().describe('Response format: full (all fields), summary (key fields, default), minimal (id/title/status only)')
 });
 export async function listIssuesTool(params, providerFactory) {
     try {
         const issueProvider = providerFactory.getIssueProvider();
+        const format = params.format || 'summary';
         const filters = {
             status: params.status,
             priority: params.priority,
@@ -30,13 +32,13 @@ export async function listIssuesTool(params, providerFactory) {
             offset: params.offset || 0
         };
         const issues = await issueProvider.listIssues(filters);
-        const structuredIssues = issues.map(serializeIssue);
-        const table = formatIssuesAsTable(issues);
+        const structuredIssues = issues.map(issue => serializeIssue(issue, format));
+        const textContent = formatIssuesText(issues, format);
         return {
             content: [
                 {
                     type: 'text',
-                    text: `Found ${issues.length} issue(s):\n\n${table}`
+                    text: `Found ${issues.length} issue(s):\n\n${textContent}`
                 }
             ],
             isError: false,
@@ -44,6 +46,7 @@ export async function listIssuesTool(params, providerFactory) {
                 totalIssues: issues.length,
                 provider: providerFactory.getConfig().issues?.provider || 'markdown',
                 filters: filters,
+                format: format,
                 issues: structuredIssues
             }
         };
@@ -61,7 +64,34 @@ export async function listIssuesTool(params, providerFactory) {
         };
     }
 }
-function serializeIssue(issue) {
+/**
+ * Serialize an issue based on the requested format level.
+ *
+ * - full: all fields (original behavior)
+ * - summary: id, title, type, status, priority, labels, assignee, project
+ * - minimal: id, title, status only
+ */
+function serializeIssue(issue, format) {
+    if (format === 'minimal') {
+        return {
+            id: issue.id,
+            title: issue.title,
+            status: issue.status,
+        };
+    }
+    if (format === 'summary') {
+        return {
+            id: issue.id,
+            title: issue.title,
+            type: issue.type,
+            status: issue.status,
+            priority: issue.priority,
+            labels: issue.labels,
+            assignee: issue.assignee,
+            project: issue.project,
+        };
+    }
+    // full format - return everything
     return {
         id: issue.id,
         title: issue.title,
@@ -77,6 +107,29 @@ function serializeIssue(issue) {
         closedAt: issue.closedAt?.toISOString?.() ?? issue.closedAt,
         wranglerContext: issue.wranglerContext || null
     };
+}
+/**
+ * Format the text content for the response based on format level.
+ */
+function formatIssuesText(issues, format) {
+    if (issues.length === 0) {
+        return 'No issues found.';
+    }
+    if (format === 'minimal') {
+        return formatIssuesAsCompactList(issues);
+    }
+    return formatIssuesAsTable(issues);
+}
+/**
+ * Format issues as a compact list (for minimal format).
+ */
+function formatIssuesAsCompactList(issues) {
+    return issues.map(issue => {
+        const title = issue.title.length > 60
+            ? issue.title.substring(0, 57) + '...'
+            : issue.title;
+        return `${issue.id} [${issue.status}] ${title}`;
+    }).join('\n');
 }
 function formatIssuesAsTable(issues) {
     if (issues.length === 0) {

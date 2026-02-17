@@ -6,6 +6,37 @@ export type SessionStatus = 'running' | 'paused' | 'completed' | 'failed';
 export type AuditPhase = 'init' | 'plan' | 'execute' | 'task' | 'verify' | 'publish' | 'complete' | 'error' | 'checkpoint';
 export type PhaseStatus = 'started' | 'complete' | 'failed';
 /**
+ * Step result from workflow execution
+ */
+export interface StepResult {
+    /** Step name */
+    stepName: string;
+    /** Step execution status */
+    status: 'passed' | 'failed' | 'skipped';
+    /** Summary of output or reason */
+    outputSummary?: string;
+}
+/**
+ * Step execution summary for session completion
+ */
+export interface StepExecutionSummary {
+    /** Total number of steps in the workflow */
+    totalSteps: number;
+    /** Number of steps that were executed */
+    executed: number;
+    /** Number of steps that were skipped */
+    skipped: number;
+    /** Names of steps that were skipped */
+    skippedSteps: string[];
+    /** Per-step details including agent and prompt used */
+    stepDetails?: Array<{
+        stepName: string;
+        status: 'passed' | 'failed' | 'skipped';
+        agent?: string;
+        prompt?: string;
+    }>;
+}
+/**
  * Main session state interface
  */
 export interface Session {
@@ -21,6 +52,12 @@ export interface Session {
     worktreePath: string;
     /** Git branch name */
     branchName: string;
+    /** Workflow name (e.g., "spec-implementation") */
+    workflow?: string;
+    /** Whether to skip pre/post checks */
+    skipChecks?: boolean;
+    /** Step names to skip */
+    skipStepNames?: string[];
     /** Phases that have completed */
     phasesCompleted: string[];
     /** Issue IDs that have been completed */
@@ -60,6 +97,8 @@ export interface SessionCheckpoint {
     lastAction: string;
     /** Instructions for how to continue */
     resumeInstructions: string;
+    /** Step results since last checkpoint */
+    stepResults?: StepResult[];
 }
 /**
  * Base audit entry interface
@@ -241,15 +280,81 @@ export declare const SessionCheckpointSchema: z.ZodObject<{
     lastAction: string;
     resumeInstructions: string;
 }>;
+export declare const StepResultSchema: z.ZodObject<{
+    stepName: z.ZodString;
+    status: z.ZodEnum<["passed", "failed", "skipped"]>;
+    outputSummary: z.ZodOptional<z.ZodString>;
+}, "strip", z.ZodTypeAny, {
+    status: "failed" | "passed" | "skipped";
+    stepName: string;
+    outputSummary?: string | undefined;
+}, {
+    status: "failed" | "passed" | "skipped";
+    stepName: string;
+    outputSummary?: string | undefined;
+}>;
+export declare const StepExecutionSummarySchema: z.ZodObject<{
+    totalSteps: z.ZodNumber;
+    executed: z.ZodNumber;
+    skipped: z.ZodNumber;
+    skippedSteps: z.ZodArray<z.ZodString, "many">;
+    stepDetails: z.ZodOptional<z.ZodArray<z.ZodObject<{
+        stepName: z.ZodString;
+        status: z.ZodEnum<["passed", "failed", "skipped"]>;
+        agent: z.ZodOptional<z.ZodString>;
+        prompt: z.ZodOptional<z.ZodString>;
+    }, "strip", z.ZodTypeAny, {
+        status: "failed" | "passed" | "skipped";
+        stepName: string;
+        agent?: string | undefined;
+        prompt?: string | undefined;
+    }, {
+        status: "failed" | "passed" | "skipped";
+        stepName: string;
+        agent?: string | undefined;
+        prompt?: string | undefined;
+    }>, "many">>;
+}, "strip", z.ZodTypeAny, {
+    skipped: number;
+    totalSteps: number;
+    executed: number;
+    skippedSteps: string[];
+    stepDetails?: {
+        status: "failed" | "passed" | "skipped";
+        stepName: string;
+        agent?: string | undefined;
+        prompt?: string | undefined;
+    }[] | undefined;
+}, {
+    skipped: number;
+    totalSteps: number;
+    executed: number;
+    skippedSteps: string[];
+    stepDetails?: {
+        status: "failed" | "passed" | "skipped";
+        stepName: string;
+        agent?: string | undefined;
+        prompt?: string | undefined;
+    }[] | undefined;
+}>;
 export declare const SessionStartParamsSchema: z.ZodObject<{
     specFile: z.ZodString;
     workingDirectory: z.ZodOptional<z.ZodString>;
+    workflow: z.ZodOptional<z.ZodString>;
+    skipChecks: z.ZodOptional<z.ZodBoolean>;
+    skipStepNames: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
 }, "strip", z.ZodTypeAny, {
     specFile: string;
     workingDirectory?: string | undefined;
+    workflow?: string | undefined;
+    skipChecks?: boolean | undefined;
+    skipStepNames?: string[] | undefined;
 }, {
     specFile: string;
     workingDirectory?: string | undefined;
+    workflow?: string | undefined;
+    skipChecks?: boolean | undefined;
+    skipStepNames?: string[] | undefined;
 }>;
 export declare const SessionPhaseParamsSchema: z.ZodObject<{
     sessionId: z.ZodString;
@@ -274,6 +379,19 @@ export declare const SessionCheckpointParamsSchema: z.ZodObject<{
     lastAction: z.ZodString;
     resumeInstructions: z.ZodString;
     variables: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>;
+    stepResults: z.ZodOptional<z.ZodArray<z.ZodObject<{
+        stepName: z.ZodString;
+        status: z.ZodEnum<["passed", "failed", "skipped"]>;
+        outputSummary: z.ZodOptional<z.ZodString>;
+    }, "strip", z.ZodTypeAny, {
+        status: "failed" | "passed" | "skipped";
+        stepName: string;
+        outputSummary?: string | undefined;
+    }, {
+        status: "failed" | "passed" | "skipped";
+        stepName: string;
+        outputSummary?: string | undefined;
+    }>, "many">>;
 }, "strip", z.ZodTypeAny, {
     tasksCompleted: string[];
     tasksPending: string[];
@@ -281,6 +399,11 @@ export declare const SessionCheckpointParamsSchema: z.ZodObject<{
     lastAction: string;
     resumeInstructions: string;
     variables?: Record<string, unknown> | undefined;
+    stepResults?: {
+        status: "failed" | "passed" | "skipped";
+        stepName: string;
+        outputSummary?: string | undefined;
+    }[] | undefined;
 }, {
     tasksCompleted: string[];
     tasksPending: string[];
@@ -288,6 +411,11 @@ export declare const SessionCheckpointParamsSchema: z.ZodObject<{
     lastAction: string;
     resumeInstructions: string;
     variables?: Record<string, unknown> | undefined;
+    stepResults?: {
+        status: "failed" | "passed" | "skipped";
+        stepName: string;
+        outputSummary?: string | undefined;
+    }[] | undefined;
 }>;
 export declare const SessionCompleteParamsSchema: z.ZodObject<{
     sessionId: z.ZodString;
@@ -295,18 +423,86 @@ export declare const SessionCompleteParamsSchema: z.ZodObject<{
     prUrl: z.ZodOptional<z.ZodString>;
     prNumber: z.ZodOptional<z.ZodNumber>;
     summary: z.ZodOptional<z.ZodString>;
+    stepExecutionSummary: z.ZodOptional<z.ZodObject<{
+        totalSteps: z.ZodNumber;
+        executed: z.ZodNumber;
+        skipped: z.ZodNumber;
+        skippedSteps: z.ZodArray<z.ZodString, "many">;
+        stepDetails: z.ZodOptional<z.ZodArray<z.ZodObject<{
+            stepName: z.ZodString;
+            status: z.ZodEnum<["passed", "failed", "skipped"]>;
+            agent: z.ZodOptional<z.ZodString>;
+            prompt: z.ZodOptional<z.ZodString>;
+        }, "strip", z.ZodTypeAny, {
+            status: "failed" | "passed" | "skipped";
+            stepName: string;
+            agent?: string | undefined;
+            prompt?: string | undefined;
+        }, {
+            status: "failed" | "passed" | "skipped";
+            stepName: string;
+            agent?: string | undefined;
+            prompt?: string | undefined;
+        }>, "many">>;
+    }, "strip", z.ZodTypeAny, {
+        skipped: number;
+        totalSteps: number;
+        executed: number;
+        skippedSteps: string[];
+        stepDetails?: {
+            status: "failed" | "passed" | "skipped";
+            stepName: string;
+            agent?: string | undefined;
+            prompt?: string | undefined;
+        }[] | undefined;
+    }, {
+        skipped: number;
+        totalSteps: number;
+        executed: number;
+        skippedSteps: string[];
+        stepDetails?: {
+            status: "failed" | "passed" | "skipped";
+            stepName: string;
+            agent?: string | undefined;
+            prompt?: string | undefined;
+        }[] | undefined;
+    }>>;
 }, "strip", z.ZodTypeAny, {
     status: "completed" | "failed";
     sessionId: string;
+    summary?: string | undefined;
     prUrl?: string | undefined;
     prNumber?: number | undefined;
-    summary?: string | undefined;
+    stepExecutionSummary?: {
+        skipped: number;
+        totalSteps: number;
+        executed: number;
+        skippedSteps: string[];
+        stepDetails?: {
+            status: "failed" | "passed" | "skipped";
+            stepName: string;
+            agent?: string | undefined;
+            prompt?: string | undefined;
+        }[] | undefined;
+    } | undefined;
 }, {
     status: "completed" | "failed";
     sessionId: string;
+    summary?: string | undefined;
     prUrl?: string | undefined;
     prNumber?: number | undefined;
-    summary?: string | undefined;
+    stepExecutionSummary?: {
+        skipped: number;
+        totalSteps: number;
+        executed: number;
+        skippedSteps: string[];
+        stepDetails?: {
+            status: "failed" | "passed" | "skipped";
+            stepName: string;
+            agent?: string | undefined;
+            prompt?: string | undefined;
+        }[] | undefined;
+    } | undefined;
 }>;
 export declare const SessionGetParamsSchema: z.ZodObject<{
     sessionId: z.ZodOptional<z.ZodString>;

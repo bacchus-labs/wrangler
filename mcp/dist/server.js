@@ -24,6 +24,7 @@ import { issuesAllCompleteSchema, issuesAllCompleteTool } from './tools/issues/a
 import { markCompleteSchema, markCompleteIssueTool } from './tools/issues/mark-complete.js';
 import { sessionStartSchema, sessionStartTool, sessionPhaseSchema, sessionPhaseTool, sessionCheckpointSchema, sessionCheckpointTool, sessionCompleteSchema, sessionCompleteTool, sessionGetSchema, sessionGetTool, } from './tools/session/index.js';
 import { SessionStorageProvider } from './providers/session-storage.js';
+import { initWorkspaceSchema, initWorkspaceTool, } from './tools/workspace/index.js';
 export class WranglerMCPServer {
     server;
     config;
@@ -120,6 +121,10 @@ export class WranglerMCPServer {
                         break;
                     case 'session_get':
                         result = await sessionGetTool(sessionGetSchema.parse(args), this.sessionStorage);
+                        break;
+                    // Workspace management tools
+                    case 'init_workspace':
+                        result = await initWorkspaceTool(initWorkspaceSchema.parse(args));
                         break;
                     default:
                         throw new Error(`Unknown tool: ${name}`);
@@ -254,6 +259,12 @@ export class WranglerMCPServer {
                 name: 'session_get',
                 description: 'Retrieve session state for recovery or status check. Omit sessionId to find most recent incomplete session.',
                 inputSchema: zodToJsonSchema(sessionGetSchema),
+            },
+            // Workspace management tools
+            {
+                name: 'init_workspace',
+                description: 'Initialize or verify the .wrangler/ workspace directory structure. In report-only mode (default), shows what would be created. With fix=true, creates directories, provisions assets, and manages configuration idempotently.',
+                inputSchema: zodToJsonSchema(initWorkspaceSchema),
             },
         ];
     }

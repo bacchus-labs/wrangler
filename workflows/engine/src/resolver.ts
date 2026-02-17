@@ -8,7 +8,7 @@ export interface ResolvedFile {
 
 /**
  * Resolves workflow, agent, and prompt files using a 2-tier search:
- *   1. Project level  ({projectRoot}/.wrangler/{type}/)  -- highest priority
+ *   1. Project level  ({projectRoot}/.wrangler/orchestration/{type}/)  -- highest priority
  *   2. Builtin level  ({pluginRoot}/{type}/)              -- fallback
  *
  * First match wins.
@@ -45,7 +45,7 @@ export class WorkflowResolver {
     kind: 'workflows' | 'agents' | 'prompts',
     filename: string,
   ): Promise<ResolvedFile> {
-    const projectPath = path.join(this.projectRoot, '.wrangler', kind, filename);
+    const projectPath = path.join(this.projectRoot, '.wrangler', 'orchestration', kind, filename);
     const builtinPath = path.join(this.pluginRoot, kind, filename);
 
     if (await fileExists(projectPath)) {
@@ -60,7 +60,7 @@ export class WorkflowResolver {
       `${kind.slice(0, -1)} not found: ${filename}. Searched:\n` +
       `  1. ${projectPath}\n` +
       `  2. ${builtinPath}\n` +
-      `Hint: Create ${filename} in .wrangler/${kind}/ to override the builtin.`,
+      `Hint: Create ${filename} in .wrangler/orchestration/${kind}/ to override the builtin.`,
     );
   }
 }

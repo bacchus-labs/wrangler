@@ -163,7 +163,7 @@ describe('workspace-schema', () => {
         const secondTime = Date.now();
 
         expect(secondLoad).toEqual(firstLoad);
-        expect(secondLoad.version).toBe('1.2.0'); // Original version, not modified
+        expect(secondLoad.version).toBe('1.3.0'); // Original version, not modified
         expect(secondTime - firstTime).toBeLessThan(50); // Should be nearly instant
       });
 
@@ -311,7 +311,7 @@ describe('workspace-schema', () => {
 
         // Load and cache
         const firstLoad = loadWorkspaceSchema(testDir);
-        expect(firstLoad.version).toBe('1.2.0');
+        expect(firstLoad.version).toBe('1.3.0');
 
         // Modify file
         const modifiedSchema = { ...testSchema, version: '2.0.0' };
@@ -319,7 +319,7 @@ describe('workspace-schema', () => {
 
         // Should still return cached version
         const cachedLoad = loadWorkspaceSchema(testDir);
-        expect(cachedLoad.version).toBe('1.2.0');
+        expect(cachedLoad.version).toBe('1.3.0');
 
         // Clear cache
         clearSchemaCache();
@@ -363,7 +363,7 @@ describe('workspace-schema', () => {
       it('should have correct version', () => {
         const schema = getDefaultSchema();
 
-        expect(schema.version).toBe('1.2.0');
+        expect(schema.version).toBe('1.3.0');
       });
 
       it('should have workspace root as .wrangler', () => {
@@ -384,6 +384,7 @@ describe('workspace-schema', () => {
         expect(schema.directories).toHaveProperty('cache');
         expect(schema.directories).toHaveProperty('config');
         expect(schema.directories).toHaveProperty('logs');
+        expect(schema.directories).toHaveProperty('orchestration');
       });
 
       it('should have correct gitTracked flags', () => {
@@ -395,9 +396,53 @@ describe('workspace-schema', () => {
         expect(schema.directories.memos.gitTracked).toBe(true);
         expect(schema.directories.plans.gitTracked).toBe(true);
         expect(schema.directories.docs.gitTracked).toBe(true);
+        expect(schema.directories.orchestration.gitTracked).toBe(true);
         expect(schema.directories.cache.gitTracked).toBe(false);
-        expect(schema.directories.config.gitTracked).toBe(false);
+        expect(schema.directories.config.gitTracked).toBe(true);
         expect(schema.directories.logs.gitTracked).toBe(false);
+      });
+
+      it('should have orchestration directory with correct structure', () => {
+        const schema = getDefaultSchema();
+
+        const orch = schema.directories.orchestration;
+        expect(orch).toBeDefined();
+        expect(orch.path).toBe('.wrangler/orchestration');
+        expect(orch.description).toBeTruthy();
+        expect(orch.gitTracked).toBe(true);
+      });
+
+      it('should have orchestration subdirectories for agents, prompts, and workflows', () => {
+        const schema = getDefaultSchema();
+
+        const subdirs = schema.directories.orchestration.subdirectories;
+        expect(subdirs).toBeDefined();
+        expect(subdirs).toHaveProperty('agents');
+        expect(subdirs).toHaveProperty('prompts');
+        expect(subdirs).toHaveProperty('workflows');
+
+        expect(subdirs!.agents.path).toBe('.wrangler/orchestration/agents');
+        expect(subdirs!.agents.description).toBeTruthy();
+
+        expect(subdirs!.prompts.path).toBe('.wrangler/orchestration/prompts');
+        expect(subdirs!.prompts.description).toBeTruthy();
+
+        expect(subdirs!.workflows.path).toBe('.wrangler/orchestration/workflows');
+        expect(subdirs!.workflows.description).toBeTruthy();
+      });
+
+      it('should have exactly 10 essential directories including orchestration', () => {
+        const schema = getDefaultSchema();
+        const essentialDirs = [
+          'issues', 'specifications', 'ideas', 'memos', 'plans',
+          'docs', 'cache', 'config', 'logs', 'orchestration',
+        ];
+
+        // Verify all 10 essential directories are present
+        expect(Object.keys(schema.directories).sort()).toEqual(essentialDirs.sort());
+
+        // Verify no extra unexpected directories
+        expect(Object.keys(schema.directories)).toHaveLength(essentialDirs.length);
       });
 
       it('should have all governance files', () => {
@@ -437,7 +482,7 @@ describe('workspace-schema', () => {
           expect(Object.keys(defaultSchema).sort()).toEqual(Object.keys(actualSchema).sort());
 
           // Check that default has all essential directories (templates may be added dynamically)
-          const essentialDirs = ['issues', 'specifications', 'ideas', 'memos', 'plans', 'docs', 'cache', 'config', 'logs'];
+          const essentialDirs = ['issues', 'specifications', 'ideas', 'memos', 'plans', 'docs', 'cache', 'config', 'logs', 'orchestration'];
           essentialDirs.forEach(dir => {
             expect(defaultSchema.directories).toHaveProperty(dir);
           });
@@ -569,6 +614,10 @@ describe('workspace-schema', () => {
         expect(dirs).toContain('.wrangler/cache');
         expect(dirs).toContain('.wrangler/config');
         expect(dirs).toContain('.wrangler/logs');
+        expect(dirs).toContain('.wrangler/orchestration');
+        expect(dirs).toContain('.wrangler/orchestration/agents');
+        expect(dirs).toContain('.wrangler/orchestration/prompts');
+        expect(dirs).toContain('.wrangler/orchestration/workflows');
       });
 
       it('should include all subdirectories', () => {
@@ -576,6 +625,9 @@ describe('workspace-schema', () => {
 
         expect(dirs).toContain('.wrangler/issues/archived');
         expect(dirs).toContain('.wrangler/specifications/archived');
+        expect(dirs).toContain('.wrangler/orchestration/agents');
+        expect(dirs).toContain('.wrangler/orchestration/prompts');
+        expect(dirs).toContain('.wrangler/orchestration/workflows');
       });
 
       it('should return directories from custom schema', async () => {
@@ -609,6 +661,31 @@ describe('workspace-schema', () => {
 
         expect(dirs.length).toBe(uniqueDirs.length);
       });
+
+      it('should include orchestration directory and all three subdirectories', () => {
+        const dirs = getInitializationDirectories();
+
+        // Orchestration parent directory
+        expect(dirs).toContain('.wrangler/orchestration');
+
+        // All three orchestration subdirectories
+        const orchestrationSubdirs = dirs.filter(d => d.startsWith('.wrangler/orchestration/'));
+        expect(orchestrationSubdirs).toHaveLength(3);
+        expect(orchestrationSubdirs).toContain('.wrangler/orchestration/agents');
+        expect(orchestrationSubdirs).toContain('.wrangler/orchestration/prompts');
+        expect(orchestrationSubdirs).toContain('.wrangler/orchestration/workflows');
+      });
+
+      it('should include orchestration directories in the total count', () => {
+        const dirs = getInitializationDirectories();
+
+        // 10 top-level directories + 5 subdirectories (2 archived + 3 orchestration) = 15
+        expect(dirs).toHaveLength(15);
+
+        // Verify orchestration contributes 4 entries (parent + 3 subdirs)
+        const orchestrationEntries = dirs.filter(d => d.includes('orchestration'));
+        expect(orchestrationEntries).toHaveLength(4);
+      });
     });
 
     describe('getGitTrackedDirectories()', () => {
@@ -621,14 +698,41 @@ describe('workspace-schema', () => {
         expect(dirs).toContain('.wrangler/memos');
         expect(dirs).toContain('.wrangler/plans');
         expect(dirs).toContain('.wrangler/docs');
+        expect(dirs).toContain('.wrangler/orchestration');
       });
 
       it('should not return gitignored directories', () => {
         const dirs = getGitTrackedDirectories();
 
         expect(dirs).not.toContain('.wrangler/cache');
-        expect(dirs).not.toContain('.wrangler/config');
         expect(dirs).not.toContain('.wrangler/logs');
+      });
+
+      it('should include orchestration as a git-tracked directory', () => {
+        const dirs = getGitTrackedDirectories();
+
+        expect(dirs).toContain('.wrangler/orchestration');
+
+        // Verify orchestration appears exactly once (not duplicated)
+        const orchestrationCount = dirs.filter(d => d === '.wrangler/orchestration').length;
+        expect(orchestrationCount).toBe(1);
+      });
+
+      it('should not include orchestration subdirectories as separate git-tracked entries', () => {
+        const dirs = getGitTrackedDirectories();
+
+        // getGitTrackedDirectories only returns top-level directories, not subdirectories
+        expect(dirs).not.toContain('.wrangler/orchestration/agents');
+        expect(dirs).not.toContain('.wrangler/orchestration/prompts');
+        expect(dirs).not.toContain('.wrangler/orchestration/workflows');
+      });
+
+      it('should have the correct total count of git-tracked directories', () => {
+        const dirs = getGitTrackedDirectories();
+
+        // 8 git-tracked: issues, specifications, ideas, memos, plans, docs, config, orchestration
+        // 2 not git-tracked: cache, logs
+        expect(dirs).toHaveLength(8);
       });
 
       it('should filter correctly based on gitTracked flag', async () => {
@@ -661,8 +765,8 @@ describe('workspace-schema', () => {
         const patterns = getGitignorePatterns();
 
         expect(patterns).toContain('cache/');
-        expect(patterns).toContain('config/');
         expect(patterns).toContain('logs/');
+        expect(patterns).toContain('sessions/');
         expect(patterns).not.toContain('metrics/');
       });
 
@@ -795,7 +899,7 @@ describe('workspace-schema', () => {
 
       // Load schema
       const schema = loadWorkspaceSchema(testDir);
-      expect(schema.version).toBe('1.2.0');
+      expect(schema.version).toBe('1.3.0');
 
       // Get directories
       const dirs = getInitializationDirectories(testDir);
@@ -827,7 +931,7 @@ describe('workspace-schema', () => {
 
       // Should load schema from nested directory
       const schema = loadWorkspaceSchema(projectDir);
-      expect(schema.version).toBe('1.2.0');
+      expect(schema.version).toBe('1.3.0');
     });
 
     it('should handle multiple schemas in hierarchy', async () => {

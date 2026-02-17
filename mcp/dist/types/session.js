@@ -36,9 +36,29 @@ export const SessionCheckpointSchema = z.object({
     resumeInstructions: z.string(),
 });
 // Tool parameter schemas
+export const StepResultSchema = z.object({
+    stepName: z.string().min(1).describe('Step name'),
+    status: z.enum(['passed', 'failed', 'skipped']).describe('Step execution status'),
+    outputSummary: z.string().optional().describe('Summary of output or reason'),
+});
+export const StepExecutionSummarySchema = z.object({
+    totalSteps: z.number().int().min(0).describe('Total number of steps in the workflow'),
+    executed: z.number().int().min(0).describe('Number of steps that were executed'),
+    skipped: z.number().int().min(0).describe('Number of steps that were skipped'),
+    skippedSteps: z.array(z.string()).describe('Names of steps that were skipped'),
+    stepDetails: z.array(z.object({
+        stepName: z.string().min(1),
+        status: z.enum(['passed', 'failed', 'skipped']),
+        agent: z.string().optional(),
+        prompt: z.string().optional(),
+    })).optional().describe('Per-step details including agent and prompt used'),
+});
 export const SessionStartParamsSchema = z.object({
     specFile: z.string().min(1).describe('Path to spec file'),
     workingDirectory: z.string().optional().describe('Override working directory'),
+    workflow: z.string().optional().describe('Workflow name (defaults to "spec-implementation")'),
+    skipChecks: z.boolean().optional().describe('Whether to skip pre/post checks'),
+    skipStepNames: z.array(z.string()).optional().describe('Step names to skip'),
 });
 export const SessionPhaseParamsSchema = z.object({
     sessionId: z.string().min(1).describe('Session ID'),
@@ -53,6 +73,7 @@ export const SessionCheckpointParamsSchema = z.object({
     lastAction: z.string().describe('What was just done'),
     resumeInstructions: z.string().describe('How to continue if interrupted'),
     variables: z.record(z.unknown()).optional().describe('Variables to preserve'),
+    stepResults: z.array(StepResultSchema).optional().describe('Step results since last checkpoint'),
 });
 export const SessionCompleteParamsSchema = z.object({
     sessionId: z.string().min(1).describe('Session ID'),
@@ -60,6 +81,7 @@ export const SessionCompleteParamsSchema = z.object({
     prUrl: z.string().optional().describe('PR URL if created'),
     prNumber: z.number().int().positive().optional().describe('PR number if created'),
     summary: z.string().optional().describe('Completion summary'),
+    stepExecutionSummary: StepExecutionSummarySchema.optional().describe('Step execution summary'),
 });
 export const SessionGetParamsSchema = z.object({
     sessionId: z.string().optional().describe('Session ID (omit for most recent incomplete)'),
