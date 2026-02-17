@@ -1,0 +1,119 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`GitHubPRCommentReporter - Snapshot Tests edge cases formats durations correctly: 0ms, 45s, 3m 12s 1`] = `
+"<!-- wrangler-workflow: wf-snap-010 -->
+## Workflow Progress
+
+| Step | Status |
+|------|--------|
+| fast-step | :white_check_mark: Done (0ms) |
+| medium-step | :white_check_mark: Done (45s) |
+| long-step | :white_check_mark: Done (3m 12s) |
+
+---
+**Completed** in 3 minutes 57 seconds | 3 steps executed"
+`;
+
+exports[`GitHubPRCommentReporter - Snapshot Tests edge cases renders step names with markdown special characters 1`] = `
+"<!-- wrangler-workflow: wf-snap-009 -->
+## Workflow Progress
+
+| Step | Status |
+|------|--------|
+| run \`tests\` suite | :white_circle: Pending |
+| check **critical** paths | :white_circle: Pending |
+| deploy_v2.0 | :white_circle: Pending |"
+`;
+
+exports[`GitHubPRCommentReporter - Snapshot Tests in-progress states renders per-task step with task progress metadata 1`] = `
+"<!-- wrangler-workflow: wf-snap-005 -->
+## Workflow Progress
+
+| Step | Status |
+|------|--------|
+| analyze | :white_check_mark: Done (10s) |
+| implement | :hourglass_flowing_sand: Running... (3/8 tasks) |
+| test | :white_circle: Pending |"
+`;
+
+exports[`GitHubPRCommentReporter - Snapshot Tests in-progress states renders step 1 completed, step 2 started 1`] = `
+"<!-- wrangler-workflow: wf-snap-004 -->
+## Workflow Progress
+
+| Step | Status |
+|------|--------|
+| analyze | :white_check_mark: Done (5s) |
+| plan | :hourglass_flowing_sand: Running... |
+| execute | :white_circle: Pending |"
+`;
+
+exports[`GitHubPRCommentReporter - Snapshot Tests in-progress states renders step 1 started (spinner on step 1, pending on rest) 1`] = `
+"<!-- wrangler-workflow: wf-snap-003 -->
+## Workflow Progress
+
+| Step | Status |
+|------|--------|
+| analyze | :hourglass_flowing_sand: Running... |
+| plan | :white_circle: Pending |
+| execute | :white_circle: Pending |"
+`;
+
+exports[`GitHubPRCommentReporter - Snapshot Tests initial state renders initial comment with 5 visible, 1 silent, 1 summary step 1`] = `
+"<!-- wrangler-workflow: wf-snap-001 -->
+## Workflow Progress
+
+| Step | Status |
+|------|--------|
+| analyze | :white_circle: Pending |
+| plan | :white_circle: Pending |
+| implement | :white_circle: Pending |
+| test | :white_circle: Pending |
+| review | :white_circle: Pending |"
+`;
+
+exports[`GitHubPRCommentReporter - Snapshot Tests initial state renders minimal comment when all steps are silent 1`] = `
+"<!-- wrangler-workflow: wf-snap-002 -->
+## Workflow Progress
+
+| Step | Status |
+|------|--------|"
+`;
+
+exports[`GitHubPRCommentReporter - Snapshot Tests terminal states renders all steps completed with completion summary and duration 1`] = `
+"<!-- wrangler-workflow: wf-snap-006 -->
+## Workflow Progress
+
+| Step | Status |
+|------|--------|
+| analyze | :white_check_mark: Done (30s) |
+| plan | :white_check_mark: Done (45s) |
+| execute | :white_check_mark: Done (50s) |
+| post-summary | :white_check_mark: Done (2s) |
+
+---
+**Completed** in 3 minutes 12 seconds | 4 steps executed"
+`;
+
+exports[`GitHubPRCommentReporter - Snapshot Tests terminal states renders error state with error message 1`] = `
+"<!-- wrangler-workflow: wf-snap-008 -->
+## Workflow Progress
+
+| Step | Status |
+|------|--------|
+| analyze | :hourglass_flowing_sand: Running... |
+| plan | :white_circle: Pending |
+| execute | :white_circle: Pending |
+
+> :x: **Error**: Agent timed out after 300 seconds"
+`;
+
+exports[`GitHubPRCommentReporter - Snapshot Tests terminal states renders step 3 failed 1`] = `
+"<!-- wrangler-workflow: wf-snap-007 -->
+## Workflow Progress
+
+| Step | Status |
+|------|--------|
+| analyze | :white_check_mark: Done (8s) |
+| plan | :white_check_mark: Done (12s) |
+| execute | :x: Failed |"
+`;
