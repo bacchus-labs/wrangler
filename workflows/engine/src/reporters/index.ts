@@ -4,3 +4,5 @@ export type {
   WorkflowReporter,
   ReporterFactory,
 } from './types.js';
+
+export { ReporterRegistry, createDefaultReporterRegistry } from './registry.js';
