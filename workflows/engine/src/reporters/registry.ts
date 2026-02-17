@@ -1,4 +1,6 @@
 import type { WorkflowReporter, ReporterFactory } from './types.js';
+import { GitHubPRCommentReporter } from './github-pr-comment.js';
+import type { GitHubPRCommentConfig } from './github-pr-comment.js';
 
 /**
  * Registry that maps reporter type strings to factory functions.
@@ -41,6 +43,8 @@ export class ReporterRegistry {
  */
 export function createDefaultReporterRegistry(): ReporterRegistry {
   const registry = new ReporterRegistry();
-  // Built-in reporters will be registered here as they are implemented
+  registry.register('github-pr-comment', (config) =>
+    new GitHubPRCommentReporter(config as unknown as GitHubPRCommentConfig)
+  );
   return registry;
 }
