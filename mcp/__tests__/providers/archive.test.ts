@@ -10,12 +10,9 @@
 
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import * as fsExtra from 'fs-extra';
+import fs from 'fs-extra';
 import { MarkdownIssueProvider } from '../../src/providers/markdown.js';
 import { IssueCreateRequest, IssueUpdateRequest, IssueStatus } from '../../src/types/issues.js';
-
-// ESM compat
-const fs = (fsExtra as any).default || fsExtra;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 describe('MarkdownIssueProvider - Auto-archive', () => {

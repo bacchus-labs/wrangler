@@ -5,10 +5,7 @@
 import * as path from 'path';
 import * as crypto from 'crypto';
 import { execSync } from 'child_process';
-import * as fsExtra from 'fs-extra';
-
-// ESM compat
-const fs = (fsExtra as any).default || fsExtra;
+import fs from 'fs-extra';
 
 import {
   Session,

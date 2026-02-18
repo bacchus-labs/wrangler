@@ -9,10 +9,7 @@
  */
 
 import * as path from 'path';
-import * as fsExtra from 'fs-extra';
-
-// ESM compat
-const fs = (fsExtra as any).default || fsExtra;
+import fs from 'fs-extra';
 import matter = require('gray-matter');
 import {
   createIssueTool,

@@ -5,11 +5,8 @@
  */
 
 import * as path from 'path';
-import * as fsExtra from 'fs-extra';
+import fs from 'fs-extra';
 import { jest } from '@jest/globals';
-
-// ESM compat
-const fs = (fsExtra as any).default || fsExtra;
 
 import { sessionStartTool } from '../../../src/tools/session/start';
 import { sessionPhaseTool } from '../../../src/tools/session/phase';

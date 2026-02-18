@@ -3,10 +3,7 @@
  */
 
 import * as path from 'path';
-import * as fsExtra from 'fs-extra';
-
-// ESM compat
-const fs = (fsExtra as any).default || fsExtra;
+import fs from 'fs-extra';
 
 import { SessionStorageProvider, SessionStorageConfig } from '../../src/providers/session-storage';
 import { Session, SessionCheckpoint, AuditEntry } from '../../src/types/session';

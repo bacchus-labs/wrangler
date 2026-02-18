@@ -25216,7 +25216,7 @@ ${projects.join(", ") || "No projects found"}`
 
 // src/providers/markdown.ts
 var path2 = __toESM(require("path"), 1);
-var fsExtra = __toESM(require_lib(), 1);
+var import_fs_extra = __toESM(require_lib(), 1);
 
 // src/providers/base.ts
 var IssueProvider = class {
@@ -25408,7 +25408,6 @@ function getMCPDirectories(basePath) {
 var matter = require_gray_matter();
 var fastGlob = require_out4();
 var glob = fastGlob.glob;
-var fs2 = fsExtra.default || fsExtra;
 var schemaDefaults = getMCPDirectories();
 var DEFAULT_ISSUE_DIR = schemaDefaults.issuesDirectory;
 var DEFAULT_SPEC_DIR = schemaDefaults.specificationsDirectory;
@@ -25441,7 +25440,7 @@ var MarkdownIssueProvider = class extends IssueProvider {
     const artifactType = request.type ?? "issue";
     const targetDir = this.getCollectionDir(artifactType);
     this.assertWithinWorkspace(targetDir, "access issue directory");
-    await fs2.ensureDir(targetDir);
+    await import_fs_extra.default.ensureDir(targetDir);
     const issueId = await this.generateIssueId(artifactType);
     const fileName = this.generateFileName(issueId, request.title);
     const filePath = path2.join(targetDir, fileName);
@@ -25475,7 +25474,7 @@ var MarkdownIssueProvider = class extends IssueProvider {
     if (issue.project) frontmatter.project = issue.project;
     if (issue.wranglerContext) frontmatter.wranglerContext = issue.wranglerContext;
     const fileContent = matter.stringify(request.description, frontmatter);
-    await fs2.writeFile(filePath, fileContent, "utf-8");
+    await import_fs_extra.default.writeFile(filePath, fileContent, "utf-8");
     return issue;
   }
   async getIssue(id) {
@@ -25483,7 +25482,7 @@ var MarkdownIssueProvider = class extends IssueProvider {
     if (!location) {
       return null;
     }
-    const content = await fs2.readFile(location.absolutePath, "utf-8");
+    const content = await import_fs_extra.default.readFile(location.absolutePath, "utf-8");
     const parsed = matter(content);
     return this.parseIssueFromFile(parsed, location.absolutePath, location.type);
   }
@@ -25509,8 +25508,8 @@ var MarkdownIssueProvider = class extends IssueProvider {
     if (needsMove) {
       destinationPath = path2.join(targetBaseDir, path2.basename(location.absolutePath));
       this.assertWithinWorkspace(destinationPath, "write issue file");
-      await fs2.ensureDir(path2.dirname(destinationPath));
-      await fs2.move(location.absolutePath, destinationPath, { overwrite: true });
+      await import_fs_extra.default.ensureDir(path2.dirname(destinationPath));
+      await import_fs_extra.default.move(location.absolutePath, destinationPath, { overwrite: true });
       location.absolutePath = destinationPath;
       location.directory = path2.dirname(destinationPath);
       location.type = targetType;
@@ -25545,7 +25544,7 @@ var MarkdownIssueProvider = class extends IssueProvider {
     if (updatedIssue.project) frontmatter.project = updatedIssue.project;
     if (updatedIssue.wranglerContext) frontmatter.wranglerContext = updatedIssue.wranglerContext;
     const fileContent = matter.stringify(updatedIssue.description, frontmatter);
-    await fs2.writeFile(destinationPath, fileContent, "utf-8");
+    await import_fs_extra.default.writeFile(destinationPath, fileContent, "utf-8");
     return updatedIssue;
   }
   async deleteIssue(id) {
@@ -25554,20 +25553,20 @@ var MarkdownIssueProvider = class extends IssueProvider {
       throw new Error(`Issue not found: ${id}`);
     }
     this.assertWithinWorkspace(location.absolutePath, "delete issue file");
-    await fs2.remove(location.absolutePath);
+    await import_fs_extra.default.remove(location.absolutePath);
   }
   async listIssues(filters) {
     const typesFilter = this.normalizeTypes(filters);
     const collections = this.getCollections(typesFilter);
     const issues = [];
     for (const { type, directory } of collections) {
-      if (!await fs2.pathExists(directory)) {
+      if (!await import_fs_extra.default.pathExists(directory)) {
         continue;
       }
       const files = await glob("**/*.md", { cwd: directory, absolute: true });
       for (const filePath of files) {
         try {
-          const content = await fs2.readFile(filePath, "utf-8");
+          const content = await import_fs_extra.default.readFile(filePath, "utf-8");
           const parsed = matter(content);
           const issue = this.parseIssueFromFile(parsed, filePath, type);
           if (this.matchesFilters(issue, filters)) {
@@ -25670,7 +25669,7 @@ var MarkdownIssueProvider = class extends IssueProvider {
         return false;
       }
       for (const { directory } of collections) {
-        if (await fs2.pathExists(directory)) {
+        if (await import_fs_extra.default.pathExists(directory)) {
           return true;
         }
       }
@@ -25800,7 +25799,7 @@ var MarkdownIssueProvider = class extends IssueProvider {
     const numbers = [];
     const prefix = this.getTypePrefix(artifactType);
     const directory = this.getCollectionDir(artifactType);
-    if (!await fs2.pathExists(directory)) {
+    if (!await import_fs_extra.default.pathExists(directory)) {
       return 1;
     }
     const files = await glob("**/*.md", { cwd: directory });
@@ -25835,7 +25834,7 @@ var MarkdownIssueProvider = class extends IssueProvider {
   }
   async findIssueLocation(id) {
     for (const { type, directory } of this.getCollections()) {
-      if (!await fs2.pathExists(directory)) {
+      if (!await import_fs_extra.default.pathExists(directory)) {
         continue;
       }
       const files = await glob("**/*.md", { cwd: directory });
@@ -25843,7 +25842,7 @@ var MarkdownIssueProvider = class extends IssueProvider {
         const absolutePath = path2.join(directory, fileName);
         this.assertWithinWorkspace(absolutePath, "read issue file");
         try {
-          const content = await fs2.readFile(absolutePath, "utf-8");
+          const content = await import_fs_extra.default.readFile(absolutePath, "utf-8");
           const parsed = matter(content);
           if (parsed.data.id === id) {
             return {
@@ -26123,7 +26122,7 @@ ${params.note}` : "";
 var path3 = __toESM(require("path"), 1);
 var crypto = __toESM(require("crypto"), 1);
 var import_child_process = require("child_process");
-var fsExtra2 = __toESM(require_lib(), 1);
+var import_fs_extra2 = __toESM(require_lib(), 1);
 
 // src/types/session.ts
 var SessionStatusSchema = external_exports.enum(["running", "paused", "completed", "failed"]);
@@ -26221,7 +26220,6 @@ var SessionStatusParamsSchema = external_exports.object({
 });
 
 // src/tools/session/start.ts
-var fs3 = fsExtra2.default || fsExtra2;
 var sessionStartSchema = SessionStartParamsSchema;
 function generateSessionId(workingDir) {
   const date = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
@@ -26247,7 +26245,7 @@ async function sessionStartTool(params, storageProvider) {
     const workingDir = params.workingDirectory || process.cwd();
     const resolvedWorkingDir = path3.resolve(workingDir);
     const specPath = path3.isAbsolute(params.specFile) ? params.specFile : path3.join(resolvedWorkingDir, params.specFile);
-    if (!await fs3.pathExists(specPath)) {
+    if (!await import_fs_extra2.default.pathExists(specPath)) {
       return createErrorResponse(
         "FILE_NOT_FOUND" /* FILE_NOT_FOUND */,
         `Spec file not found: ${params.specFile}`,
@@ -26260,11 +26258,11 @@ async function sessionStartTool(params, storageProvider) {
     const branchName = `wrangler/${specName}/${sessionId}`;
     let actualWorktreePath = worktreePath;
     let worktreeCreated = false;
-    if (await fs3.pathExists(worktreePath)) {
+    if (await import_fs_extra2.default.pathExists(worktreePath)) {
       actualWorktreePath = `${worktreePath}-${sessionId.split("-").pop()}`;
     }
     try {
-      await fs3.ensureDir(path3.dirname(actualWorktreePath));
+      await import_fs_extra2.default.ensureDir(path3.dirname(actualWorktreePath));
       (0, import_child_process.execSync)(`git worktree add -b "${branchName}" "${actualWorktreePath}"`, {
         cwd: resolvedWorkingDir,
         encoding: "utf-8",
@@ -26693,8 +26691,7 @@ async function sessionStatusTool(params, storageProvider) {
 // src/providers/session-storage.ts
 var path4 = __toESM(require("path"), 1);
 var crypto2 = __toESM(require("crypto"), 1);
-var fsExtra3 = __toESM(require_lib(), 1);
-var fs4 = fsExtra3.default || fsExtra3;
+var import_fs_extra3 = __toESM(require_lib(), 1);
 var SessionStorageProvider = class {
   basePath;
   sessionsDir;
@@ -26713,9 +26710,9 @@ var SessionStorageProvider = class {
    */
   async createSession(session) {
     const sessionDir = this.getSessionDir(session.id);
-    await fs4.ensureDir(sessionDir);
+    await import_fs_extra3.default.ensureDir(sessionDir);
     const contextPath = path4.join(sessionDir, "context.json");
-    await fs4.writeJson(contextPath, session, { spaces: 2 });
+    await import_fs_extra3.default.writeJson(contextPath, session, { spaces: 2 });
     await this.appendAuditEntry(session.id, {
       phase: "init",
       timestamp: session.startedAt,
@@ -26731,10 +26728,10 @@ var SessionStorageProvider = class {
    */
   async getSession(sessionId) {
     const contextPath = path4.join(this.getSessionDir(sessionId), "context.json");
-    if (!await fs4.pathExists(contextPath)) {
+    if (!await import_fs_extra3.default.pathExists(contextPath)) {
       return null;
     }
-    return await fs4.readJson(contextPath);
+    return await import_fs_extra3.default.readJson(contextPath);
   }
   /**
    * Update a session
@@ -26750,7 +26747,7 @@ var SessionStorageProvider = class {
       updatedAt: (/* @__PURE__ */ new Date()).toISOString()
     };
     const contextPath = path4.join(this.getSessionDir(sessionId), "context.json");
-    await fs4.writeJson(contextPath, updated, { spaces: 2 });
+    await import_fs_extra3.default.writeJson(contextPath, updated, { spaces: 2 });
     return updated;
   }
   /**
@@ -26758,9 +26755,9 @@ var SessionStorageProvider = class {
    */
   async saveCheckpoint(checkpoint) {
     const sessionDir = this.getSessionDir(checkpoint.sessionId);
-    await fs4.ensureDir(sessionDir);
+    await import_fs_extra3.default.ensureDir(sessionDir);
     const checkpointPath = path4.join(sessionDir, "checkpoint.json");
-    await fs4.writeJson(checkpointPath, checkpoint, { spaces: 2 });
+    await import_fs_extra3.default.writeJson(checkpointPath, checkpoint, { spaces: 2 });
     await this.updateSession(checkpoint.sessionId, {
       tasksCompleted: checkpoint.tasksCompleted,
       tasksPending: checkpoint.tasksPending,
@@ -26780,40 +26777,40 @@ var SessionStorageProvider = class {
    */
   async getCheckpoint(sessionId) {
     const checkpointPath = path4.join(this.getSessionDir(sessionId), "checkpoint.json");
-    if (!await fs4.pathExists(checkpointPath)) {
+    if (!await import_fs_extra3.default.pathExists(checkpointPath)) {
       return null;
     }
-    return await fs4.readJson(checkpointPath);
+    return await import_fs_extra3.default.readJson(checkpointPath);
   }
   /**
    * Get the blocker for a session (if paused)
    */
   async getBlocker(sessionId) {
     const blockerPath = path4.join(this.getSessionDir(sessionId), "blocker.json");
-    if (!await fs4.pathExists(blockerPath)) {
+    if (!await import_fs_extra3.default.pathExists(blockerPath)) {
       return null;
     }
-    return await fs4.readJson(blockerPath);
+    return await import_fs_extra3.default.readJson(blockerPath);
   }
   /**
    * Append an audit entry to the session's audit log
    */
   async appendAuditEntry(sessionId, entry) {
     const sessionDir = this.getSessionDir(sessionId);
-    await fs4.ensureDir(sessionDir);
+    await import_fs_extra3.default.ensureDir(sessionDir);
     const auditPath = path4.join(sessionDir, "audit.jsonl");
     const line = JSON.stringify(entry) + "\n";
-    await fs4.appendFile(auditPath, line);
+    await import_fs_extra3.default.appendFile(auditPath, line);
   }
   /**
    * Get all audit entries for a session
    */
   async getAuditEntries(sessionId) {
     const auditPath = path4.join(this.getSessionDir(sessionId), "audit.jsonl");
-    if (!await fs4.pathExists(auditPath)) {
+    if (!await import_fs_extra3.default.pathExists(auditPath)) {
       return [];
     }
-    const content = await fs4.readFile(auditPath, "utf-8");
+    const content = await import_fs_extra3.default.readFile(auditPath, "utf-8");
     const lines = content.trim().split("\n").filter(Boolean);
     return lines.map((line) => JSON.parse(line));
   }
@@ -26821,10 +26818,10 @@ var SessionStorageProvider = class {
    * Find the most recent incomplete session
    */
   async findIncompleteSession() {
-    if (!await fs4.pathExists(this.sessionsDir)) {
+    if (!await import_fs_extra3.default.pathExists(this.sessionsDir)) {
       return null;
     }
-    const entries = await fs4.readdir(this.sessionsDir, { withFileTypes: true });
+    const entries = await import_fs_extra3.default.readdir(this.sessionsDir, { withFileTypes: true });
     const sessionDirs = entries.filter((e) => e.isDirectory()).map((e) => e.name).sort().reverse();
     for (const sessionId of sessionDirs) {
       const session = await this.getSession(sessionId);
@@ -26838,10 +26835,10 @@ var SessionStorageProvider = class {
    * List all sessions
    */
   async listSessions(filters) {
-    if (!await fs4.pathExists(this.sessionsDir)) {
+    if (!await import_fs_extra3.default.pathExists(this.sessionsDir)) {
       return [];
     }
-    const entries = await fs4.readdir(this.sessionsDir, { withFileTypes: true });
+    const entries = await import_fs_extra3.default.readdir(this.sessionsDir, { withFileTypes: true });
     const sessionDirs = entries.filter((e) => e.isDirectory()).map((e) => e.name);
     const sessions = [];
     for (const sessionId of sessionDirs) {

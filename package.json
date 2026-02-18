@@ -19,8 +19,8 @@
     "test:engine": "npm run test -w @wrangler/workflow-engine",
     "test:all": "npm run test:mcp && npm run test:engine",
     "setup:hooks": "ln -sf ../../scripts/pre-commit .git/hooks/pre-commit && echo 'Pre-commit hook installed'",
-    "postinstall": "npm run build:all 2>/dev/null || true",
-    "prepare": "npm run build:all 2>/dev/null || true"
+    "postinstall": "npm run build:all || true",
+    "prepare": "npm run build:all || true"
   },
   "keywords": [
     "mcp",
