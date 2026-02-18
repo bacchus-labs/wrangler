@@ -53,22 +53,34 @@ wrangler/
 │   └── initialize-skills.sh
 │
 ├── mcp/                   # Built-in MCP server (TypeScript)
-│   ├── index.ts           # Server entry point
-│   ├── server.ts          # WranglerMCPServer class
-│   ├── bundle-entry.ts    # Bundled entry for distribution
-│   ├── workspace-schema.ts # Workspace directory schema
-│   ├── tsconfig.json
-│   ├── providers/         # Storage providers
-│   │   ├── base.ts        # Abstract provider interface
-│   │   ├── factory.ts     # Provider factory
-│   │   └── markdown.ts    # Markdown file storage
-│   ├── tools/
-│   │   ├── issues/        # 11 issue management tools
-│   │   ├── session/       # 5 session orchestration tools
-│   │   └── workspace/     # Workspace initialization tools
-│   ├── types/             # TypeScript type definitions
+│   ├── src/               # Source files
+│   │   ├── index.ts       # Server entry point
+│   │   ├── server.ts      # WranglerMCPServer class
+│   │   ├── bundle-entry.ts # Bundle entry point
+│   │   ├── workspace-schema.ts # Workspace schema
+│   │   ├── placeholder.ts # Placeholder
+│   │   ├── providers/     # Storage providers
+│   │   │   ├── base.ts
+│   │   │   ├── factory.ts
+│   │   │   ├── markdown.ts
+│   │   │   ├── session-storage.ts
+│   │   │   └── index.ts
+│   │   ├── tools/         # Tool implementations
+│   │   │   ├── issues/
+│   │   │   ├── session/
+│   │   │   └── workspace/
+│   │   └── types/         # Type definitions
+│   │       ├── config.ts
+│   │       ├── issues.ts
+│   │       ├── errors.ts
+│   │       └── session.ts
+│   ├── __tests__/         # Test suite (stays here, NOT in src/)
 │   ├── dist/              # Compiled output (gitignored)
-│   └── __tests__/         # Test suite
+│   ├── package.json       # MCP workspace package
+│   ├── tsconfig.json      # TypeScript config
+│   ├── tsconfig.test.json # Test TypeScript config
+│   ├── jest.config.js     # Jest configuration
+│   └── README.md
 │
 ├── scripts/               # Utility scripts
 │   └── pre-commit         # Pre-commit hook script
