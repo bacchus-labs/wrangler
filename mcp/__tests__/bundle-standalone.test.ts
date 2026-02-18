@@ -6,9 +6,11 @@
  */
 
 import { spawn, ChildProcess } from 'child_process';
-import * as fs from 'fs-extra';
+import fs from 'fs-extra';
 import * as path from 'path';
 import * as os from 'os';
+import { fileURLToPath } from 'url';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 describe('MCP Bundle Standalone', () => {
   const bundlePath = path.resolve(__dirname, '../dist/bundle.cjs');

@@ -2,7 +2,7 @@
  * Tests for session_checkpoint tool
  */
 
-import { sessionCheckpointTool, sessionCheckpointSchema, SessionCheckpointParams } from '../../../tools/session/checkpoint';
+import { sessionCheckpointTool, sessionCheckpointSchema, SessionCheckpointParams } from '../../../src/tools/session/checkpoint';
 import { MockSessionStorageProvider, createTestSession } from './test-utils';
 
 describe('sessionCheckpointTool', () => {

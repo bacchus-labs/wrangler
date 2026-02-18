@@ -2,9 +2,9 @@
  * Test utilities for issue tools
  */
 
-import { Issue, IssueCreateRequest, IssueUpdateRequest, IssueFilters, IssueSearchOptions } from '../../../types/issues';
-import { IssueProvider } from '../../../providers/base';
-import { ProviderFactory } from '../../../providers/factory';
+import { Issue, IssueCreateRequest, IssueUpdateRequest, IssueFilters, IssueSearchOptions } from '../../../src/types/issues';
+import { IssueProvider } from '../../../src/providers/base';
+import { ProviderFactory } from '../../../src/providers/factory';
 
 /**
  * Mock issue provider for testing

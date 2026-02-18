@@ -14,7 +14,7 @@ import {
   issueProjectsTool,
   markCompleteIssueTool,
   issuesAllCompleteTool,
-} from '../../../tools/issues';
+} from '../../../src/tools/issues';
 import { MockProviderFactory, createTestIssue } from './test-utils';
 
 describe('All Issue Tools Integration Tests', () => {

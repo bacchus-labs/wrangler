@@ -2,21 +2,25 @@
   "name": "wrangler",
   "version": "1.0.0",
   "description": "Core skills library with built-in issue management MCP server",
+  "private": true,
   "type": "module",
-  "main": "mcp/dist/index.js",
+  "workspaces": [
+    "mcp",
+    "workflows/engine"
+  ],
   "scripts": {
-    "build:mcp": "tsc -p mcp/tsconfig.json",
-    "bundle:mcp": "esbuild mcp/bundle-entry.ts --bundle --platform=node --format=cjs --target=node18 --outfile=mcp/dist/bundle.cjs --packages=bundle",
-    "build:engine": "cd workflows/engine && npm install --ignore-scripts && npm run build",
-    "build:all": "npm run build:mcp && npm run bundle:mcp && npm run build:engine",
-    "watch:mcp": "tsc -p mcp/tsconfig.json --watch",
-    "mcp:dev": "npm run build:mcp && WRANGLER_MCP_DEBUG=true node mcp/dist/index.js",
-    "test:mcp": "jest mcp/__tests__",
-    "test:engine": "cd workflows/engine && npm test",
+    "build:mcp": "npm run build -w @wrangler/mcp",
+    "bundle:mcp": "npm run bundle -w @wrangler/mcp",
+    "build:engine": "npm run build -w @wrangler/workflow-engine",
+    "build:all": "npm run build:mcp && npm run build:engine",
+    "watch:mcp": "npm run watch -w @wrangler/mcp",
+    "mcp:dev": "npm run dev -w @wrangler/mcp",
+    "test:mcp": "npm run test -w @wrangler/mcp",
+    "test:engine": "npm run test -w @wrangler/workflow-engine",
     "test:all": "npm run test:mcp && npm run test:engine",
     "setup:hooks": "ln -sf ../../scripts/pre-commit .git/hooks/pre-commit && echo 'Pre-commit hook installed'",
-    "postinstall": "npm run build:all",
-    "prepare": "npm run build:all && npm run setup:hooks 2>/dev/null || true"
+    "postinstall": "npm run build:all || true",
+    "prepare": "npm run build:all || true"
   },
   "keywords": [
     "mcp",
@@ -25,22 +29,5 @@
     "specifications"
   ],
   "author": "",
-  "license": "MIT",
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0",
-    "fast-glob": "^3.3.0",
-    "fs-extra": "^11.2.0",
-    "gray-matter": "^4.0.3",
-    "zod": "^3.22.0",
-    "zod-to-json-schema": "^3.22.0"
-  },
-  "devDependencies": {
-    "@types/fs-extra": "^11.0.0",
-    "@types/jest": "^29.0.0",
-    "@types/node": "^20.0.0",
-    "esbuild": "^0.27.2",
-    "jest": "^29.0.0",
-    "ts-jest": "^29.0.0",
-    "typescript": "^5.3.0"
-  }
+  "license": "MIT"
 }

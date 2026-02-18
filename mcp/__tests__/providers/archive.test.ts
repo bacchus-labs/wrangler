@@ -9,11 +9,11 @@
  */
 
 import * as path from 'path';
-import * as fsExtra from 'fs-extra';
-import { MarkdownIssueProvider } from '../../providers/markdown.js';
-import { IssueCreateRequest, IssueUpdateRequest, IssueStatus } from '../../types/issues.js';
-
-const fs = (fsExtra as any).default || fsExtra;
+import { fileURLToPath } from 'url';
+import fs from 'fs-extra';
+import { MarkdownIssueProvider } from '../../src/providers/markdown.js';
+import { IssueCreateRequest, IssueUpdateRequest, IssueStatus } from '../../src/types/issues.js';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 describe('MarkdownIssueProvider - Auto-archive', () => {
   let provider: MarkdownIssueProvider;

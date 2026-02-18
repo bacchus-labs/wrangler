@@ -8,7 +8,7 @@ import {
   type MCPSuccessResponse,
   type MCPErrorDetails,
   type MCPErrorContext,
-} from '../../types/errors.js';
+} from '../../src/types/errors.js';
 
 describe('Error Types', () => {
   describe('MCPErrorCode', () => {

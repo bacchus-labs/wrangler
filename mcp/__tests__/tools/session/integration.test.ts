@@ -5,20 +5,19 @@
  */
 
 import * as path from 'path';
-import * as fsExtra from 'fs-extra';
+import fs from 'fs-extra';
+import { jest } from '@jest/globals';
 
-// ESM compat
-const fs = (fsExtra as any).default || fsExtra;
-
-import { sessionStartTool } from '../../../tools/session/start';
-import { sessionPhaseTool } from '../../../tools/session/phase';
-import { sessionCheckpointTool } from '../../../tools/session/checkpoint';
-import { sessionCompleteTool } from '../../../tools/session/complete';
-import { sessionGetTool } from '../../../tools/session/get';
-import { SessionStorageProvider } from '../../../providers/session-storage';
+import { sessionStartTool } from '../../../src/tools/session/start';
+import { sessionPhaseTool } from '../../../src/tools/session/phase';
+import { sessionCheckpointTool } from '../../../src/tools/session/checkpoint';
+import { sessionCompleteTool } from '../../../src/tools/session/complete';
+import { sessionGetTool } from '../../../src/tools/session/get';
+import { SessionStorageProvider } from '../../../src/providers/session-storage';
 import { createTempDir, cleanupTempDir, createMockSpecFile } from './test-utils';
 
 describe('Session Tools Integration Tests', () => {
+  jest.setTimeout(30000);
   let tempDir: string;
   let storageProvider: SessionStorageProvider;
 

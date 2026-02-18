@@ -3,9 +3,7 @@
  */
 import * as path from 'path';
 import * as crypto from 'crypto';
-import * as fsExtra from 'fs-extra';
-// ESM compat
-const fs = fsExtra.default || fsExtra;
+import fs from 'fs-extra';
 /**
  * Provides file-based storage for orchestration sessions
  */

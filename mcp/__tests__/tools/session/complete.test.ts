@@ -2,7 +2,7 @@
  * Tests for session_complete tool
  */
 
-import { sessionCompleteTool, sessionCompleteSchema, SessionCompleteParams } from '../../../tools/session/complete';
+import { sessionCompleteTool, sessionCompleteSchema, SessionCompleteParams } from '../../../src/tools/session/complete';
 import { MockSessionStorageProvider, createTestSession } from './test-utils';
 
 describe('sessionCompleteTool', () => {

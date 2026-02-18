@@ -2,7 +2,7 @@
  * Tests for session_phase tool
  */
 
-import { sessionPhaseTool, sessionPhaseSchema, SessionPhaseParams } from '../../../tools/session/phase';
+import { sessionPhaseTool, sessionPhaseSchema, SessionPhaseParams } from '../../../src/tools/session/phase';
 import { MockSessionStorageProvider, createTestSession } from './test-utils';
 
 describe('sessionPhaseTool', () => {

@@ -6,9 +6,7 @@
 import * as path from 'path';
 import * as crypto from 'crypto';
 import { execSync } from 'child_process';
-import * as fsExtra from 'fs-extra';
-// ESM compat
-const fs = fsExtra.default || fsExtra;
+import fs from 'fs-extra';
 import { SessionStartParamsSchema } from '../../types/session.js';
 import { createSuccessResponse, createErrorResponse, MCPErrorCode } from '../../types/errors.js';
 export const sessionStartSchema = SessionStartParamsSchema;

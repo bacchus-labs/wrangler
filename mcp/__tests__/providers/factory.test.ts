@@ -2,9 +2,9 @@
  * Tests for ProviderFactory
  */
 
-import { ProviderFactory } from '../../providers/factory.js';
-import { MarkdownIssueProvider } from '../../providers/markdown.js';
-import { IssueProviderConfig, MarkdownProviderSettings } from '../../types/config.js';
+import { ProviderFactory } from '../../src/providers/factory.js';
+import { MarkdownIssueProvider } from '../../src/providers/markdown.js';
+import { IssueProviderConfig, MarkdownProviderSettings } from '../../src/types/config.js';
 import * as path from 'path';
 
 describe('ProviderFactory', () => {

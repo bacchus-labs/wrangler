@@ -4,12 +4,10 @@
  */
 
 import * as path from 'path';
-import * as fsExtra from 'fs-extra';
+import fs from 'fs-extra';
 import * as os from 'os';
-import { MarkdownIssueProvider } from '../../providers/markdown';
-import { IssueCreateRequest, IssueFilters } from '../../types/issues';
-
-const fs = (fsExtra as any).default || fsExtra;
+import { MarkdownIssueProvider } from '../../src/providers/markdown';
+import { IssueCreateRequest, IssueFilters } from '../../src/types/issues';
 
 describe('Idea Artifact Type', () => {
   let tempDir: string;

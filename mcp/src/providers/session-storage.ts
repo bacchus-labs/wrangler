@@ -4,11 +4,8 @@
 
 import * as path from 'path';
 import * as crypto from 'crypto';
-import * as fsExtra from 'fs-extra';
+import fs from 'fs-extra';
 import { Dirent } from 'fs';
-
-// ESM compat
-const fs = (fsExtra as any).default || fsExtra;
 
 import { Session, SessionCheckpoint, AuditEntry } from '../types/session.js';
 

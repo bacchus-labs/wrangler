@@ -9,7 +9,7 @@
  */
 
 import * as path from 'path';
-import * as fs from 'fs-extra';
+import fs from 'fs-extra';
 import matter = require('gray-matter');
 import {
   createIssueTool,
@@ -23,9 +23,9 @@ import {
   issueProjectsTool,
   markCompleteIssueTool,
   issuesAllCompleteTool,
-} from '../tools/issues';
-import { ProviderFactory } from '../providers/factory';
-import { MarkdownProviderSettings } from '../types/config';
+} from '../src/tools/issues';
+import { ProviderFactory } from '../src/providers/factory';
+import { MarkdownProviderSettings } from '../src/types/config';
 
 describe('MCP Server End-to-End Integration Tests', () => {
   let factory: ProviderFactory;

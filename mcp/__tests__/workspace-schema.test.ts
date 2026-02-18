@@ -4,7 +4,7 @@
  */
 
 import * as path from 'path';
-import * as fs from 'fs-extra';
+import fs from 'fs-extra';
 import { z } from 'zod';
 import {
   WorkspaceSchema,
@@ -21,7 +21,7 @@ import {
   getGitTrackedDirectories,
   getGitignorePatterns,
   getGovernanceFilePaths,
-} from '../workspace-schema';
+} from '../src/workspace-schema';
 
 // Zod schema for WorkspaceSchema validation
 const WorkspaceDirectorySchema = z.object({

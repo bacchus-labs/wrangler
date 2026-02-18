@@ -4,14 +4,17 @@
 
 | Purpose | Path |
 |---------|------|
-| Server entry point | `mcp/index.ts` |
-| Server class | `mcp/server.ts` |
-| Storage provider | `mcp/providers/markdown.ts` |
-| Issue tools | `mcp/tools/issues/*.ts` |
-| Session tools | `mcp/tools/session/*.ts` |
-| Type definitions | `mcp/types/` (`config.ts`, `issues.ts`, `errors.ts`) |
-| Provider base/factory | `mcp/providers/base.ts`, `mcp/providers/factory.ts` |
+| Server entry point | `mcp/src/index.ts` |
+| Server class | `mcp/src/server.ts` |
+| Storage provider | `mcp/src/providers/markdown.ts` |
+| Issue tools | `mcp/src/tools/issues/*.ts` |
+| Session tools | `mcp/src/tools/session/*.ts` |
+| Workspace tools | `mcp/src/tools/workspace/*.ts` |
+| Type definitions | `mcp/src/types/` (`config.ts`, `issues.ts`, `errors.ts`) |
+| Workspace schema | `mcp/src/workspace-schema.ts` |
+| Provider base/factory | `mcp/src/providers/base.ts`, `mcp/src/providers/factory.ts` |
 | Tests | `mcp/__tests__/**/*.test.ts` |
+| Jest config | `mcp/jest.config.js` |
 | Plugin config | `.claude-plugin/plugin.json` |
 | TypeScript config | `mcp/tsconfig.json` |
 | Compiled output | `mcp/dist/` (gitignored) |
@@ -20,13 +23,13 @@
 
 Follow these steps in order:
 
-1. Create tool file: `mcp/tools/issues/{name}.ts`
+1. Create tool file: `mcp/src/tools/issues/{name}.ts`
 2. Write tests FIRST: `mcp/__tests__/tools/issues/{name}.test.ts`
 3. Implement Zod schema for input validation
 4. Implement tool function returning `CallToolResult`
-5. Register in `mcp/server.ts` switch statement
-6. Add to `getAvailableTools()` list in `mcp/server.ts`
-7. Export from `mcp/tools/issues/index.ts`
+5. Register in `mcp/src/server.ts` switch statement
+6. Add to `getAvailableTools()` list in `mcp/src/server.ts`
+7. Export from `mcp/src/tools/issues/index.ts`
 
 ## Tool Implementation Pattern
 

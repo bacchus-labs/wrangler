@@ -3,13 +3,10 @@
  */
 
 import * as path from 'path';
-import * as fsExtra from 'fs-extra';
+import fs from 'fs-extra';
 import matter = require('gray-matter');
 import fastGlob = require('fast-glob');
 const glob = fastGlob.glob;
-
-// ESM compat: fs-extra exports functions on the default export in ESM
-const fs = (fsExtra as any).default || fsExtra;
 import {
   Issue,
   IssueCreateRequest,

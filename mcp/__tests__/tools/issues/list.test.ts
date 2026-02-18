@@ -5,9 +5,9 @@
  * response verbosity for context efficiency.
  */
 
-import { listIssuesTool, listIssuesSchema, ListIssuesParams } from '../../../tools/issues/list';
+import { listIssuesTool, listIssuesSchema, ListIssuesParams } from '../../../src/tools/issues/list';
 import { MockProviderFactory } from './test-utils';
-import { Issue } from '../../../types/issues';
+import { Issue } from '../../../src/types/issues';
 
 describe('listIssuesTool - format parameter', () => {
   let mockFactory: MockProviderFactory;

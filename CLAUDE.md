@@ -248,10 +248,10 @@ See [.wrangler/memory/TESTING_STANDARDS.md](.wrangler/memory/TESTING_STANDARDS.m
 
 ### File Locations
 
-- **MCP Server Entry**: `mcp/index.ts`
-- **Server Class**: `mcp/server.ts`
-- **Provider**: `mcp/providers/markdown.ts`
-- **Tools**: `mcp/tools/issues/*.ts`, `mcp/tools/session/*.ts`
+- **MCP Server Entry**: `mcp/src/index.ts`
+- **Server Class**: `mcp/src/server.ts`
+- **Provider**: `mcp/src/providers/markdown.ts`
+- **Tools**: `mcp/src/tools/issues/*.ts`, `mcp/src/tools/session/*.ts`
 - **Tests**: `mcp/__tests__/**/*.test.ts`
 - **Config**: `.claude-plugin/plugin.json`
 - **Issues**: `.wrangler/issues/*.md`

@@ -4,12 +4,10 @@
 import { createRequire as _createRequire } from "module";
 const __require = _createRequire(import.meta.url);
 import * as path from 'path';
-import * as fsExtra from 'fs-extra';
+import fs from 'fs-extra';
 const matter = __require("gray-matter");
 const fastGlob = __require("fast-glob");
 const glob = fastGlob.glob;
-// ESM compat: fs-extra exports functions on the default export in ESM
-const fs = fsExtra.default || fsExtra;
 import { IssueProvider } from './base.js';
 import { getMCPDirectories } from '../workspace-schema.js';
 // Get defaults from workspace schema

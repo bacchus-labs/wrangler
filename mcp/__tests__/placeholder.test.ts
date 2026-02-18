@@ -2,7 +2,7 @@
  * Placeholder test to verify Jest configuration
  */
 
-import { getVersion, WRANGLER_VERSION } from '../placeholder.js';
+import { getVersion, WRANGLER_VERSION } from '../src/placeholder.js';
 
 describe('Placeholder Tests', () => {
   it('should return the correct version', () => {

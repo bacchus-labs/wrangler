@@ -4,17 +4,17 @@
  */
 
 import * as path from 'path';
-import * as fs from 'fs-extra';
-import { MarkdownIssueProvider } from '../../providers/markdown.js';
-import { IssueProvider } from '../../providers/base.js';
+import fs from 'fs-extra';
+import { MarkdownIssueProvider } from '../../src/providers/markdown.js';
+import { IssueProvider } from '../../src/providers/base.js';
 import {
   Issue,
   IssueCreateRequest,
   IssueUpdateRequest,
   IssueFilters,
   IssueSearchOptions,
-} from '../../types/issues.js';
-import { MarkdownProviderSettings, IssueProviderConfig } from '../../types/config.js';
+} from '../../src/types/issues.js';
+import { MarkdownProviderSettings, IssueProviderConfig } from '../../src/types/config.js';
 
 describe('IssueProvider (abstract class)', () => {
   let provider: IssueProvider;

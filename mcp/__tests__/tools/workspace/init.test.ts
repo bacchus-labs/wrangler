@@ -34,7 +34,7 @@ import {
   parseSemver,
   compareSemver,
   parseGitignorePatterns,
-} from '../../../tools/workspace/init';
+} from '../../../src/tools/workspace/init';
 
 // ─── Unit Tests for Semver Helpers ──────────────────────────────────
 
@@ -2029,7 +2029,7 @@ describe('initWorkspaceTool', () => {
 // Integration Tests: E2E MCP Protocol & Tool Registration
 // ═══════════════════════════════════════════════════════════════════════
 
-import { WranglerMCPServer } from '../../../server';
+import { WranglerMCPServer } from '../../../src/server';
 
 describe('init_workspace Integration Tests', () => {
 

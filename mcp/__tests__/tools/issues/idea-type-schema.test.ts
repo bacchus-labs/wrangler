@@ -3,8 +3,8 @@
  * Following TDD: These tests should FAIL initially (RED phase)
  */
 
-import { createIssueSchema } from '../../../tools/issues/create';
-import { listIssuesSchema } from '../../../tools/issues/list';
+import { createIssueSchema } from '../../../src/tools/issues/create';
+import { listIssuesSchema } from '../../../src/tools/issues/list';
 
 describe('Idea Type Schema Support', () => {
   describe('createIssueSchema', () => {

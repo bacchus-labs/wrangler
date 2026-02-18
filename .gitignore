@@ -15,6 +15,11 @@ npm-debug.log*
 # TypeScript build output
 # Note: mcp/dist/ is committed for marketplace plugin distribution
 # so the plugin works without requiring npm install
+# Source maps are excluded to reduce diff noise (not needed by consumers)
+mcp/dist/*.map
+mcp/dist/**/*.map
+mcp/dist/*.d.ts.map
+mcp/dist/**/*.d.ts.map
 *.tsbuildinfo
 
 # Testing

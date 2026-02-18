@@ -71,7 +71,7 @@ The Wrangler MCP server implements the Model Context Protocol to provide Claude 
 
 ### Core Components
 
-#### 1. WranglerMCPServer (`server.ts`)
+#### 1. WranglerMCPServer (`src/server.ts`)
 
 Main server class that:
 - Initializes MCP SDK server
@@ -97,7 +97,7 @@ await server.start();
 - `getMetrics()`: Export metrics as JSON
 - `getPrometheusMetrics()`: Export Prometheus-format metrics
 
-#### 2. ProviderFactory (`providers/factory.ts`)
+#### 2. ProviderFactory (`src/providers/factory.ts`)
 
 Factory for creating and managing issue providers:
 - Singleton pattern for provider instances
@@ -118,7 +118,7 @@ const factory = new ProviderFactory({
 const provider = factory.getIssueProvider();
 ```
 
-#### 3. IssueProvider (`providers/base.ts`)
+#### 3. IssueProvider (`src/providers/base.ts`)
 
 Abstract base class defining the issue management interface:
 
@@ -137,7 +137,7 @@ abstract class IssueProvider {
 }
 ```
 
-#### 4. MarkdownIssueProvider (`providers/markdown.ts`)
+#### 4. MarkdownIssueProvider (`src/providers/markdown.ts`)
 
 Concrete implementation using Markdown files:
 
@@ -171,7 +171,7 @@ Issue description content in Markdown...
 └── specifications/  # type: "specification"
 ```
 
-#### 5. Tool Implementations (`tools/issues/*.ts`)
+#### 5. Tool Implementations (`src/tools/issues/*.ts`)
 
 Each tool follows a consistent pattern:
 
@@ -220,7 +220,7 @@ export async function toolFunction(
 - `mark-complete.ts`: Complete issue
 - `all-complete.ts`: Check completion status
 
-#### 6. Type Definitions (`types/*.ts`)
+#### 6. Type Definitions (`src/types/*.ts`)
 
 **issues.ts:**
 ```typescript
@@ -264,7 +264,7 @@ enum MCPErrorCode {
 }
 ```
 
-#### 7. Observability (`observability/metrics.ts`)
+#### 7. Observability (`src/observability/metrics.ts`)
 
 Built-in metrics collection:
 
@@ -326,15 +326,19 @@ mcp/
 │   ├── metrics.test.ts     # Metrics tests
 │   └── server.test.ts      # Server tests
 ├── dist/                   # Compiled JavaScript
-├── observability/          # Metrics and monitoring
-├── providers/              # Storage providers
-├── tools/                  # MCP tool implementations
-│   └── issues/             # Issue management tools
-├── types/                  # TypeScript definitions
-├── index.ts                # Server entry point
-├── server.ts               # Main server class
-├── tsconfig.json           # TypeScript config
-└── README.md               # This file
+├── src/                    # Source files
+│   ├── observability/      # Metrics and monitoring
+│   ├── providers/          # Storage providers
+│   ├── tools/              # MCP tool implementations
+│   │   └── issues/         # Issue management tools
+│   ├── types/              # TypeScript definitions
+│   ├── index.ts            # Server entry point
+│   ├── server.ts           # Main server class
+│   ├── bundle-entry.ts     # Bundle entry point
+│   └── workspace-schema.ts # Workspace configuration schema
+├── jest.config.js           # Jest test configuration
+├── tsconfig.json            # TypeScript config
+└── README.md                # This file
 ```
 
 ### Building
@@ -363,7 +367,7 @@ Follow the TDD approach:
 ```typescript
 // __tests__/tools/issues/new-tool.test.ts
 import { describe, it, expect } from '@jest/globals';
-import { newToolSchema, newToolFunction } from '../../../tools/issues/new-tool';
+import { newToolSchema, newToolFunction } from '../../../src/tools/issues/new-tool';
 
 describe('new-tool', () => {
   it('should do something', async () => {
@@ -388,9 +392,9 @@ Expected: Test fails (RED)
 #### 2. Implement Tool (GREEN)
 
 ```typescript
-// tools/issues/new-tool.ts
+// src/tools/issues/new-tool.ts
 import { z } from 'zod';
-import { ProviderFactory } from '../../providers/factory.js';
+import { ProviderFactory } from '../../providers/factory.js';  // relative within src/
 
 export const newToolSchema = z.object({
   // Define parameters with descriptions
@@ -437,7 +441,7 @@ Expected: Test passes (GREEN)
 #### 3. Register Tool in Server
 
 ```typescript
-// server.ts
+// src/server.ts
 import { newToolSchema, newToolFunction } from './tools/issues/new-tool.js';
 
 // In setupTools():
@@ -480,7 +484,7 @@ To add a new storage backend (e.g., SQLite, API):
 #### 1. Implement IssueProvider
 
 ```typescript
-// providers/sqlite.ts
+// src/providers/sqlite.ts
 import { IssueProvider } from './base.js';
 
 export class SQLiteIssueProvider extends IssueProvider {
@@ -495,7 +499,7 @@ export class SQLiteIssueProvider extends IssueProvider {
 #### 2. Update ProviderFactory
 
 ```typescript
-// providers/factory.ts
+// src/providers/factory.ts
 case 'sqlite':
   if (!issueConfig.settings) {
     throw new Error('SQLite provider settings are required');
@@ -506,7 +510,7 @@ case 'sqlite':
 #### 3. Update Config Types
 
 ```typescript
-// types/config.ts
+// src/types/config.ts
 export interface IssueProviderConfig {
   provider: 'markdown' | 'mock' | 'sqlite';
   settings?: MarkdownProviderSettings | SQLiteProviderSettings;
@@ -965,7 +969,7 @@ const page2 = await issues_list({ limit: 50, offset: 50 });
 Enable debug logging to monitor performance:
 
 ```bash
-WRANGLER_MCP_DEBUG=true node mcp/dist/index.js
+WRANGLER_MCP_DEBUG=true node mcp/dist/src/index.js
 ```
 
 Output includes:
