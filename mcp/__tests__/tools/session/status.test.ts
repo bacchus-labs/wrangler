@@ -2,9 +2,9 @@
  * Tests for session_status tool
  */
 
-import { sessionStatusTool, sessionStatusSchema, SessionStatusParams } from '../../../tools/session/status';
+import { sessionStatusTool, sessionStatusSchema, SessionStatusParams } from '../../../src/tools/session/status';
 import { MockSessionStorageProvider, createTestSession, createTestCheckpoint } from './test-utils';
-import { AuditEntry } from '../../../types/session';
+import { AuditEntry } from '../../../src/types/session';
 
 describe('sessionStatusTool', () => {
   let mockProvider: MockSessionStorageProvider;

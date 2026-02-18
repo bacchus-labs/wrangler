@@ -8,8 +8,8 @@ import * as fsExtra from 'fs-extra';
 // ESM compat
 const fs = (fsExtra as any).default || fsExtra;
 
-import { SessionStorageProvider, SessionStorageConfig } from '../../providers/session-storage';
-import { Session, SessionCheckpoint, AuditEntry } from '../../types/session';
+import { SessionStorageProvider, SessionStorageConfig } from '../../src/providers/session-storage';
+import { Session, SessionCheckpoint, AuditEntry } from '../../src/types/session';
 
 describe('SessionStorageProvider', () => {
   let tempDir: string;

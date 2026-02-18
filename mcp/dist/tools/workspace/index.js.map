@@ -1,1 +1,1 @@
-{"version":3,"file":"index.js","sourceRoot":"","sources":["../../../tools/workspace/index.ts"],"names":[],"mappings":"AAAA;;GAEG;AAEH,OAAO,EAAE,mBAAmB,EAAE,iBAAiB,EAAE,sBAAsB,EAAE,MAAM,WAAW,CAAC"}
+{"version":3,"file":"index.js","sourceRoot":"","sources":["../../../src/tools/workspace/index.ts"],"names":[],"mappings":"AAAA;;GAEG;AAEH,OAAO,EAAE,mBAAmB,EAAE,iBAAiB,EAAE,sBAAsB,EAAE,MAAM,WAAW,CAAC"}

@@ -1,0 +1,33 @@
+{
+  "name": "@wrangler/mcp",
+  "version": "1.0.0",
+  "description": "Wrangler MCP server - issue management and session orchestration",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc && npm run bundle",
+    "bundle": "esbuild src/bundle-entry.ts --bundle --platform=node --format=cjs --target=node18 --outfile=dist/bundle.cjs --packages=bundle",
+    "watch": "tsc --watch",
+    "dev": "npm run build && WRANGLER_MCP_DEBUG=true node dist/index.js",
+    "test": "node --experimental-vm-modules ../node_modules/.bin/jest",
+    "test:coverage": "node --experimental-vm-modules ../node_modules/.bin/jest --coverage",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "fast-glob": "^3.3.0",
+    "fs-extra": "^11.2.0",
+    "gray-matter": "^4.0.3",
+    "zod": "^3.22.0",
+    "zod-to-json-schema": "^3.22.0"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.0",
+    "@types/jest": "^29.0.0",
+    "@types/node": "^20.0.0",
+    "esbuild": "^0.27.2",
+    "jest": "^29.0.0",
+    "ts-jest": "^29.0.0",
+    "typescript": "^5.3.0"
+  }
+}

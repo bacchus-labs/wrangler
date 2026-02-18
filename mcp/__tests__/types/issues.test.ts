@@ -9,7 +9,7 @@ import type {
   IssueFilters,
   IssueSearchOptions,
   WranglerIssueContext,
-} from '../../types/issues.js';
+} from '../../src/types/issues.js';
 import {
   IssueArtifactTypeSchema,
   IssueStatusSchema,
@@ -19,7 +19,7 @@ import {
   IssueFiltersSchema,
   IssueSearchOptionsSchema,
   WranglerIssueContextSchema,
-} from '../../types/issues.js';
+} from '../../src/types/issues.js';
 
 describe('Issue Types', () => {
   describe('IssueArtifactType', () => {

@@ -2,8 +2,8 @@
  * Tests for WranglerMCPServer
  */
 
-import { WranglerMCPServer } from '../server';
-import { MCPErrorCode } from '../types/errors';
+import { WranglerMCPServer } from '../src/server';
+import { MCPErrorCode } from '../src/types/errors';
 
 describe('WranglerMCPServer', () => {
   let server: WranglerMCPServer;

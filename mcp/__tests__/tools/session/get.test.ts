@@ -2,7 +2,7 @@
  * Tests for session_get tool
  */
 
-import { sessionGetTool, sessionGetSchema, SessionGetParams } from '../../../tools/session/get';
+import { sessionGetTool, sessionGetSchema, SessionGetParams } from '../../../src/tools/session/get';
 import { MockSessionStorageProvider, createTestSession, createTestCheckpoint } from './test-utils';
 
 describe('sessionGetTool', () => {

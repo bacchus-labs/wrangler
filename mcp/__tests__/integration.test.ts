@@ -9,7 +9,10 @@
  */
 
 import * as path from 'path';
-import * as fs from 'fs-extra';
+import * as fsExtra from 'fs-extra';
+
+// ESM compat
+const fs = (fsExtra as any).default || fsExtra;
 import matter = require('gray-matter');
 import {
   createIssueTool,
@@ -23,9 +26,9 @@ import {
   issueProjectsTool,
   markCompleteIssueTool,
   issuesAllCompleteTool,
-} from '../tools/issues';
-import { ProviderFactory } from '../providers/factory';
-import { MarkdownProviderSettings } from '../types/config';
+} from '../src/tools/issues';
+import { ProviderFactory } from '../src/providers/factory';
+import { MarkdownProviderSettings } from '../src/types/config';
 
 describe('MCP Server End-to-End Integration Tests', () => {
   let factory: ProviderFactory;

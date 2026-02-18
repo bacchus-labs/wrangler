@@ -4,6 +4,7 @@
 
 import * as path from 'path';
 import * as crypto from 'crypto';
+import { execSync } from 'child_process';
 import * as fsExtra from 'fs-extra';
 
 // ESM compat
@@ -14,8 +15,8 @@ import {
   SessionCheckpoint,
   AuditEntry,
   SessionStatus,
-} from '../../../types/session';
-import { SessionStorageProvider, SessionStorageConfig } from '../../../providers/session-storage';
+} from '../../../src/types/session';
+import { SessionStorageProvider, SessionStorageConfig } from '../../../src/providers/session-storage';
 
 /**
  * Mock session storage provider for unit testing
@@ -251,8 +252,6 @@ export async function createTempDir(): Promise<string> {
  * CRITICAL: Must remove git worktrees before deleting directory
  */
 export async function cleanupTempDir(tempDir: string): Promise<void> {
-  const { execSync } = require('child_process');
-
   // Find and remove any git worktrees created inside the temp directory
   try {
     const result = execSync('git worktree list --porcelain', {

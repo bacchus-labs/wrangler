@@ -4,7 +4,10 @@
  */
 
 import * as path from 'path';
-import * as fs from 'fs-extra';
+import * as fsExtra from 'fs-extra';
+
+// ESM compat
+const fs = (fsExtra as any).default || fsExtra;
 import { z } from 'zod';
 import {
   WorkspaceSchema,
@@ -21,7 +24,7 @@ import {
   getGitTrackedDirectories,
   getGitignorePatterns,
   getGovernanceFilePaths,
-} from '../workspace-schema';
+} from '../src/workspace-schema';
 
 // Zod schema for WorkspaceSchema validation
 const WorkspaceDirectorySchema = z.object({

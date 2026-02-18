@@ -4,7 +4,7 @@ import type {
   IssueProviderConfig,
   MarkdownProviderSettings,
   MarkdownCollectionSettings,
-} from '../../types/config.js';
+} from '../../src/types/config.js';
 
 describe('Config Types', () => {
   describe('WranglerMCPConfig', () => {

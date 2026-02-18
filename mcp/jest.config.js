@@ -10,17 +10,21 @@ export default {
       'ts-jest',
       {
         useESM: true,
+        tsconfig: 'tsconfig.test.json',
       },
     ],
   },
   testMatch: [
-    '**/mcp/__tests__/**/*.test.ts',
+    '<rootDir>/__tests__/**/*.test.ts',
+  ],
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '/test-temp/',
+    '/dist/',
   ],
   collectCoverageFrom: [
-    'mcp/**/*.ts',
-    '!mcp/**/*.d.ts',
-    '!mcp/dist/**',
-    '!mcp/__tests__/**',
+    'src/**/*.ts',
+    '!src/**/*.d.ts',
   ],
   coverageThreshold: {
     global: {

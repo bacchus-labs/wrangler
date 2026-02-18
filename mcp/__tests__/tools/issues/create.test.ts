@@ -2,7 +2,7 @@
  * Tests for create issue tool
  */
 
-import { createIssueTool, createIssueSchema, CreateIssueParams } from '../../../tools/issues/create';
+import { createIssueTool, createIssueSchema, CreateIssueParams } from '../../../src/tools/issues/create';
 import { MockProviderFactory } from './test-utils';
 
 describe('createIssueTool', () => {
