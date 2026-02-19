@@ -12,6 +12,7 @@ Write comprehensive implementation plans assuming the engineer has zero context 
 **MCP issues are the source of truth** - each tracked task contains complete implementation details.
 
 Optionally create:
+
 - **Plan file** (`.wrangler/plans/YYYY-MM-DD-PLAN_<spec>.md`) - Architecture overview and design decisions (reference only)
 
 **Works in main branch OR worktree (no preference)**
@@ -28,13 +29,13 @@ Optionally create:
 - "Run the tests and make sure they pass" - step
 - "Commit" - step
 
-## Optional Plan Document (Reference Only)
+## Plan Document (Reference Only)
 
-**Plan files are OPTIONAL** - use when architecture/design context needs documentation.
+Plan files are required when architecture/design context needs documentation, an implementation involves multiple interconnected steps/issues that require planning around ordering and potential parallelism.
 
-### When to Create Plan File
+### Create Plan File
 
-Create optional plan file when ANY of these are true:
+Create plan file when ANY of these are true:
 
 ✅ **10+ issues/tasks** - Need architectural overview to understand big picture
 ✅ **Multiple interconnected components** - Need system diagram and component relationships
@@ -51,6 +52,7 @@ Skip plan file when:
 ### Plan File Content (If Created)
 
 **Plan file should contain:**
+
 - Architecture overview and design decisions
 - Technology choices and rationale
 - Cross-cutting concerns and patterns
@@ -76,24 +78,29 @@ Skip plan file when:
 ## Acceptance Criteria Coverage (Auto-generated)
 
 ### Spec Acceptance Criteria
+
 - AC-001: [description]
 - AC-002: [description]
-...
+  ...
 
 ### Task-to-AC Mapping
-| Task ID | Satisfies AC | Estimated Compliance Contribution |
-|---------|-------------|----------------------------------|
-| ISS-001 | AC-001, AC-003 | 15% |
-| ISS-002 | AC-002 | 10% |
+
+| Task ID | Satisfies AC   | Estimated Compliance Contribution |
+| ------- | -------------- | --------------------------------- |
+| ISS-001 | AC-001, AC-003 | 15%                               |
+| ISS-002 | AC-002         | 10%                               |
+
 ...
 
 ### Coverage Summary
+
 - Total AC: 15
 - AC covered by tasks: 14 (93%)
 - AC with no implementing tasks: AC-012 ⚠️
 - Estimated post-execution compliance: 93%
 
 ### Risk Areas
+
 - [List any AC with no tasks or partial coverage]
 
 ---
@@ -102,6 +109,7 @@ Skip plan file when:
 ## MCP Issue Content Requirements
 
 **Each issue MUST contain:**
+
 - Exact file paths (create/modify/test)
 - Complete code examples (not "add validation")
 - Exact commands with expected output
@@ -110,11 +118,13 @@ Skip plan file when:
 - Dependencies on other tasks
 
 **NOT in issues:**
+
 - Architecture rationale (goes in optional plan file)
 - Design alternatives considered (goes in optional plan file)
 - Cross-cutting concerns (goes in optional plan file)
 
 ## Remember
+
 - MCP issues are source of truth
 - Include complete implementation details in each issue
 - Optional plan file for architecture/design context only
@@ -158,6 +168,7 @@ Skip plan file when:
    - Commit message
 
 **Think deeply** about task ordering:
+
 - Tasks should build on each other incrementally
 - Each task should be small (<250 LOC when implemented)
 - No gaps - every step builds on earlier work
@@ -263,6 +274,7 @@ git commit -m "feat: add specific feature"
 ```
 
 **Important**:
+
 - Issues are the single source of truth - include complete code examples and exact commands
 - Use `issues_update` if you need to refine an issue after creation (don't create duplicates)
 - If creating optional plan file, it should reference issues, NOT duplicate their content
@@ -282,6 +294,7 @@ git commit -m "feat: add specific feature"
 After creating issues, offer execution choice:
 
 **"Plan complete:**
+
 - **Issues created**: [N] tasks in issue tracker (project: [spec])
 - **Plan file** (if created): `.wrangler/plans/YYYY-MM-DD-PLAN_<spec>.md` (includes AC coverage analysis)
 - **Estimated compliance**: [X]% (based on task-to-AC mapping)
@@ -291,11 +304,13 @@ After creating issues, offer execution choice:
 **Ready to implementing-issue?**
 
 Use `/wrangler:implementing-issue` with one of these scopes:
+
 - `/wrangler:implementing-issue` (auto-infers from plan file in context)
 - `/wrangler:implementing-issue issues 1-N` (specific issue range)
 - `/wrangler:implementing-issue plan-filename.md` (explicit plan file)
 
 The implementing-issue skill will:
+
 - Execute all tasks autonomously via subagents
 - Run code review after each task with automatic fixes
 - Only stop for genuine blockers (unclear requirements, flummoxed agents)
@@ -311,8 +326,8 @@ issues_update({
   id: "[issueId]",
   priority: "high", // change priority
   description: "[updated description]", // add more detail
-  labels: ["plan-step", "implementation", "complex"] // add label
-})
+  labels: ["plan-step", "implementation", "complex"], // add label
+});
 ```
 
 ## Checklist Before Completion
@@ -332,9 +347,13 @@ issues_update({
 ## Integration with Specifications
 
 When working from a specification created with `writing-specifications` skill:
+
 - Reference spec filename in all issues
 - Follow any implementation notes in spec
 - Honor constraints documented in spec
 - Use architecture decisions from spec
 - Create issues that map to spec's acceptance criteria
+
+```
+
 ```
