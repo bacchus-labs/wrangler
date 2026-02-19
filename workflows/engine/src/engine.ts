@@ -10,33 +10,41 @@
  * - loop:       Repeats nested steps while condition is true, up to maxRetries
  */
 
-import * as path from 'path';
-import { z } from 'zod';
+import * as path from "path";
+import { z } from "zod";
 import {
-  loadWorkflowYaml,
+  type HandlerRegistry,
+  createDefaultRegistry,
+} from "./handlers/index.js";
+import {
   loadAgentMarkdown,
+  loadWorkflowYaml,
   renderTemplate,
   resolveSchemaReference,
-} from './loader.js';
-import { WorkflowContext, type WorkflowResult, type ExecutionSummary, type StepExecution } from './state.js';
-import { type HandlerRegistry, createDefaultRegistry } from './handlers/index.js';
+} from "./loader.js";
+import { loadAgentFile, loadPromptFile } from "./loaders.js";
+import { WorkflowResolver } from "./resolver.js";
 import {
-  type StepDefinition,
-  type PerTaskStep,
-  type ParallelStep,
   type LoopStep,
+  type ParallelStep,
+  type PerTaskStep,
+  type StepDefinition,
   type TaskDefinition,
-} from './schemas/index.js';
-import { WorkflowResolver } from './resolver.js';
-import { loadAgentFile, loadPromptFile } from './loaders.js';
+} from "./schemas/index.js";
 import {
+  type ExecutionSummary,
+  type StepExecution,
+  WorkflowContext,
+  type WorkflowResult,
+} from "./state.js";
+import {
+  type EngineConfig,
   type QueryFunction,
   type SDKMessage,
-  type EngineConfig,
   type WorkflowAuditEntry,
   WorkflowFailure,
   WorkflowPaused,
-} from './types.js';
+} from "./types.js";
 
 export class WorkflowEngine {
   private config: EngineConfig;
@@ -45,15 +53,22 @@ export class WorkflowEngine {
   private resolver?: WorkflowResolver;
   private auditLog: WorkflowAuditEntry[] = [];
   private onAuditEntry?: (entry: WorkflowAuditEntry) => Promise<void>;
-  private activeDefaults: { model: string; permissionMode: string; settingSources: string[] };
+  private activeDefaults: {
+    model: string;
+    permissionMode: string;
+    settingSources: string[];
+  };
   private activeDefaultAgent?: string;
   /** Tracks loop iteration metadata keyed by step name */
-  private loopMeta: Map<string, {
-    iterations: number;
-    condition: string;
-    maxRetries: number;
-    exitReason: 'condition-cleared' | 'exhausted' | 'error';
-  }> = new Map();
+  private loopMeta: Map<
+    string,
+    {
+      iterations: number;
+      condition: string;
+      maxRetries: number;
+      exitReason: "condition-cleared" | "exhausted" | "error";
+    }
+  > = new Map();
 
   constructor(options: {
     config: EngineConfig;
@@ -76,9 +91,11 @@ export class WorkflowEngine {
    */
   private assertWithinWorkflowDir(resolvedPath: string): void {
     const relative = path.relative(this.config.workflowBaseDir, resolvedPath);
-    const normalized = relative.split(path.sep).join('/');
-    if (normalized.startsWith('..') || path.isAbsolute(relative)) {
-      throw new Error(`Path "${resolvedPath}" escapes workflow directory "${this.config.workflowBaseDir}"`);
+    const normalized = relative.split(path.sep).join("/");
+    if (normalized.startsWith("..") || path.isAbsolute(relative)) {
+      throw new Error(
+        `Path "${resolvedPath}" escapes workflow directory "${this.config.workflowBaseDir}"`,
+      );
     }
   }
 
@@ -86,14 +103,21 @@ export class WorkflowEngine {
    * Run a workflow from a YAML definition file.
    */
   async run(definitionPath: string, specPath: string): Promise<WorkflowResult> {
-    const fullDefPath = path.resolve(this.config.workflowBaseDir, definitionPath);
+    const fullDefPath = path.resolve(
+      this.config.workflowBaseDir,
+      definitionPath,
+    );
     const definition = await loadWorkflowYaml(fullDefPath);
 
     // Apply defaults from workflow definition without mutating this.config.defaults
     this.activeDefaults = {
       model: definition.defaults?.model ?? this.config.defaults.model,
-      permissionMode: definition.defaults?.permissionMode ?? this.config.defaults.permissionMode,
-      settingSources: definition.defaults?.settingSources ?? this.config.defaults.settingSources,
+      permissionMode:
+        definition.defaults?.permissionMode ??
+        this.config.defaults.permissionMode,
+      settingSources:
+        definition.defaults?.settingSources ??
+        this.config.defaults.settingSources,
     };
     this.activeDefaultAgent = definition.defaults?.agent;
 
@@ -102,7 +126,7 @@ export class WorkflowEngine {
     try {
       for (const phase of definition.phases) {
         // In dry-run mode, stop after plan phase
-        if (this.config.dryRun && phase.name === 'execute') {
+        if (this.config.dryRun && phase.name === "execute") {
           break;
         }
 
@@ -121,7 +145,7 @@ export class WorkflowEngine {
     } catch (error) {
       if (error instanceof WorkflowPaused) {
         return {
-          status: 'paused',
+          status: "paused",
           outputs: context.getTemplateVars(),
           completedPhases: context.getCompletedPhases(),
           changedFiles: context.getChangedFiles(),
@@ -132,7 +156,7 @@ export class WorkflowEngine {
       }
       if (error instanceof WorkflowFailure) {
         return {
-          status: 'failed',
+          status: "failed",
           outputs: context.getTemplateVars(),
           completedPhases: context.getCompletedPhases(),
           changedFiles: context.getChangedFiles(),
@@ -150,31 +174,42 @@ export class WorkflowEngine {
   async resume(
     definitionPath: string,
     checkpointData: Record<string, unknown>,
-    resumeFromPhase: string
+    resumeFromPhase: string,
   ): Promise<WorkflowResult> {
-    const fullDefPath = path.resolve(this.config.workflowBaseDir, definitionPath);
+    const fullDefPath = path.resolve(
+      this.config.workflowBaseDir,
+      definitionPath,
+    );
     const definition = await loadWorkflowYaml(fullDefPath);
 
     // Apply defaults from workflow definition without mutating this.config.defaults
     this.activeDefaults = {
       model: definition.defaults?.model ?? this.config.defaults.model,
-      permissionMode: definition.defaults?.permissionMode ?? this.config.defaults.permissionMode,
-      settingSources: definition.defaults?.settingSources ?? this.config.defaults.settingSources,
+      permissionMode:
+        definition.defaults?.permissionMode ??
+        this.config.defaults.permissionMode,
+      settingSources:
+        definition.defaults?.settingSources ??
+        this.config.defaults.settingSources,
     };
     this.activeDefaultAgent = definition.defaults?.agent;
 
     const context = WorkflowContext.fromCheckpoint(checkpointData);
 
     // Find the phase to resume from
-    const startIdx = definition.phases.findIndex(p => p.name === resumeFromPhase);
+    const startIdx = definition.phases.findIndex(
+      (p) => p.name === resumeFromPhase,
+    );
     if (startIdx === -1) {
-      throw new Error(`Phase "${resumeFromPhase}" not found in workflow definition`);
+      throw new Error(
+        `Phase "${resumeFromPhase}" not found in workflow definition`,
+      );
     }
 
     try {
       for (let i = startIdx; i < definition.phases.length; i++) {
         const phase = definition.phases[i];
-        if (this.config.dryRun && phase.name === 'execute') break;
+        if (this.config.dryRun && phase.name === "execute") break;
         context.setCurrentPhase(phase.name);
         await this.executeStep(phase, context);
         context.markPhaseCompleted(phase.name);
@@ -190,7 +225,7 @@ export class WorkflowEngine {
     } catch (error) {
       if (error instanceof WorkflowPaused) {
         return {
-          status: 'paused',
+          status: "paused",
           outputs: context.getTemplateVars(),
           completedPhases: context.getCompletedPhases(),
           changedFiles: context.getChangedFiles(),
@@ -201,7 +236,7 @@ export class WorkflowEngine {
       }
       if (error instanceof WorkflowFailure) {
         return {
-          status: 'failed',
+          status: "failed",
           outputs: context.getTemplateVars(),
           completedPhases: context.getCompletedPhases(),
           changedFiles: context.getChangedFiles(),
@@ -219,13 +254,16 @@ export class WorkflowEngine {
    */
   private isCheckStep(step: StepDefinition): boolean {
     const nameLower = step.name.toLowerCase();
-    if (nameLower.includes('review') || nameLower.includes('check')) {
+    if (nameLower.includes("review") || nameLower.includes("check")) {
       return true;
     }
     // Check if the step uses a reviewer agent
-    if ('agent' in step && typeof (step as Record<string, unknown>).agent === 'string') {
+    if (
+      "agent" in step &&
+      typeof (step as Record<string, unknown>).agent === "string"
+    ) {
       const agentPath = (step as Record<string, unknown>).agent as string;
-      if (agentPath.toLowerCase().includes('review')) {
+      if (agentPath.toLowerCase().includes("review")) {
         return true;
       }
     }
@@ -238,8 +276,8 @@ export class WorkflowEngine {
    */
   private getSkipReason(step: StepDefinition): string | null {
     // 1. enabled: false (workflow-level disable)
-    if ('enabled' in step && step.enabled === false) {
-      return 'disabled in workflow definition';
+    if ("enabled" in step && step.enabled === false) {
+      return "disabled in workflow definition";
     }
 
     // 2. skipStepNames (runtime skip by name)
@@ -250,9 +288,10 @@ export class WorkflowEngine {
     // 3. skipChecks (runtime skip all check steps)
     // Code steps are never skipped by skipChecks
     if (this.config.skipChecks) {
-      const type = 'type' in step && typeof step.type === 'string' ? step.type : undefined;
-      if (type !== 'code' && this.isCheckStep(step)) {
-        return '--skip-checks';
+      const type =
+        "type" in step && typeof step.type === "string" ? step.type : undefined;
+      if (type !== "code" && this.isCheckStep(step)) {
+        return "--skip-checks";
       }
     }
 
@@ -270,21 +309,21 @@ export class WorkflowEngine {
    */
   private resolveStepInput(
     step: { input?: string | Record<string, unknown> },
-    ctx: WorkflowContext
+    ctx: WorkflowContext,
   ): Record<string, unknown> {
     const templateVars = ctx.getTemplateVars();
     if (!step.input) return templateVars;
 
-    if (typeof step.input === 'string') {
+    if (typeof step.input === "string") {
       const inputValue = ctx.resolve(step.input);
       if (inputValue !== undefined) {
-        const inputParts = step.input.split('.');
+        const inputParts = step.input.split(".");
         const leafKey = inputParts[inputParts.length - 1];
         templateVars[leafKey] = inputValue;
       }
     } else {
       for (const [key, val] of Object.entries(step.input)) {
-        if (typeof val === 'string') {
+        if (typeof val === "string") {
           const resolved = ctx.resolve(val);
           if (resolved !== undefined) {
             templateVars[key] = resolved;
@@ -301,10 +340,7 @@ export class WorkflowEngine {
   /**
    * Recursively execute a step based on its type.
    */
-  async executeStep(
-    step: StepDefinition,
-    ctx: WorkflowContext
-  ): Promise<void> {
+  async executeStep(step: StepDefinition, ctx: WorkflowContext): Promise<void> {
     // Check for skip conditions before any execution
     const skipReason = this.getSkipReason(step);
     if (skipReason !== null) {
@@ -315,32 +351,44 @@ export class WorkflowEngine {
     await this.auditStepStart(step.name);
 
     try {
-      const type = 'type' in step && typeof step.type === 'string' ? step.type : undefined;
+      const type =
+        "type" in step && typeof step.type === "string" ? step.type : undefined;
 
       if (!type) {
         // Check if this is a new-style composed step (has prompt field) or legacy agent step
         const stepAny = step as Record<string, unknown>;
         if (stepAny.prompt && this.resolver) {
-          await this.runComposedAgent(step as StepDefinition & { agent?: string; prompt: string; model?: string; output?: string }, ctx);
+          await this.runComposedAgent(
+            step as StepDefinition & {
+              agent?: string;
+              prompt: string;
+              model?: string;
+              output?: string;
+            },
+            ctx,
+          );
         } else {
           // Legacy agent step (agent field is a file path)
           await this.runAgent(step as StepDefinition & { agent: string }, ctx);
         }
       } else {
         switch (type) {
-          case 'code':
-            await this.runHandler(step as StepDefinition & { handler: string }, ctx);
+          case "code":
+            await this.runHandler(
+              step as StepDefinition & { handler: string },
+              ctx,
+            );
             break;
 
-          case 'parallel':
+          case "parallel":
             await this.runParallel(step as ParallelStep, ctx);
             break;
 
-          case 'per-task':
+          case "per-task":
             await this.runPerTask(step as PerTaskStep, ctx);
             break;
 
-          case 'loop':
+          case "loop":
             await this.runLoop(step as LoopStep, ctx);
             break;
 
@@ -360,8 +408,13 @@ export class WorkflowEngine {
    * Execute an agent step: load markdown definition, render template, call query().
    */
   private async runAgent(
-    step: StepDefinition & { agent: string; model?: string; input?: string | Record<string, unknown>; output?: string },
-    ctx: WorkflowContext
+    step: StepDefinition & {
+      agent: string;
+      model?: string;
+      input?: string | Record<string, unknown>;
+      output?: string;
+    },
+    ctx: WorkflowContext,
   ): Promise<void> {
     const agentPath = path.resolve(this.config.workflowBaseDir, step.agent);
     this.assertWithinWorkflowDir(agentPath);
@@ -372,14 +425,16 @@ export class WorkflowEngine {
     const prompt = renderTemplate(agentDef.prompt, templateVars);
 
     // Resolve output schema to JSON Schema
-    let outputFormat: { type: 'json_schema'; schema: Record<string, unknown> } | undefined;
+    let outputFormat:
+      | { type: "json_schema"; schema: Record<string, unknown> }
+      | undefined;
     const schemaRef = agentDef.outputSchema;
     if (schemaRef) {
       const zodSchema = await resolveSchemaReference(schemaRef);
       if (zodSchema && zodSchema instanceof z.ZodType) {
         const jsonSchema = (z as any).toJSONSchema(zodSchema);
         outputFormat = {
-          type: 'json_schema',
+          type: "json_schema",
           schema: jsonSchema as Record<string, unknown>,
         };
       }
@@ -397,23 +452,26 @@ export class WorkflowEngine {
         model,
         cwd: this.config.workingDirectory,
         permissionMode: this.activeDefaults.permissionMode,
-        allowDangerouslySkipPermissions: this.activeDefaults.permissionMode === 'bypassPermissions',
+        allowDangerouslySkipPermissions:
+          this.activeDefaults.permissionMode === "bypassPermissions",
         mcpServers: this.config.mcpServers,
         settingSources: this.activeDefaults.settingSources,
       },
     });
 
     for await (const message of generator) {
-      if (isResultMessage(message) && message.subtype === 'success') {
+      if (isResultMessage(message) && message.subtype === "success") {
         if (message.structured_output != null) {
           result = message.structured_output;
         } else if (outputFormat && (message as any).result) {
           result = extractJsonFromText((message as any).result);
         }
       }
-      if (isResultMessage(message) && message.subtype !== 'success') {
-        const errors = message.errors?.join(', ') ?? 'unknown error';
-        throw new Error(`Agent "${step.name}" failed: ${message.subtype} - ${errors}`);
+      if (isResultMessage(message) && message.subtype !== "success") {
+        const errors = message.errors?.join(", ") ?? "unknown error";
+        throw new Error(
+          `Agent "${step.name}" failed: ${message.subtype} - ${errors}`,
+        );
       }
     }
 
@@ -421,13 +479,13 @@ export class WorkflowEngine {
       ctx.set(step.output, result);
 
       // Track changed files if result has them
-      if (typeof result === 'object' && result !== null) {
-        ctx.addChangedFilesFromResult(result as { filesChanged?: Array<{ path: string }> });
+      if (typeof result === "object" && result !== null) {
+        ctx.addChangedFilesFromResult(
+          result as { filesChanged?: Array<{ path: string }> },
+        );
       }
     }
-
   }
-
 
   /**
    * Execute a composed agent+prompt step using WorkflowResolver.
@@ -436,18 +494,26 @@ export class WorkflowEngine {
    * via queryFn with the agent's systemPrompt as the system prompt.
    */
   private async runComposedAgent(
-    step: StepDefinition & { agent?: string; prompt: string; model?: string; output?: string; input?: string | Record<string, unknown> },
-    ctx: WorkflowContext
+    step: StepDefinition & {
+      agent?: string;
+      prompt: string;
+      model?: string;
+      output?: string;
+      input?: string | Record<string, unknown>;
+    },
+    ctx: WorkflowContext,
   ): Promise<void> {
     if (!this.resolver) {
-      throw new Error(`Step "${step.name}": resolver is required for agent+prompt composition`);
+      throw new Error(
+        `Step "${step.name}": resolver is required for agent+prompt composition`,
+      );
     }
 
     // Resolve agent name: step.agent > defaults.agent > error
     const agentName = step.agent ?? this.activeDefaultAgent;
     if (!agentName) {
       throw new Error(
-        `Step "${step.name}": no agent specified and no defaults.agent in workflow definition`
+        `Step "${step.name}": no agent specified and no defaults.agent in workflow definition`,
       );
     }
 
@@ -465,13 +531,15 @@ export class WorkflowEngine {
     const renderedPrompt = renderTemplate(promptDef.body, templateVars);
 
     // Resolve output schema to JSON Schema (if agent defines one)
-    let outputFormat: { type: 'json_schema'; schema: Record<string, unknown> } | undefined;
+    let outputFormat:
+      | { type: "json_schema"; schema: Record<string, unknown> }
+      | undefined;
     if (agentDef.outputSchema) {
       const zodSchema = await resolveSchemaReference(agentDef.outputSchema);
       if (zodSchema && zodSchema instanceof z.ZodType) {
         const jsonSchema = (z as any).toJSONSchema(zodSchema);
         outputFormat = {
-          type: 'json_schema',
+          type: "json_schema",
           schema: jsonSchema as Record<string, unknown>,
         };
       }
@@ -491,14 +559,15 @@ export class WorkflowEngine {
         model,
         cwd: this.config.workingDirectory,
         permissionMode: this.activeDefaults.permissionMode,
-        allowDangerouslySkipPermissions: this.activeDefaults.permissionMode === 'bypassPermissions',
+        allowDangerouslySkipPermissions:
+          this.activeDefaults.permissionMode === "bypassPermissions",
         mcpServers: this.config.mcpServers,
         settingSources: this.activeDefaults.settingSources,
       },
     });
 
     for await (const message of generator) {
-      if (isResultMessage(message) && message.subtype === 'success') {
+      if (isResultMessage(message) && message.subtype === "success") {
         if (message.structured_output != null) {
           result = message.structured_output;
         } else if (outputFormat && (message as any).result) {
@@ -506,9 +575,11 @@ export class WorkflowEngine {
           result = extractJsonFromText((message as any).result);
         }
       }
-      if (isResultMessage(message) && message.subtype !== 'success') {
-        const errors = message.errors?.join(', ') ?? 'unknown error';
-        throw new Error(`Agent "${step.name}" failed: ${message.subtype} - ${errors}`);
+      if (isResultMessage(message) && message.subtype !== "success") {
+        const errors = message.errors?.join(", ") ?? "unknown error";
+        throw new Error(
+          `Agent "${step.name}" failed: ${message.subtype} - ${errors}`,
+        );
       }
     }
 
@@ -516,13 +587,19 @@ export class WorkflowEngine {
       ctx.set(step.output, result);
 
       // Track changed files if result has them
-      if (typeof result === 'object' && result !== null) {
-        ctx.addChangedFilesFromResult(result as { filesChanged?: Array<{ path: string }> });
+      if (typeof result === "object" && result !== null) {
+        ctx.addChangedFilesFromResult(
+          result as { filesChanged?: Array<{ path: string }> },
+        );
       }
     }
 
     // Record composition metadata for audit trail
-    await this.auditComposedStep(step.name, agentResolved.path, promptResolved.path);
+    await this.auditComposedStep(
+      step.name,
+      agentResolved.path,
+      promptResolved.path,
+    );
   }
 
   /**
@@ -530,30 +607,44 @@ export class WorkflowEngine {
    * Overwrites the 'completed' entry that executeStep will write
    * so we capture the source file paths.
    */
-  private composedStepMeta: Map<string, { agentSource: string; promptSource: string }> = new Map();
+  private composedStepMeta: Map<
+    string,
+    { agentSource: string; promptSource: string }
+  > = new Map();
 
-  private async auditComposedStep(stepName: string, agentPath: string, promptPath: string): Promise<void> {
-    this.composedStepMeta.set(stepName, { agentSource: agentPath, promptSource: promptPath });
+  private async auditComposedStep(
+    stepName: string,
+    agentPath: string,
+    promptPath: string,
+  ): Promise<void> {
+    this.composedStepMeta.set(stepName, {
+      agentSource: agentPath,
+      promptSource: promptPath,
+    });
   }
 
   /**
    * Execute a code handler step.
    */
   private async runHandler(
-    step: StepDefinition & { handler: string; input?: string | Record<string, unknown> },
-    ctx: WorkflowContext
+    step: StepDefinition & {
+      handler: string;
+      input?: string | Record<string, unknown>;
+    },
+    ctx: WorkflowContext,
   ): Promise<void> {
     const handler = this.handlerRegistry.get(step.handler);
 
     let input: unknown;
     if (step.input) {
-      if (typeof step.input === 'string') {
+      if (typeof step.input === "string") {
         input = ctx.resolve(step.input);
       } else {
         // Object input - resolve each string value
         const resolved: Record<string, unknown> = {};
         for (const [key, val] of Object.entries(step.input)) {
-          resolved[key] = typeof val === 'string' ? ctx.resolve(val) ?? val : val;
+          resolved[key] =
+            typeof val === "string" ? (ctx.resolve(val) ?? val) : val;
         }
         input = resolved;
       }
@@ -567,11 +658,13 @@ export class WorkflowEngine {
    */
   private async runPerTask(
     step: PerTaskStep,
-    ctx: WorkflowContext
+    ctx: WorkflowContext,
   ): Promise<void> {
     const items = ctx.resolve(step.source) as TaskDefinition[] | undefined;
     if (!items || !Array.isArray(items)) {
-      throw new Error(`per-task source "${step.source}" did not resolve to an array`);
+      throw new Error(
+        `per-task source "${step.source}" did not resolve to an array`,
+      );
     }
 
     const sorted = this.topologicalSort(items);
@@ -610,36 +703,33 @@ export class WorkflowEngine {
    */
   private async runParallel(
     step: ParallelStep,
-    ctx: WorkflowContext
+    ctx: WorkflowContext,
   ): Promise<void> {
     // Detect duplicate output variables
     const outputs = step.steps
-      .filter(s => 'output' in s && s.output)
-      .map(s => (s as any).output as string);
+      .filter((s) => "output" in s && s.output)
+      .map((s) => (s as any).output as string);
     const duplicates = outputs.filter((v, i) => outputs.indexOf(v) !== i);
     if (duplicates.length > 0) {
       throw new Error(
-        `Parallel step "${step.name}" has duplicate output variables: ${[...new Set(duplicates)].join(', ')}. ` +
-        `Each parallel child must write to a unique output.`
+        `Parallel step "${step.name}" has duplicate output variables: ${[...new Set(duplicates)].join(", ")}. ` +
+          `Each parallel child must write to a unique output.`,
       );
     }
 
     // Run all nested steps in parallel
     await Promise.all(
-      step.steps.map(nestedStep => this.executeStep(nestedStep, ctx))
+      step.steps.map((nestedStep) => this.executeStep(nestedStep, ctx)),
     );
   }
-
 
   /**
    * Execute a loop step: repeat nested steps while condition is true.
    */
-  private async runLoop(
-    step: LoopStep,
-    ctx: WorkflowContext
-  ): Promise<void> {
+  private async runLoop(step: LoopStep, ctx: WorkflowContext): Promise<void> {
     let iterationsRun = 0;
-    let exitReason: 'condition-cleared' | 'exhausted' | 'error' = 'condition-cleared';
+    let exitReason: "condition-cleared" | "exhausted" | "error" =
+      "condition-cleared";
 
     for (let attempt = 0; attempt < step.maxRetries; attempt++) {
       // Check condition BEFORE running steps (after first iteration)
@@ -661,7 +751,7 @@ export class WorkflowEngine {
 
     // If condition is still true after all retries, handle exhaustion
     if (ctx.evaluate(step.condition)) {
-      exitReason = 'exhausted';
+      exitReason = "exhausted";
       // Record loop metadata before handleExhausted may throw
       this.loopMeta.set(step.name, {
         iterations: iterationsRun,
@@ -685,25 +775,25 @@ export class WorkflowEngine {
    */
   private async handleExhausted(
     step: LoopStep,
-    _ctx: WorkflowContext
+    _ctx: WorkflowContext,
   ): Promise<void> {
-    const action = step.onExhausted ?? 'escalate';
+    const action = step.onExhausted ?? "escalate";
 
     switch (action) {
-      case 'escalate':
+      case "escalate":
         throw new WorkflowPaused(
           step.name,
-          `Loop exhausted ${step.maxRetries} retries. Condition "${step.condition}" still true.`
+          `Loop exhausted ${step.maxRetries} retries. Condition "${step.condition}" still true.`,
         );
 
-      case 'fail':
+      case "fail":
         throw new WorkflowFailure(
           step.name,
           step.condition,
-          `Loop exhausted ${step.maxRetries} retries`
+          `Loop exhausted ${step.maxRetries} retries`,
         );
 
-      case 'warn':
+      case "warn":
         // Log warning but continue
         await this.auditStepComplete(step.name, {
           warning: `Loop exhausted ${step.maxRetries} retries, continuing`,
@@ -717,7 +807,7 @@ export class WorkflowEngine {
    * Tasks with no dependencies come first.
    */
   topologicalSort(tasks: TaskDefinition[]): TaskDefinition[] {
-    const taskMap = new Map(tasks.map(t => [t.id, t]));
+    const taskMap = new Map(tasks.map((t) => [t.id, t]));
     const visited = new Set<string>();
     const inProgress = new Set<string>();
     const result: TaskDefinition[] = [];
@@ -726,8 +816,8 @@ export class WorkflowEngine {
       if (visited.has(task.id)) return;
       if (inProgress.has(task.id)) {
         throw new WorkflowFailure(
-          'topological-sort',
-          `Circular dependency detected involving task "${task.id}"`
+          "topological-sort",
+          `Circular dependency detected involving task "${task.id}"`,
         );
       }
       inProgress.add(task.id);
@@ -756,17 +846,17 @@ export class WorkflowEngine {
    * directly because mergeTaskResults does not overwrite existing keys.
    */
   private saveTaskCheckpointData(ctx: WorkflowContext, taskId: string): void {
-    const completed = (ctx.get('tasksCompleted') as string[]) ?? [];
-    const pending = (ctx.get('tasksPending') as string[]) ?? [];
+    const completed = (ctx.get("tasksCompleted") as string[]) ?? [];
+    const pending = (ctx.get("tasksPending") as string[]) ?? [];
 
     if (!completed.includes(taskId)) {
       completed.push(taskId);
     }
 
-    const updatedPending = pending.filter(id => id !== taskId);
+    const updatedPending = pending.filter((id) => id !== taskId);
 
-    ctx.set('tasksCompleted', completed);
-    ctx.set('tasksPending', updatedPending);
+    ctx.set("tasksCompleted", completed);
+    ctx.set("tasksPending", updatedPending);
   }
 
   // --- Audit logging ---
@@ -774,14 +864,17 @@ export class WorkflowEngine {
   private async auditStepStart(stepName: string): Promise<void> {
     const entry: WorkflowAuditEntry = {
       step: stepName,
-      status: 'started',
+      status: "started",
       timestamp: new Date().toISOString(),
     };
     this.auditLog.push(entry);
     if (this.onAuditEntry) await this.onAuditEntry(entry);
   }
 
-  private async auditStepComplete(stepName: string, metadata?: Record<string, unknown>): Promise<void> {
+  private async auditStepComplete(
+    stepName: string,
+    metadata?: Record<string, unknown>,
+  ): Promise<void> {
     // Merge any composed step metadata (agent/prompt source paths)
     const composedMeta = this.composedStepMeta.get(stepName);
     const mergedMetadata = composedMeta
@@ -792,7 +885,7 @@ export class WorkflowEngine {
 
     const entry: WorkflowAuditEntry = {
       step: stepName,
-      status: 'completed',
+      status: "completed",
       timestamp: new Date().toISOString(),
       metadata: mergedMetadata,
     };
@@ -800,13 +893,16 @@ export class WorkflowEngine {
     if (this.onAuditEntry) await this.onAuditEntry(entry);
   }
 
-  private async auditStepFailed(stepName: string, error: unknown): Promise<void> {
+  private async auditStepFailed(
+    stepName: string,
+    error: unknown,
+  ): Promise<void> {
     // Clean up any composed step metadata for the failed step
     this.composedStepMeta.delete(stepName);
 
     const entry: WorkflowAuditEntry = {
       step: stepName,
-      status: 'failed',
+      status: "failed",
       timestamp: new Date().toISOString(),
       metadata: {
         error: error instanceof Error ? error.message : String(error),
@@ -816,10 +912,13 @@ export class WorkflowEngine {
     if (this.onAuditEntry) await this.onAuditEntry(entry);
   }
 
-  private async auditStepSkipped(stepName: string, reason: string): Promise<void> {
+  private async auditStepSkipped(
+    stepName: string,
+    reason: string,
+  ): Promise<void> {
     const entry: WorkflowAuditEntry = {
       step: stepName,
-      status: 'skipped',
+      status: "skipped",
       timestamp: new Date().toISOString(),
       metadata: { reason },
     };
@@ -849,7 +948,7 @@ export class WorkflowEngine {
       condition: string;
       iterations: number;
       maxRetries: number;
-      exitReason: 'condition-cleared' | 'exhausted' | 'error';
+      exitReason: "condition-cleared" | "exhausted" | "error";
     }> = [];
 
     // Index audit entries by step name for pairing
@@ -872,26 +971,26 @@ export class WorkflowEngine {
         workflowEndTime = entry.timestamp;
       }
 
-      if (entry.status === 'started') {
+      if (entry.status === "started") {
         startTimes.set(entry.step, entry.timestamp);
         continue;
       }
 
-      if (entry.status === 'skipped') {
+      if (entry.status === "skipped") {
         if (processedSteps.has(entry.step)) continue;
         processedSteps.add(entry.step);
-        const reason = (entry.metadata?.reason as string) ?? 'unknown';
+        const reason = (entry.metadata?.reason as string) ?? "unknown";
         skippedSteps.push({ name: entry.step, reason });
         steps.push({
           name: entry.step,
-          status: 'skipped',
+          status: "skipped",
           durationMs: 0,
           skipReason: reason,
         });
         continue;
       }
 
-      if (entry.status === 'completed' || entry.status === 'failed') {
+      if (entry.status === "completed" || entry.status === "failed") {
         // Skip duplicate terminal entries for the same step
         if (processedSteps.has(entry.step)) continue;
         processedSteps.add(entry.step);
@@ -903,7 +1002,7 @@ export class WorkflowEngine {
 
         const stepExec: StepExecution = {
           name: entry.step,
-          status: entry.status === 'completed' ? 'completed' : 'failed',
+          status: entry.status === "completed" ? "completed" : "failed",
           durationMs,
         };
 
@@ -914,14 +1013,14 @@ export class WorkflowEngine {
         }
 
         // Add error info for failed steps
-        if (entry.status === 'failed' && entry.metadata?.error) {
+        if (entry.status === "failed" && entry.metadata?.error) {
           stepExec.error = entry.metadata.error as string;
         }
 
         // Add loop metadata if this is a loop step
         const loop = this.loopMeta.get(entry.step);
         if (loop) {
-          stepExec.type = 'loop';
+          stepExec.type = "loop";
           stepExec.loopIterations = loop.iterations;
           stepExec.loopCondition = loop.condition;
           stepExec.loopExitReason = loop.exitReason;
@@ -945,15 +1044,17 @@ export class WorkflowEngine {
       }
     }
 
-    const totalDurationMs = workflowStartTime && workflowEndTime
-      ? new Date(workflowEndTime).getTime() - new Date(workflowStartTime).getTime()
-      : 0;
+    const totalDurationMs =
+      workflowStartTime && workflowEndTime
+        ? new Date(workflowEndTime).getTime() -
+          new Date(workflowStartTime).getTime()
+        : 0;
 
     const counts = {
       total: steps.length,
-      completed: steps.filter(s => s.status === 'completed').length,
-      failed: steps.filter(s => s.status === 'failed').length,
-      skipped: steps.filter(s => s.status === 'skipped').length,
+      completed: steps.filter((s) => s.status === "completed").length,
+      failed: steps.filter((s) => s.status === "failed").length,
+      skipped: steps.filter((s) => s.status === "skipped").length,
     };
 
     return {
@@ -969,8 +1070,10 @@ export class WorkflowEngine {
 /**
  * Type guard for SDK result messages.
  */
-function isResultMessage(msg: SDKMessage): msg is import('./types.js').SDKResultMessage {
-  return msg.type === 'result';
+function isResultMessage(
+  msg: SDKMessage,
+): msg is import("./types.js").SDKResultMessage {
+  return msg.type === "result";
 }
 
 /**

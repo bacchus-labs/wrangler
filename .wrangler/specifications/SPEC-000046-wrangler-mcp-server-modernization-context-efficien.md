@@ -12,7 +12,7 @@ labels:
   - context-efficiency
   - performance
 createdAt: '2026-02-15T01:04:38.540Z'
-updatedAt: '2026-02-15T01:04:38.540Z'
+updatedAt: '2026-02-17T00:00:00.000Z'
 ---
 # Specification: Wrangler MCP Server Modernization
 
@@ -24,7 +24,7 @@ updatedAt: '2026-02-15T01:04:38.540Z'
 
 **Scope:**
 - Included: Context-efficient response modes, batch read/write tools, tool annotations, cursor pagination, provider caching, error handling standardization, structured output schemas
-- Excluded: Provider architecture changes (GitHub/Linear backends), OAuth/auth (local plugin), OpenTelemetry integration, dynamic toolset patterns (unnecessary at 16 tools)
+- Excluded: Provider architecture changes (GitHub/Linear backends), OAuth/auth (local plugin), OpenTelemetry integration, dynamic toolset patterns (unnecessary at 19 tools)
 
 ## Goals and Non-Goals
 
@@ -40,7 +40,7 @@ updatedAt: '2026-02-15T01:04:38.540Z'
 
 - Replacing the markdown storage provider
 - Adding network-facing auth (OAuth, mTLS)
-- Implementing dynamic toolset discovery (search/describe/execute) -- our 16 tools don't warrant this
+- Implementing dynamic toolset discovery (search/describe/execute) -- our 19 tools don't warrant this
 - Adding OpenTelemetry/distributed tracing
 - Changing the stdio transport model
 
@@ -58,7 +58,7 @@ Agents using the wrangler MCP encounter three categories of friction:
 
 ### Current State
 
-- 16 tools: 11 issue management + 5 session management
+- 19 tools: 11 issue management + 7 session management + 1 workspace management
 - Markdown-based storage with YAML frontmatter
 - `issues_list` has `limit`/`offset` but no cursor pagination
 - `issues_get` always returns full content, no field selection
@@ -68,7 +68,7 @@ Agents using the wrangler MCP encounter three categories of friction:
 
 ### Proposed State
 
-- Same 16 + 3 new tools (batch get, batch update, aggregation)
+- Same 19 + 3 new tools (22 total: batch get, batch update, aggregation)
 - All tools annotated with behavioral hints
 - Response verbosity controllable via parameters
 - Cursor-based pagination following MCP spec
@@ -81,7 +81,7 @@ Agents using the wrangler MCP encounter three categories of friction:
 
 #### Context Efficiency
 
-- **FR-001:** `issues_list` MUST accept a `format` parameter with values `full` (default, backward-compatible), `summary` (id, title, status, priority, labels, dates), and `minimal` (id, title, status only)
+- **FR-001:** [DONE - commit d9b66d3, Feb 16 2026] `issues_list` MUST accept a `format` parameter with values `full` (default, backward-compatible), `summary` (id, title, status, priority, labels, dates), and `minimal` (id, title, status only)
 - **FR-002:** `issues_get` MUST accept an optional `fields` parameter to request specific fields (e.g., `["title", "status", "labels"]`). When `fields` is provided, only requested fields are returned. When omitted, full content is returned (backward-compatible).
 - **FR-003:** `issues_search` MUST accept an `includeDescription` boolean parameter (default: false). When false, search results include only metadata, not description excerpts.
 - **FR-004:** `issues_list` and `issues_search` MUST support cursor-based pagination per MCP spec 2025-03-26. Response MUST include `nextCursor` when more results exist. Request MUST accept `cursor` parameter. Cursor MUST be an opaque string.
@@ -97,13 +97,13 @@ Agents using the wrangler MCP encounter three categories of friction:
 
 - **FR-009:** All tools MUST include MCP tool annotations: `readOnlyHint`, `destructiveHint`, `idempotentHint`.
 - **FR-010:** Annotation values:
-  - Read-only tools (`readOnlyHint: true`): `issues_list`, `issues_search`, `issues_get`, `issues_get_batch`, `issues_stats`, `issues_all_complete`, `issues_labels` (list op), `issues_metadata` (get op), `issues_projects` (list op), `session_get`
+  - Read-only tools (`readOnlyHint: true`): `issues_list`, `issues_search`, `issues_get`, `issues_get_batch`, `issues_stats`, `issues_all_complete`, `issues_labels` (list op), `issues_metadata` (get op), `issues_projects` (list op), `session_get`, `session_status`, `init_workspace` (report-only mode)
   - Destructive tools (`destructiveHint: true`): `issues_delete`
-  - Idempotent tools (`idempotentHint: true`): `issues_mark_complete`, `issues_update`, `session_phase`, `session_checkpoint`
+  - Idempotent tools (`idempotentHint: true`): `issues_mark_complete`, `issues_update`, `session_phase`, `session_checkpoint`, `init_workspace` (fix mode is idempotent)
 
 #### Error Handling
 
-- **FR-011:** All tools MUST use `createErrorResponse()` from `mcp/types/errors.ts` with appropriate `MCPErrorCode`.
+- **FR-011:** All tools MUST use `createErrorResponse()` from `mcp/src/types/errors.ts` with appropriate `MCPErrorCode`.
 - **FR-012:** Error messages MUST be written for LLM recovery: include current state, what went wrong, and a specific suggestion for correction. Example: "Issue ISS-000099 not found. Use issues_list to find available issues, or check that the ID includes the prefix (e.g., ISS-000099, not 000099)."
 - **FR-013:** Validation errors MUST include the specific field that failed and what was expected. Example: "Invalid priority 'urgent'. Valid values: low, medium, high, critical."
 
@@ -139,6 +139,7 @@ EXISTING TOOLS (modified):
   issues_all_complete  + annotations
   issues_mark_complete + annotations
   session_*        + annotations; standardize error handling
+  init_workspace   + annotations
 
 NEW TOOLS:
   issues_get_batch    Batch read by ID array
@@ -191,33 +192,34 @@ Cursors encode `{offset, sortField, sortDirection}` as Base64. Server determines
 
 ```
 mcp/
-├── tools/
-│   ├── issues/
-│   │   ├── get-batch.ts        # NEW: issues_get_batch
-│   │   ├── update-batch.ts     # NEW: issues_update_batch
-│   │   ├── stats.ts            # NEW: issues_stats
-│   │   ├── list.ts             # MODIFIED: format, cursor params
-│   │   ├── get.ts              # MODIFIED: fields param
-│   │   ├── search.ts           # MODIFIED: includeDescription, cursor
-│   │   ├── create.ts           # MODIFIED: error handling
-│   │   ├── update.ts           # MODIFIED: error handling
-│   │   ├── delete.ts           # MODIFIED: error handling
-│   │   ├── labels.ts           # MODIFIED: error handling
-│   │   ├── metadata.ts         # MODIFIED: error handling
-│   │   ├── projects.ts         # MODIFIED: error handling
-│   │   ├── all-complete.ts     # MODIFIED: error handling
-│   │   ├── mark-complete.ts    # MODIFIED: error handling
-│   │   └── index.ts            # MODIFIED: export new tools
-│   └── session/                # MODIFIED: error handling consistency
-├── providers/
-│   ├── markdown.ts             # MODIFIED: cache support, early filtering
-│   ├── cache.ts                # NEW: CachingProvider wrapper
-│   └── factory.ts              # MODIFIED: wire cache layer
-├── server.ts                   # MODIFIED: register new tools, add annotations
-├── types/
-│   ├── issues.ts               # MODIFIED: add format/fields types
-│   ├── annotations.ts          # NEW: tool annotation definitions
-│   └── errors.ts               # UNCHANGED (already correct)
+├── src/
+│   ├── tools/
+│   │   ├── issues/
+│   │   │   ├── get-batch.ts        # NEW: issues_get_batch
+│   │   │   ├── update-batch.ts     # NEW: issues_update_batch
+│   │   │   ├── stats.ts            # NEW: issues_stats
+│   │   │   ├── list.ts             # MODIFIED: format, cursor params
+│   │   │   ├── get.ts              # MODIFIED: fields param
+│   │   │   ├── search.ts           # MODIFIED: includeDescription, cursor
+│   │   │   ├── create.ts           # MODIFIED: error handling
+│   │   │   ├── update.ts           # MODIFIED: error handling
+│   │   │   ├── delete.ts           # MODIFIED: error handling
+│   │   │   ├── labels.ts           # MODIFIED: error handling
+│   │   │   ├── metadata.ts         # MODIFIED: error handling
+│   │   │   ├── projects.ts         # MODIFIED: error handling
+│   │   │   ├── all-complete.ts     # MODIFIED: error handling
+│   │   │   ├── mark-complete.ts    # MODIFIED: error handling
+│   │   │   └── index.ts            # MODIFIED: export new tools
+│   │   └── session/                # MODIFIED: error handling consistency
+│   ├── providers/
+│   │   ├── markdown.ts             # MODIFIED: cache support, early filtering
+│   │   ├── cache.ts                # NEW: CachingProvider wrapper
+│   │   └── factory.ts              # MODIFIED: wire cache layer
+│   ├── server.ts                   # MODIFIED: register new tools, add annotations
+│   └── types/
+│       ├── issues.ts               # MODIFIED: add format/fields types
+│       ├── annotations.ts          # NEW: tool annotation definitions
+│       └── errors.ts               # UNCHANGED (already correct)
 └── __tests__/
     ├── tools/issues/
     │   ├── get-batch.test.ts   # NEW
@@ -232,7 +234,7 @@ mcp/
 
 ### Tool Annotation Implementation
 
-In `server.ts`, tool definitions gain an `annotations` field:
+In `mcp/src/server.ts`, tool definitions gain an `annotations` field:
 
 ```typescript
 {
@@ -435,7 +437,7 @@ catch (error) {
 
 ### Existing Tests
 
-All 434 passing MCP tests MUST continue to pass. The 3 pre-existing failures in workspace-schema tests are unrelated and not in scope.
+All existing MCP tests MUST continue to pass. (Originally 434 at spec creation; this number has grown significantly since -- init_workspace alone added 2600+ lines of tests.) The 3 pre-existing failures in workspace-schema tests are unrelated and not in scope.
 
 ## Migration Path
 
@@ -447,11 +449,11 @@ All 434 passing MCP tests MUST continue to pass. The 3 pre-existing failures in 
 
 ### Phased Rollout
 
-**Phase 1: Context Efficiency (highest impact)**
-- Add `format` parameter to `issues_list`
-- Add `fields` parameter to `issues_get`
-- Add `includeDescription` to `issues_search`
-- Standardize error handling across all tools
+**Phase 1: Context Efficiency (highest impact)** -- PARTIALLY COMPLETE
+- [x] Add `format` parameter to `issues_list` (done, commit d9b66d3, Feb 16 2026)
+- [ ] Add `fields` parameter to `issues_get`
+- [ ] Add `includeDescription` to `issues_search`
+- [ ] Standardize error handling across all tools
 
 **Phase 2: Batch Operations**
 - Implement `issues_get_batch`
@@ -500,9 +502,9 @@ All 434 passing MCP tests MUST continue to pass. The 3 pre-existing failures in 
 ### Launch Criteria
 
 - [ ] All functional requirements implemented and tested
-- [ ] Existing 434 MCP tests continue to pass
+- [ ] Existing MCP tests continue to pass
 - [ ] New tools have >= 80% test coverage
-- [ ] `issues_list` with `format: summary` produces < 1,000 tokens for 20 issues
+- [x] `issues_list` with `format: summary` produces < 1,000 tokens for 20 issues (FR-001 done, commit d9b66d3)
 - [ ] Batch get of 10 issues completes in single round-trip
 - [ ] All tools use consistent error handling pattern
 
